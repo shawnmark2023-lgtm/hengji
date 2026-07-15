@@ -5,6 +5,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import com.hengji.domain.QuoteProvenance
+import kotlinx.datetime.LocalDate
+import com.hengji.data.LedgerSnapshot
 
 class DemoModelsTest {
     @Test
@@ -70,9 +72,28 @@ class DemoModelsTest {
                 isLive = true,
             ),
         )
-        val asset = DomainDemoData.assets(mixed).first { it.id == demo.assetId.value }
+        val asset = DomainDemoData.assets(mixed, LocalDate(2026, 7, 15)).first { it.id == demo.assetId.value }
 
         assertTrue("混合来源" in asset.quoteUpdatedLabel)
         assertTrue("非实时" in asset.quoteUpdatedLabel)
+    }
+
+    @Test
+    fun currentPeriodFollowsTheProvidedDateInsteadOfAHardcodedMonth() {
+        val july = DomainDemoData.transactions(DomainDemoData.initialSnapshot, LocalDate(2026, 7, 15))
+        val june = DomainDemoData.transactions(DomainDemoData.initialSnapshot, LocalDate(2026, 6, 30))
+
+        assertEquals(3, july.count { it.inCurrentPeriod })
+        assertEquals(0, june.count { it.inCurrentPeriod })
+    }
+
+    @Test
+    fun emptyLedgerProducesAnEmptySafeUiProjection() {
+        val empty = LedgerSnapshot(0, emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
+        val asOf = LocalDate(2026, 7, 15)
+
+        assertTrue(DomainDemoData.transactions(empty, asOf).isEmpty())
+        assertTrue(DomainDemoData.assets(empty, asOf).isEmpty())
+        assertTrue(DomainDemoData.insights(empty, asOf).isEmpty())
     }
 }

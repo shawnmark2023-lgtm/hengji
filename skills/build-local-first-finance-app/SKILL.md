@@ -17,7 +17,7 @@ Build an evidence-backed product plan first, convert it into an auditable delive
 6. Run local builds, service tests, dependency audits, and a real UI flow before claiming completion.
 7. Record verified, deferred, externally blocked, and prohibited work separately.
 
-Read [architecture-checklist.md](references/architecture-checklist.md) before selecting modules or technologies. Read [privacy-connectors.md](references/privacy-connectors.md) before designing imports, OAuth, model calls, or second-hand price sources. Read [quality-gates.md](references/quality-gates.md) before testing or release handoff.
+Read [architecture-checklist.md](references/architecture-checklist.md) before selecting modules or technologies. Read [privacy-connectors.md](references/privacy-connectors.md) before designing imports, OAuth, model calls, or second-hand price sources. Read [quality-gates.md](references/quality-gates.md) before testing. Read [release-packaging.md](references/release-packaging.md) before creating desktop/mobile deliverables.
 
 ## Research and plan
 
@@ -40,6 +40,8 @@ Read [architecture-checklist.md](references/architecture-checklist.md) before se
 - Classify transaction and asset history as sensitive financial data even when names, phone numbers, and government identifiers are absent.
 - Default to local storage and no account. Make every network path discoverable and separately switchable.
 - Put repositories between UI and storage. Require atomic imports, stable deduplication fingerprints, soft deletion or undo, schema versioning, export, and migration tests.
+- Keep storage calls suspend-only behind an application gateway. Create platform database factories outside common UI and never perform durable I/O directly from Compose callbacks.
+- Seed samples only into a provably pristine database. Clearing real data must advance durable state so a restart cannot silently reseed samples.
 - Call an in-memory build a prototype. Do not imply restart persistence until a durable database is implemented and tested.
 - Add account verification, credential vaults, encrypted sync, conflict handling, recovery, and session revocation only at the production stage defined by the plan.
 
@@ -62,8 +64,10 @@ Read [architecture-checklist.md](references/architecture-checklist.md) before se
 ## Verify and hand off
 
 - Test domain edge cases, connector contracts, service fail-closed behavior, and at least one real end-to-end UI flow.
+- Exercise persistence as write, close, relaunch, and observe. Exercise imports as preview, atomic commit, duplicate retry, and whole-batch rollback.
 - Compile every platform possible in the current environment. Route Apple native builds to macOS/Xcode CI and label them unverified until CI evidence exists.
-- Generate artifacts and hashes when possible. Distinguish a successful source compile from installer signing, notarization, and store approval.
+- Test release-minified binaries, not only debug runs. Reflection, generated database classes, enums, serializers, and JNI names can survive compilation but fail at launch.
+- Generate artifacts and hashes when possible. For installers, verify extraction/installation and launch separately; distinguish these from signing, upgrade, notarization, and store approval.
 - Run `python scripts/validate_finance_app.py --project <project-root>` near handoff. Resolve errors; explain warnings that are intentionally deferred.
 - Deliver links to the plan, list, architecture, test report, runnable artifact, and release blockers. Include exact test counts and commands.
 

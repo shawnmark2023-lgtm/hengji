@@ -57,13 +57,14 @@ hengji/
 
 ## 5. 数据与同步
 
-首版采用 Local-first：仓储端口先提供可测试本地实现，持久化切换为 SQLDelight/Room KMP SQLite；网络连接器并非核心体验前置条件。
+首版采用 Local-first：生产应用入口使用 Room KMP 2.8.4 + bundled SQLite 2.7.0，本地测试仍可注入内存仓储；网络连接器不是核心体验前置条件。数据库通过平台工厂创建，UI 只依赖 suspend 应用网关，任何 SQL/磁盘操作都不在 Compose 主线程直接执行。
 
-- 每个写操作由 use case 管理事务。
+- 每个写操作由应用网关/use case 管理，导入与资产+购买流水等复合操作由 Room `@Transaction` 原子提交。
 - 导入数据携带稳定指纹，防止重复。
 - 删除默认软删除并提供短期撤销；“彻底清除”执行物理删除。
-- 导出格式有 `schemaVersion`，迁移必须向后兼容至少两个版本。
+- JSON 导出格式带 `schemaVersion`，当前验证 v0→v1；恢复前有 25 MiB 上限和结构校验。
 - 后续同步使用操作日志或版本向量，不做数据库文件级覆盖。
+- `RoomStoragePolicy.REQUIRE_ENCRYPTED_PRODUCTION` 在没有真实加密实现时 fail-closed；当前可运行开发包明确使用 `ALLOW_UNENCRYPTED_DEVELOPMENT`，不能据此声明 Beta 加密门禁已完成。
 
 ## 6. 分析系统
 
@@ -107,6 +108,7 @@ Repository snapshot
 - UI：状态驱动的组件测试、关键路径 UI 自动化、平台截图回归。
 - 构建：依赖锁定、编译警告升级策略、SBOM、漏洞扫描、签名产物。
 - 发布：Windows 与 Android 可在当前 Windows 环境验证；iOS/macOS 必须由 macOS runner、Xcode 和真实签名链验证，不能声称已在 Windows 完成。
+- Release：必须测试混淆后的真实二进制。Room 生成类、领域枚举和 SQLite JNI 都可能被优化破坏；本工程用 `proguard-rules.pro` 保留应用 ABI 与 native 符号，并以便携包/MSI 解包启动验证，而不是只检查任务成功。
 
 ## 10. ADR
 

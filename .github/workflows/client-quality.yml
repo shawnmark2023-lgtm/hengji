@@ -14,7 +14,9 @@ concurrency:
 
 jobs:
   desktop-tests:
+    name: Desktop tests (${{ matrix.os }})
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
@@ -26,11 +28,34 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: gradle
-      - name: Test all shared and desktop modules
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Test shared and desktop modules
         shell: bash
-        run: ./gradlew :modules:core-domain:desktopTest :modules:core-data:desktopTest :modules:core-insights:desktopTest :modules:connectors:desktopTest :apps:client:desktopTest :apps:client:compileKotlinDesktop --stacktrace
+        run: |
+          echo "GATE_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+          ./gradlew :modules:core-domain:desktopTest :modules:core-data:desktopTest :modules:core-insights:desktopTest :modules:connectors:desktopTest :apps:client:desktopTest :apps:client:compileKotlinDesktop --stacktrace
+      - name: Record passed desktop evidence
+        shell: bash
+        run: |
+          python scripts/quality/generate_evidence.py \
+            --gate "desktop-${{ runner.os }}" \
+            --status passed \
+            --command "./gradlew :modules:core-domain:desktopTest :modules:core-data:desktopTest :modules:core-insights:desktopTest :modules:connectors:desktopTest :apps:client:desktopTest :apps:client:compileKotlinDesktop --stacktrace" \
+            --started-at "$GATE_STARTED_AT" \
+            --junit-glob "**/build/test-results/desktopTest/TEST-*.xml" \
+            --output "quality-evidence/desktop-${{ runner.os }}.json"
+      - name: Upload desktop evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ runner.os }}-evidence
+          path: quality-evidence/
+          if-no-files-found: ignore
 
   android-debug:
+    name: Android debug compile
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -40,11 +65,36 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: gradle
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - uses: android-actions/setup-android@v3
       - name: Assemble Android debug APK
-        run: ./gradlew :apps:client:androidApp:assembleDebug --stacktrace
+        run: |
+          echo "GATE_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+          ./gradlew :apps:client:androidApp:assembleDebug --stacktrace
+      - name: Record passed Android evidence
+        run: |
+          python scripts/quality/generate_evidence.py \
+            --gate android-debug \
+            --status passed \
+            --command "./gradlew :apps:client:androidApp:assembleDebug --stacktrace" \
+            --started-at "$GATE_STARTED_AT" \
+            --artifact apps/client/androidApp/build/outputs/apk/debug/androidApp-debug.apk \
+            --limitation "Debug compile only; not signing, installation, upgrade, Play review, or representative-device evidence" \
+            --output quality-evidence/android-debug.json
+      - name: Upload Android artifact and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-debug-and-evidence
+          path: |
+            apps/client/androidApp/build/outputs/apk/debug/androidApp-debug.apk
+            quality-evidence/
+          if-no-files-found: ignore
 
   apple-compile:
+    name: Apple simulator compile
     runs-on: macos-latest
     timeout-minutes: 35
     steps:
@@ -54,5 +104,106 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: gradle
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - name: Compile iOS simulator framework and shared dependencies
-        run: ./gradlew :apps:client:compileKotlinIosSimulatorArm64 --stacktrace
+        run: |
+          echo "GATE_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+          ./gradlew :apps:client:compileKotlinIosSimulatorArm64 --stacktrace
+      - name: Record passed Apple compile evidence
+        run: |
+          python scripts/quality/generate_evidence.py \
+            --gate apple-simulator-compile \
+            --status passed \
+            --command "./gradlew :apps:client:compileKotlinIosSimulatorArm64 --stacktrace" \
+            --started-at "$GATE_STARTED_AT" \
+            --limitation "Simulator source compile only; not device execution, signing, notarization, TestFlight, or App Store approval" \
+            --output quality-evidence/apple-simulator-compile.json
+      - name: Upload Apple compile evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apple-simulator-compile-evidence
+          path: quality-evidence/
+          if-no-files-found: ignore
+
+  windows-package:
+    name: Windows unsigned MSI package
+    needs: desktop-tests
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build unsigned MSI
+        shell: pwsh
+        run: |
+          "GATE_STARTED_AT=$((Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'))" >> $env:GITHUB_ENV
+          .\gradlew.bat :apps:client:packageMsi --stacktrace
+      - name: Record passed MSI packaging evidence
+        shell: pwsh
+        run: |
+          python scripts/quality/generate_evidence.py `
+            --gate windows-msi-package `
+            --status passed `
+            --command ".\gradlew.bat :apps:client:packageMsi --stacktrace" `
+            --started-at "$env:GATE_STARTED_AT" `
+            --artifact-glob "apps/client/build/compose/binaries/main/msi/*.msi" `
+            --limitation "Unsigned package build only; installation, upgrade, uninstall, SmartScreen, and signing remain unverified" `
+            --output quality-evidence/windows-msi-package.json
+      - name: Upload MSI and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-msi-and-evidence
+          path: |
+            apps/client/build/compose/binaries/main/msi/*.msi
+            quality-evidence/
+          if-no-files-found: ignore
+
+  macos-package:
+    name: macOS unsigned DMG package
+    needs: desktop-tests
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build unsigned DMG
+        run: |
+          echo "GATE_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+          ./gradlew :apps:client:packageDmg --stacktrace
+      - name: Record passed DMG packaging evidence
+        run: |
+          python scripts/quality/generate_evidence.py \
+            --gate macos-dmg-package \
+            --status passed \
+            --command "./gradlew :apps:client:packageDmg --stacktrace" \
+            --started-at "$GATE_STARTED_AT" \
+            --artifact-glob "apps/client/build/compose/binaries/main/dmg/*.dmg" \
+            --limitation "Unsigned package build only; installation, upgrade, Developer ID signing, notarization, and Gatekeeper remain unverified" \
+            --output quality-evidence/macos-dmg-package.json
+      - name: Upload DMG and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg-and-evidence
+          path: |
+            apps/client/build/compose/binaries/main/dmg/*.dmg
+            quality-evidence/
+          if-no-files-found: ignore

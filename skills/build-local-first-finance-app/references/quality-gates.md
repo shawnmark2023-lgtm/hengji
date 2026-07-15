@@ -10,11 +10,12 @@
 
 ## Beta
 
-- Encrypted durable database, migration, export, restore, undo, and deletion pass tests.
+- Durable database, migration, export, restore, undo, and deletion pass cross-restart tests; encrypted production policy fails closed until platform-backed encryption is verified.
 - Import preview/mapping/deduplication/rollback has UI and contract coverage.
 - Accessibility, large text, keyboard, screen reader, dark/light, narrow/wide layouts pass.
 - Large-ledger performance and memory budgets pass on representative devices.
 - Android and Apple CI compile; Windows/macOS packages install and upgrade.
+- Release-minified artifacts launch and exercise durable storage; debug success is not accepted as release evidence.
 
 ## Production
 
@@ -25,4 +26,4 @@
 
 ## Evidence format
 
-For each gate record the exact command, timestamp, environment, test count, artifact path/hash, and limitation. A configured CI job is not a passed job until a run result exists.
+For each gate record the exact command, timestamp, environment, test count, artifact path/hash, and limitation. A configured CI job is not a passed job until a run result exists. A generated installer is not a passed installer until its contents and executable launch are verified; signing, upgrade, and uninstall remain separate gates.

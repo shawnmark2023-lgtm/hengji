@@ -38,9 +38,15 @@ import com.hengji.app.ui.components.StatusPill
 fun SettingsScreen(
     darkTheme: Boolean,
     onDarkThemeChange: (Boolean) -> Unit,
+    dataActionStatus: String? = null,
+    onExportData: () -> Unit = {},
+    onExportCsv: () -> Unit = {},
+    onRestoreData: () -> Unit = {},
+    onClearData: () -> Unit = {},
+    onOpenImport: () -> Unit = {},
+    storageStatus: String = "内存预览 · 关闭后不保留",
 ) {
     var reduceMotion by remember { mutableStateOf(false) }
-    var statusMessage by remember { mutableStateOf<String?>(null) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -68,6 +74,11 @@ fun SettingsScreen(
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
+                            Text(
+                                storageStatus,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                         StatusPill("网络 0 次")
                     }
@@ -77,15 +88,22 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.spacedBy(HengjiSpacing.sm),
                     ) {
                         FilledTonalButton(
-                            onClick = { statusMessage = "已准备本机 JSON 导出预览（示例状态）" },
+                            onClick = onExportData,
                             modifier = Modifier.weight(1f),
-                        ) { Text("导出数据") }
+                        ) { Text("完整 JSON") }
                         OutlinedButton(
-                            onClick = { statusMessage = "清除操作将在正式数据层接入后要求二次确认" },
+                            onClick = onExportCsv,
                             modifier = Modifier.weight(1f),
-                        ) { Text("清除数据") }
+                        ) { Text("流水 CSV") }
                     }
-                    statusMessage?.let {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(HengjiSpacing.sm),
+                    ) {
+                        OutlinedButton(onClick = onRestoreData, modifier = Modifier.weight(1f)) { Text("恢复备份") }
+                        OutlinedButton(onClick = onClearData, modifier = Modifier.weight(1f)) { Text("清除数据") }
+                    }
+                    dataActionStatus?.let {
                         Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
                     }
                 }
@@ -121,6 +139,10 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    FilledTonalButton(
+                        onClick = onOpenImport,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("打开导入中心") }
                     ConnectorRow("CSV / JSON 文件", "可用 · 本机解析", true)
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     ConnectorRow("支付宝 / 微信账单文件", "沙箱映射 · 非自动同步", true)

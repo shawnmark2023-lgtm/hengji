@@ -1,6 +1,7 @@
 package com.hengji.app.ui.screens
 
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,6 +30,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -44,6 +48,7 @@ import com.hengji.app.ui.components.StatusPill
 fun LedgerScreen(
     transactions: List<DemoTransaction>,
     onAddTransaction: () -> Unit,
+    onEditTransaction: (String) -> Unit = {},
 ) {
     var query by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("全部") }
@@ -52,7 +57,12 @@ fun LedgerScreen(
             (query.isBlank() || transaction.merchant.contains(query, ignoreCase = true) ||
                 transaction.category.contains(query, ignoreCase = true))
     }
-    val netSpend = filtered.sumOf { it.amountMinor }
+    val netSpend = filtered.sumOf {
+        when (it.kind) {
+            EntryKind.Expense, EntryKind.Refund -> it.amountMinor
+            EntryKind.Income -> 0L
+        }
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -134,7 +144,7 @@ fun LedgerScreen(
                     } else {
                         filtered.forEachIndexed { index, transaction ->
                             if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                            LedgerRow(transaction)
+                            LedgerRow(transaction, onClick = { onEditTransaction(transaction.id) })
                         }
                     }
                 }
@@ -144,9 +154,13 @@ fun LedgerScreen(
 }
 
 @Composable
-private fun LedgerRow(transaction: DemoTransaction) {
+private fun LedgerRow(transaction: DemoTransaction, onClick: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = HengjiSpacing.md),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .semantics { role = Role.Button }
+            .padding(vertical = HengjiSpacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {

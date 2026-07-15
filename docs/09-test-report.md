@@ -1,50 +1,73 @@
 # 测试与构建报告
 
-最终验证时间：2026-07-15T19:28:50+08:00（Asia/Shanghai）。环境：Windows 11 10.0.26200 amd64、JDK 21.0.2、Gradle 9.3.1、Node 22.23.0、npm 10.9.8、Python 3.12.13。本报告只记录实际执行结果，不把工程入口等同于真机发布。
+验证日期：2026-07-15（Asia/Shanghai）。环境：Windows 11、JDK 21.0.2、Gradle 9.3.1、Python 3.12.13。本文只记录实际执行结果，不把工程入口、调试签名或未做生产签名的产物等同于商店发布。
 
-## 已通过
+## 自动化结果
 
 | 门禁 | 结果 | 证据 |
 | --- | --- | --- |
-| Kotlin Desktop | 41/41 测试通过 | client 5、core-domain 12、core-data 4、core-insights 12、connectors 8 |
-| Desktop 编译 | 通过 | `:apps:client:compileKotlinDesktop` |
-| Android | Debug APK 构建通过 | `:apps:client:androidApp:assembleDebug`，compileSdk/targetSdk 36 |
-| Connector Gateway | 4/4 测试、类型检查通过 | PKCE、一次性/过期 state、精确回调地址、production fail-closed |
-| npm 依赖审计 | 0 漏洞 | `npm audit --audit-level=high` |
-| Price Intelligence | 3/3 测试通过 | 非实时标识、低置信度隐藏单点、离群值过滤 |
-| 视觉与交互 | 人工实跑通过 | 宽屏总览、侧栏、物品成本、二手来源标签、新增流水并返回账本 |
+| Kotlin Desktop | 62/62 通过，0 failure/error/skip | client 15、core-domain 12、core-data 15、core-insights 12、connectors 8 |
+| Room 持久层 | core-data 15/15；其中 Room Desktop 4/4 | 9 表 schema v1、事务写入、v0→v1、25 MiB 上限、production fail-closed、clear→重启仍为空且非 pristine |
+| Android | Debug APK 构建通过 | `:apps:client:androidApp:assembleDebug` |
+| Android 签名 | v2 验证通过，1 个 signer | `CN=Android Debug`；不是生产发布签名，未做设备安装/启动 |
+| iOS 元数据 | 编译通过 | client/core-data 的 iOS source-set 元数据；不是 Xcode 原生构建证据 |
+| 架构与发布守卫 | 29/29、191/191 通过 | 依赖方向、secret、沙箱/production 标签与禁止行为扫描 |
+| 畸形导入 | 8/8 通过 | 引号未闭合、错列、重复表头、嵌套 JSON、行/文件上限、空必填、BOM/Unicode |
+| 10 万流水开发基线 | 4/4 通过 | 100,000 行，119 ms，内存增量 43.55 MiB；不是代表性设备/加密数据库证据 |
+| Connector gateway | 4/4 通过；`npm audit` 0 vulnerability | state 一次性/过期、沙箱非实时、production fail-closed |
+| Price intelligence | 3/3 通过 | 中位数/四分位、离群过滤、新鲜度与低置信度行为 |
+| Release 混淆 | 构建并实跑通过 | 保留 Room/领域 ABI 与 SQLite JNI；修复了仅 Release 暴露的三类崩溃 |
 
-统一 Kotlin 命令：
+主要命令：
 
 ```powershell
-.\gradlew.bat :modules:core-domain:desktopTest :modules:core-insights:desktopTest `
-  :modules:core-data:desktopTest :modules:connectors:desktopTest `
-  :apps:client:desktopTest :apps:client:compileKotlinDesktop
-.\gradlew.bat :apps:client:androidApp:assembleDebug
+.\gradlew.bat desktopTest --no-daemon
+.\gradlew.bat :apps:client:androidApp:assembleDebug --no-daemon
+.\gradlew.bat :apps:client:compileIosMainKotlinMetadata :modules:core-data:compileIosMainKotlinMetadata --no-daemon
+python scripts/quality/run_quality.py --output-dir quality/evidence
+.\gradlew.bat :apps:client:proguardReleaseJars --no-daemon
+Push-Location services\connector-gateway; npm test; npm audit --audit-level=high; Pop-Location
+Push-Location services\price-intelligence; python -m pytest -q; Pop-Location
+apksigner verify --verbose --print-certs artifacts\hengji-android-debug.apk
 ```
 
-Android 产物：`apps/client/androidApp/build/outputs/apk/debug/androidApp-debug.apk`，19,974,977 bytes，SHA-256 `E6CB6A1F93670796BE2F4390FF847128BE71AB63963AEBE762E50AF79B060C3F`。
+Windows MSI 在 21:07（Asia/Shanghai）用 JDK 21 `jpackage` 与便携 WiX Toolset 3.14 重建；本轮实际命令为：
 
-手工 UI 验收在 18:52–18:57 +08:00 完成：启动 `:apps:client:run`，观察宽屏总览；切换物品页核对两件资产与“非实时”标签；打开“记一笔”，输入“测试咖啡 / 36.50”，保存后流水数由 5 变 6 且净额增加 ¥36.50；随后修复静态总览问题并复核本月支出 ¥261.80、残值 ¥3,870.00、两类占比 50%/49%。新增数据仅在测试进程内存中，关闭进程后丢弃。
+```powershell
+$env:PATH="<work>\wix3-portable\WiX Toolset v3.14\bin;$env:PATH"
+jpackage --type msi --app-image <work>\hengji-repackage\Hengji --dest <work>\hengji-repackage\msi
+msiexec /a artifacts\hengji-windows-0.1.0.msi /qn TARGETDIR=<work>\hengji-repackage-msi-extract
+```
 
-审计整改后的仓储链路在 19:22 +08:00 复验：新增“仓储测试 / ¥10.00”后流水由 5 变 6；对降噪耳机记录一次使用后，仓储 revision 触发资产重算，单次使用成本从 ¥56.00 下降到 ¥53.05。关闭进程后内存数据按设计丢弃。
+`msiexec` 返回 0；从行政解包结果启动的进程保持运行。这里的 `<work>` 是本次会话的隔离工作目录，不是源码或发行包的一部分。
 
-GitHub Actions 当前只有工作流配置，尚无远端 CI run 结果，因此 macOS/iOS 和远端 Windows/Linux 状态均记为“未验证”，不计入通过项。
+## 真实 UI 验收
 
-新建 Skill 的独立前向审计先发现 5 项缺陷，整改后复核为 PASS；关闭项包括完成声明、仓储垂直切片、实时报价真值、低置信度/金额溢出和发布证据。
+1. 使用隔离 `HENGJI_DATA_DIR` 启动桌面开发运行，新增“UI持久化测试 / ¥12.34”。
+2. 关闭并重启同一路径：首页本月支出从 ¥261.80 变为 ¥274.14，流水列表仍显示该记录。
+3. 打开导入中心，选择明确标注“沙箱·非生产”的 CSV；自动映射字段、预览 3 笔、确认原子写入。
+4. 在完成页整批撤销，界面显示已移除 3 笔且不影响导入前流水。
+5. 在新 MSI 对应的 ProGuard Release app-image 中查看物品页：净日均成本 ¥4.32/¥5.48、单次使用成本和“示例行情·非实时”区间可见。
+6. 查看洞察页：可见本月可优化空间、证据、95% 置信度、预估影响和采纳/稍后动作。
+7. 21:12–21:15 使用独立空 `HENGJI_DATA_DIR` 启动同一 Release，新增“Release持久化验收 / ¥23.45”，关闭并重启；首页 ¥261.80→¥285.25，流水仍为 6 笔且记录可见。
+8. 将新 MSI 行政解包并从解包结果启动，进程保持运行。
 
-## 已验证的关键不变量
+这轮 Release 冒烟先后捕获并修复：Room 生成数据库类被移除、SQLite JNI 方法被改名、领域枚举被优化失去枚举形态。最终规则保留 `com.hengji.**` ABI 和 `androidx.sqlite.driver.bundled.**` native 符号，证明“编译成功”不能替代发行二进制启动测试。
 
-- 金额使用 minor units 整数，不用浮点数处理财务计算。
-- 演示报价不能携带外部来源 URL，也不能声明为实时数据。
-- UI 新增流水和使用打卡写入内存仓储；总览、资产卡和洞察从同一快照重新计算，不再使用静态汇总数。
-- 连接器生产模式没有真实配置时 fail-closed，不保存 token。
-- 原始账本默认不发送到外部模型；AI 路线只允许显式同意后的脱敏聚合。
+## 交付物
 
-## 尚未完成，不能宣称上线
+| 文件 | 大小 | SHA-256 | 说明 |
+| --- | ---: | --- | --- |
+| `hengji-android-debug.apk` | 25,492,005 | `6A9E6401A768AAFCF11CBB70047B43AA6ADCA99CB461528548959837CB734056` | Android Debug 证书 v2 签名；未做生产签名或设备安装/启动 |
+| `hengji-windows-0.1.0.msi` | 82,158,957 | `262C4B9ABF764C7512E6A5C69A044E051548DD824F650A1A5869F7DAC894437A` | 未签名；已行政解包并启动，未做真实安装/升级/卸载 |
+| `hengji-windows-portable.zip` | 81,198,888 | `C0A1B0CEC9293DC3EA5FA075D4521B00343594B5C5A2237DABF4A478F54670D6` | 自带运行时，Release 实跑通过 |
 
-- 当前可运行客户端使用内存仓储，重启后新增数据会重置；Beta 必须完成加密 SQLite/Room KMP 与迁移恢复测试。
-- iOS/macOS 原生编译、真机、签名、公证和商店流程需要 macOS + Xcode CI。
-- 支付平台和二手市场均未取得生产 scope；沙箱连接器与示例报价不是“一键实时同步”。
-- Windows 运行代码已实测；安装器封装因本机下载官方 WiX 归档超时未完成，CI 应重试并固定校验值。
-- 全量 UI 自动化、无障碍、10 万流水性能、渗透测试和灾难恢复仍是 Beta/上线门禁。
+## 仍未完成，不能宣称 Beta/上线
+
+- 当前 Room 数据库是可跨重启的明文开发存储；应用层加密、Keychain/Keystore/DPAPI 和加密迁移/恢复未完成。
+- iOS/macOS 原生编译、真机、签名、公证和商店流程需要 macOS + Xcode；Windows 不能提供该证据。
+- 支付/电商/二手平台尚未取得生产 scope 或合同；沙箱和示例报价不是一键实时同步。
+- Windows 产物未签名；Android 只有 Debug 签名、没有生产发布签名；真实安装、升级、卸载、SmartScreen/Play 流程未验证。
+- iOS 的系统文件选择器与落盘导出适配器尚未实现；当前只有共享沙箱导入和屏内导出预览。
+- `org.jetbrains.compose.material3:material3:1.11.0-alpha07` 是预发布依赖；升级到稳定兼容版本及回归验证属于 Beta 依赖门禁。
+- 全量 UI 自动化、屏幕阅读器、代表性低端设备性能、渗透测试、账户验证和加密同步仍是后续门禁。

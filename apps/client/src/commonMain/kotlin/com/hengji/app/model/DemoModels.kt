@@ -1,5 +1,7 @@
 package com.hengji.app.model
 
+import kotlinx.datetime.LocalDate
+
 enum class EntryKind {
     Expense,
     Income,
@@ -56,9 +58,10 @@ data class DemoInsight(
     val priority: InsightPriority,
 )
 
-val sampleTransactions: List<DemoTransaction> = DomainDemoData.transactions(DomainDemoData.initialSnapshot)
-val sampleAssets: List<DemoAsset> = DomainDemoData.assets(DomainDemoData.initialSnapshot)
-val sampleInsights: List<DemoInsight> = DomainDemoData.insights(DomainDemoData.initialSnapshot)
+private val demoAsOf = LocalDate(2026, 7, 15)
+val sampleTransactions: List<DemoTransaction> = DomainDemoData.transactions(DomainDemoData.initialSnapshot, demoAsOf)
+val sampleAssets: List<DemoAsset> = DomainDemoData.assets(DomainDemoData.initialSnapshot, demoAsOf)
+val sampleInsights: List<DemoInsight> = DomainDemoData.insights(DomainDemoData.initialSnapshot, demoAsOf)
 
 fun formatMoney(minorUnits: Long, showSign: Boolean = false): String {
     val negative = minorUnits < 0

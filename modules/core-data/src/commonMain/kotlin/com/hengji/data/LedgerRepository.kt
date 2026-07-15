@@ -15,6 +15,93 @@ data class LedgerSnapshot(
     val maintenanceCosts: List<MaintenanceCost>,
     val usageEvents: List<UsageEvent>,
     val marketQuotes: List<MarketQuote>,
+    val insightPreferences: InsightPreferenceRecord = InsightPreferenceRecord(),
+    val importBatches: List<ImportBatchRecord> = emptyList(),
+)
+
+data class InsightPreferenceRecord(
+    val mutedTypes: Set<String> = emptySet(),
+    val ignoredDeduplicationKeys: Set<String> = emptySet(),
+    val updatedAtEpochMillis: Long = 0,
+) {
+    init {
+        require(mutedTypes.none { it.isBlank() }) { "Muted insight types cannot be blank" }
+        require(ignoredDeduplicationKeys.none { it.isBlank() }) { "Ignored insight keys cannot be blank" }
+        require(updatedAtEpochMillis >= 0) { "Preference update time cannot be negative" }
+    }
+}
+
+enum class ImportBatchState {
+    COMMITTED,
+    ROLLED_BACK,
+}
+
+data class ImportBatchItemRecord(
+    val transactionId: String,
+    val fingerprint: String,
+) {
+    init {
+        require(transactionId.isNotBlank())
+        require(fingerprint.isNotBlank())
+    }
+}
+
+data class ImportBatchRecord(
+    val batchId: String,
+    val sourceConnectorId: String,
+    val sourceDigest: String,
+    val state: ImportBatchState,
+    val createdAtEpochMillis: Long,
+    val committedAtEpochMillis: Long,
+    val rolledBackAtEpochMillis: Long? = null,
+    val items: List<ImportBatchItemRecord> = emptyList(),
+) {
+    init {
+        require(batchId.matches(Regex("[A-Za-z0-9_-]{8,80}"))) { "Invalid import batch id" }
+        require(sourceConnectorId.isNotBlank() && sourceDigest.isNotBlank())
+        require(createdAtEpochMillis >= 0 && committedAtEpochMillis >= createdAtEpochMillis)
+        require(rolledBackAtEpochMillis == null || rolledBackAtEpochMillis >= committedAtEpochMillis)
+        require((state == ImportBatchState.ROLLED_BACK) == (rolledBackAtEpochMillis != null))
+        require(items.distinctBy { it.transactionId }.size == items.size)
+        require(items.distinctBy { it.fingerprint }.size == items.size)
+    }
+}
+
+data class CommitImportBatchRequest(
+    val batchId: String,
+    val sourceConnectorId: String,
+    val sourceDigest: String,
+    val createdAtEpochMillis: Long,
+    val committedAtEpochMillis: Long,
+    val transactions: List<Transaction>,
+) {
+    init {
+        require(batchId.matches(Regex("[A-Za-z0-9_-]{8,80}"))) { "Invalid import batch id" }
+        require(sourceConnectorId.isNotBlank() && sourceDigest.isNotBlank())
+        require(createdAtEpochMillis >= 0 && committedAtEpochMillis >= createdAtEpochMillis)
+        require(transactions.isNotEmpty())
+        require(transactions.all { !it.importFingerprint.isNullOrBlank() })
+        require(transactions.distinctBy { it.id }.size == transactions.size)
+        require(transactions.distinctBy { it.importFingerprint }.size == transactions.size)
+    }
+}
+
+enum class ImportBatchCommitStatus {
+    COMMITTED,
+    ALREADY_COMMITTED,
+}
+
+data class CommitImportBatchResult(
+    val status: ImportBatchCommitStatus,
+    val insertedTransactionIds: List<String>,
+    val skippedFingerprints: List<String>,
+    val revision: Long,
+)
+
+data class RollbackImportBatchResult(
+    val alreadyRolledBack: Boolean,
+    val removedTransactionIds: List<String>,
+    val revision: Long,
 )
 
 enum class UpsertTransactionResult {
@@ -47,4 +134,24 @@ interface LedgerRepository {
     fun replaceWith(snapshot: LedgerSnapshot)
 
     fun clear()
+}
+
+/**
+ * Coroutine-first durable boundary used by Room KMP. Every method returns only after its SQLite transaction commits.
+ * The synchronous [LedgerRepository] remains for previews and the current UI prototype.
+ */
+interface PersistentLedgerRepository {
+    suspend fun snapshot(includeDeleted: Boolean = false): LedgerSnapshot
+    suspend fun upsertTransaction(transaction: Transaction): UpsertTransactionResult
+    suspend fun softDeleteTransaction(id: TransactionId, deletedAtEpochMillis: Long): Boolean
+    suspend fun upsertAsset(asset: Asset)
+    suspend fun findAsset(id: AssetId): Asset?
+    suspend fun addMaintenanceCost(cost: MaintenanceCost)
+    suspend fun addUsageEvent(event: UsageEvent)
+    suspend fun addMarketQuote(quote: MarketQuote)
+    suspend fun saveInsightPreferences(preferences: InsightPreferenceRecord)
+    suspend fun commitImportBatch(request: CommitImportBatchRequest): CommitImportBatchResult
+    suspend fun rollbackImportBatch(batchId: String, rolledBackAtEpochMillis: Long): RollbackImportBatchResult
+    suspend fun replaceWith(snapshot: LedgerSnapshot)
+    suspend fun clear()
 }

@@ -72,7 +72,7 @@ fun InsightsScreen(insights: List<DemoInsight>) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    StatusPill("3 条建议")
+                    StatusPill("${insights.size} 条建议")
                 }
             }
         }

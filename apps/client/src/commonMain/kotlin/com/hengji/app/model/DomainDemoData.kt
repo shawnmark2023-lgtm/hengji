@@ -19,14 +19,15 @@ import kotlinx.datetime.LocalDate
  * All market quotes in this seed are DEMO provenance and are therefore never presented as live prices.
  */
 internal object DomainDemoData {
-    private val asOf = LocalDate(2026, 7, 15)
     val initialSnapshot: LedgerSnapshot = DemoLedger.snapshot()
 
-    private fun estimates(snapshot: LedgerSnapshot) = snapshot.assets.mapNotNull { asset ->
+    private fun estimates(snapshot: LedgerSnapshot, asOf: LocalDate) = snapshot.assets.mapNotNull { asset ->
         MarketQuoteEstimator.estimate(asset.id, snapshot.marketQuotes, asOf)?.let { asset.id to it }
     }.toMap()
 
-    fun transactions(snapshot: LedgerSnapshot): List<DemoTransaction> = snapshot.transactions
+    fun transactions(snapshot: LedgerSnapshot, asOf: LocalDate): List<DemoTransaction> {
+        val currentPeriodStart = startOfMonth(asOf)
+        return snapshot.transactions
         .sortedByDescending { it.bookedOn }
         .map { transaction ->
             val signedAmount = if (transaction.kind == TransactionKind.REFUND) {
@@ -46,12 +47,13 @@ internal object DomainDemoData {
                     TransactionKind.INCOME -> EntryKind.Income
                     TransactionKind.REFUND -> EntryKind.Refund
                 },
-                inCurrentPeriod = transaction.bookedOn >= LocalDate(2026, 7, 1),
+                inCurrentPeriod = transaction.bookedOn >= currentPeriodStart && transaction.bookedOn <= asOf,
             )
         }
+    }
 
-    fun assets(snapshot: LedgerSnapshot): List<DemoAsset> {
-        val estimates = estimates(snapshot)
+    fun assets(snapshot: LedgerSnapshot, asOf: LocalDate): List<DemoAsset> {
+        val estimates = estimates(snapshot, asOf)
         return snapshot.assets.map { asset ->
         val estimate = estimates[asset.id]
         val metrics = AssetCostCalculator.calculate(
@@ -93,14 +95,17 @@ internal object DomainDemoData {
         }
     }
 
-    fun insights(snapshot: LedgerSnapshot): List<DemoInsight> {
-        val estimates = estimates(snapshot)
+    fun insights(snapshot: LedgerSnapshot, asOf: LocalDate): List<DemoInsight> {
+        val estimates = estimates(snapshot, asOf)
+        val currentPeriodStart = startOfMonth(asOf)
+        val nextPeriodStart = shiftMonth(currentPeriodStart, 1)
+        val previousPeriodStart = shiftMonth(currentPeriodStart, -1)
         return InsightEngine().generate(
         InsightSnapshot(
             asOf = asOf,
             currency = DemoLedger.cny,
-            currentPeriod = DateRange(LocalDate(2026, 7, 1), LocalDate(2026, 8, 1)),
-            previousPeriod = DateRange(LocalDate(2026, 6, 1), LocalDate(2026, 7, 1)),
+            currentPeriod = DateRange(currentPeriodStart, nextPeriodStart),
+            previousPeriod = DateRange(previousPeriodStart, currentPeriodStart),
             transactions = snapshot.transactions,
             assets = snapshot.assets,
             maintenanceCosts = snapshot.maintenanceCosts,
@@ -108,6 +113,15 @@ internal object DomainDemoData {
             marketEstimates = estimates,
         ),
         ).take(4).map(::toDemoInsight)
+    }
+
+    private fun startOfMonth(date: LocalDate): LocalDate = LocalDate(date.year, date.month, 1)
+
+    private fun shiftMonth(date: LocalDate, delta: Int): LocalDate {
+        val zeroBased = date.year * 12 + date.month.ordinal + delta
+        val year = zeroBased.floorDiv(12)
+        val month = zeroBased.mod(12) + 1
+        return LocalDate(year, month, 1)
     }
 
     private fun toDemoInsight(insight: Insight): DemoInsight {

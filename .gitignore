@@ -22,4 +22,6 @@ coverage/
 *.p12
 *.mobileprovision
 artifacts/*.apk
+artifacts/*.msi
+artifacts/*.skill
 artifacts/*.zip

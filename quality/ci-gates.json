@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "truthRule": "A configured workflow job is not passed until a run emits passed evidence.",
+  "gates": [
+    {
+      "id": "desktop-linux",
+      "workflow": ".github/workflows/client-quality.yml",
+      "jobIds": ["desktop-tests"],
+      "job": "desktop-tests (ubuntu-latest)",
+      "status": "configured"
+    },
+    {
+      "id": "desktop-windows",
+      "workflow": ".github/workflows/client-quality.yml",
+      "jobIds": ["desktop-tests"],
+      "job": "desktop-tests (windows-latest)",
+      "status": "configured"
+    },
+    {
+      "id": "android-debug",
+      "workflow": ".github/workflows/client-quality.yml",
+      "jobIds": ["android-debug"],
+      "job": "android-debug",
+      "status": "configured"
+    },
+    {
+      "id": "apple-compile",
+      "workflow": ".github/workflows/client-quality.yml",
+      "jobIds": ["apple-compile"],
+      "job": "apple-compile",
+      "status": "configured"
+    },
+    {
+      "id": "windows-msi-package",
+      "workflow": ".github/workflows/client-quality.yml",
+      "jobIds": ["windows-package"],
+      "job": "windows-package",
+      "status": "configured"
+    },
+    {
+      "id": "macos-dmg-package",
+      "workflow": ".github/workflows/client-quality.yml",
+      "jobIds": ["macos-package"],
+      "job": "macos-package",
+      "status": "configured"
+    },
+    {
+      "id": "beta-static-and-harness",
+      "workflow": ".github/workflows/beta-quality-gates.yml",
+      "jobIds": ["static-guards", "malformed-import", "large-ledger"],
+      "job": "static-guards / malformed-import / large-ledger",
+      "status": "configured"
+    }
+  ]
+}

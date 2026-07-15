@@ -43,12 +43,14 @@ import com.hengji.app.ui.components.MetricCard
 import com.hengji.app.ui.components.ScreenHeader
 import com.hengji.app.ui.components.SectionCard
 import com.hengji.app.ui.components.StatusPill
+import kotlinx.datetime.LocalDate
 
 @Composable
 fun OverviewScreen(
     transactions: List<DemoTransaction>,
     assets: List<DemoAsset>,
     insights: List<DemoInsight>,
+    asOf: LocalDate,
     onOpenLedger: () -> Unit,
     onOpenInsights: () -> Unit,
 ) {
@@ -66,8 +68,8 @@ fun OverviewScreen(
     ) {
         item {
             ScreenHeader(
-                eyebrow = "2026 年 7 月 · 第 3 周",
-                title = "下午好，今天的消费很清楚",
+                eyebrow = "${asOf.year} 年 ${asOf.month.ordinal + 1} 月 · 第 ${(asOf.day - 1) / 7 + 1} 周",
+                title = "今天的消费很清楚",
                 supporting = "衡记把流水、物品和可执行建议放在同一张本地视图里。",
                 action = { LocalOnlyBadge() },
             )
@@ -127,12 +129,12 @@ fun OverviewScreen(
                         verticalAlignment = Alignment.Top,
                     ) {
                         SpendingComposition(currentTransactions, modifier = Modifier.weight(1.08f))
-                        InsightPreview(insights.first(), onOpenInsights, modifier = Modifier.weight(0.92f))
+                        InsightPreview(insights.firstOrNull(), onOpenInsights, modifier = Modifier.weight(0.92f))
                     }
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(HengjiSpacing.md)) {
                         SpendingComposition(currentTransactions, Modifier.fillMaxWidth())
-                        InsightPreview(insights.first(), onOpenInsights, Modifier.fillMaxWidth())
+                        InsightPreview(insights.firstOrNull(), onOpenInsights, Modifier.fillMaxWidth())
                     }
                 }
             }
@@ -209,7 +211,7 @@ private fun SpendingComposition(transactions: List<DemoTransaction>, modifier: M
 
 @Composable
 private fun InsightPreview(
-    insight: DemoInsight,
+    insight: DemoInsight?,
     onOpenInsights: () -> Unit,
     modifier: Modifier,
 ) {
@@ -223,6 +225,15 @@ private fun InsightPreview(
                 )
                 Spacer(Modifier.width(HengjiSpacing.xs))
                 Text("值得留意", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            }
+            if (insight == null) {
+                Text("暂无需要处理的建议", style = MaterialTheme.typography.titleLarge)
+                Text(
+                    "继续记录流水或物品使用后，本机规则会在这里给出有证据的建议。",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                return@Column
             }
             Text(insight.title, style = MaterialTheme.typography.titleLarge)
             Text(

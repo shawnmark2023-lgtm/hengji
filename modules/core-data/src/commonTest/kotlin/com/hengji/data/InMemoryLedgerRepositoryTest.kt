@@ -56,6 +56,39 @@ class InMemoryLedgerRepositoryTest {
         assertFalse("\"email\"" in json.lowercase())
     }
 
+    @Test
+    fun snapshotReplaceAndClearPreserveOrResetExtendedMetadata() {
+        val transaction = importedTransaction("metadata", "metadata-fingerprint")
+        val preferences = InsightPreferenceRecord(setOf("BUDGET_PACE"), setOf("demo:key"), 123)
+        val batch = ImportBatchRecord(
+            batchId = "batch_meta_001",
+            sourceConnectorId = "csv-local",
+            sourceDigest = "sha256:meta",
+            state = ImportBatchState.COMMITTED,
+            createdAtEpochMillis = 10,
+            committedAtEpochMillis = 20,
+            items = listOf(ImportBatchItemRecord(transaction.id.value, "metadata-fingerprint")),
+        )
+        val repository = InMemoryLedgerRepository(
+            LedgerSnapshot(
+                revision = 4,
+                transactions = listOf(transaction),
+                assets = emptyList(),
+                maintenanceCosts = emptyList(),
+                usageEvents = emptyList(),
+                marketQuotes = emptyList(),
+                insightPreferences = preferences,
+                importBatches = listOf(batch),
+            ),
+        )
+
+        assertEquals(preferences, repository.snapshot().insightPreferences)
+        assertEquals(listOf(batch), repository.snapshot().importBatches)
+        repository.clear()
+        assertEquals(InsightPreferenceRecord(), repository.snapshot().insightPreferences)
+        assertTrue(repository.snapshot().importBatches.isEmpty())
+    }
+
     private fun importedTransaction(id: String, fingerprint: String) = Transaction(
         id = TransactionId(id),
         kind = TransactionKind.EXPENSE,

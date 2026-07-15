@@ -2,16 +2,17 @@
 
 看见每一笔消费的长期价值。
 
-衡记是一款本地优先的跨平台消费价值管理应用，目标平台为 iOS、Android、Windows 和 macOS。它把普通流水、产品资产、使用记录、二手残值和可解释洞察连接起来，让用户同时看到“花了多少”和“是否值得”。
+衡记是一款本地优先的跨平台消费价值管理应用，目标平台为 iOS、Android、Windows 和 macOS。它把流水、产品资产、使用记录、二手残值和可解释洞察连接起来，让用户同时看到“花了多少”和“是否值得”。
 
-## 当前交付范围
+## 当前工程里程碑
 
-- Kotlin Multiplatform + Compose Multiplatform 客户端。
-- 无登录、本地优先的首版体验。
-- 流水、产品资产、使用成本、二手报价和智能洞察领域模型。
-- CSV/JSON 导入与官方 OAuth 连接器边界。
-- Windows 可验证运行，Android 调试 APK，iOS/macOS 工程入口与 macOS CI 路线。
-- 安全、隐私、测试、发布和后续账户体系方案。
+- Kotlin Multiplatform + Compose Multiplatform 共享领域与 UI。
+- Room KMP + bundled SQLite 持久化账本，流水、资产、使用、报价、偏好和导入批次可跨重启保存。
+- 五步导入中心：用户文件/明确沙箱 → 字段映射 → 预览去重 → 原子确认 → 整批撤销。
+- 完整 JSON 备份/恢复与防公式注入 CSV 导出。
+- 流水新增/编辑、资产与日均/单次使用成本、二手价格区间、支出占比和可解释建议。
+- Windows 免安装包与 MSI、Android Debug APK；iOS/macOS 源码入口与 CI 路线。
+- 自动架构/secret/沙箱门禁、畸形导入矩阵和 10 万流水开发基线。
 
 ## 先读
 
@@ -23,22 +24,26 @@
 6. [四平台发布清单](docs/08-release-checklist.md)
 7. [测试与构建报告](docs/09-test-report.md)
 
-## 隐私承诺
+## 隐私与安全边界
 
-首版不采集姓名、手机号、证件、通讯录、位置、广告标识或设备指纹；原始账本默认只保存在设备本地。交易记录本身属于需要谨慎处理的数据，任何外部连接器都必须最小字段、显式授权、可撤销，并在取得平台真实权限后才可启用。
+首版无登录、默认不联网，不采集姓名、手机号、证件、通讯录、位置、广告标识或设备指纹。交易和资产记录即使不含直接身份字段，仍按敏感财务数据处理。当前开发构建已持久化，但尚未启用应用层数据库加密；生产构建必须接入平台密钥存储并通过加密迁移/恢复门禁。
 
-## 构建
+沙箱连接器、示例报价和本地文件导入不会伪装成平台实时同步。支付宝、微信、淘宝、京东、闲鱼等真实连接器只有在取得官方 scope、合同与审核后才能启用；禁止抓密码、复用 Cookie、调用私有 API 或违规爬取。
 
-工程完成集成后使用 Gradle Wrapper：
+## 构建与验证
 
 ```powershell
-.\gradlew.bat :apps:client:desktopTest
-.\gradlew.bat :apps:client:run
+.\gradlew.bat desktopTest
 .\gradlew.bat :apps:client:androidApp:assembleDebug
+python scripts/quality/run_quality.py --output-dir quality/evidence
 ```
 
-Android 需要 Android SDK；iOS/macOS 需要 macOS、Xcode 和相应签名环境。当前可运行版使用内存仓储，新增记录在应用重启后会重置；持久化加密数据库属于 `DAT-004` Beta 门禁，不能把本轮演示版误称为生产版。
+Windows 发行构建还要执行 Release 混淆后的真实启动冒烟；Room 反射类与 SQLite JNI 符号的保留规则位于 `apps/client/proguard-rules.pro`。
 
-## 状态
+## 当前不能宣称的内容
 
-当前为可验证的首轮工程实现，不代表已取得支付宝、微信、淘宝、京东、闲鱼等平台的生产授权。所有沙箱与演示行情必须在界面中明确标注，不能被解释为实时数据。
+- iOS/macOS 原生编译、真机、签名、公证和商店发布仍需 macOS + Xcode。
+- Windows MSI/免安装包未签名；Android APK 由 Android Debug 证书以 v2 方案签名，但未做生产发布签名，也未做设备安装/启动验证。
+- iOS 当前可编译共享 source-set 元数据，但用户文件选择与落盘导出仍是不可用/仅预览适配器，需在 macOS/Xcode 阶段补齐。
+- 应用层数据库加密、平台安全密钥实现、账户验证、加密同步、灾难恢复和真实平台授权尚未完成。
+- 演示二手报价不是实时市场价；没有授权的数据源不会在生产模式降级为沙箱。

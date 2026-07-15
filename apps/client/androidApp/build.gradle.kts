@@ -7,7 +7,9 @@ plugins {
 
 dependencies {
     implementation(project(":apps:client"))
+    implementation(project(":modules:core-data"))
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
     debugImplementation(libs.compose.ui.tooling)
 }
 

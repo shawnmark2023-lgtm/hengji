@@ -26,6 +26,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,6 +48,7 @@ import com.hengji.app.ui.components.StatusPill
 fun AssetsScreen(
     assets: List<DemoAsset>,
     onRecordUsage: (String) -> Unit,
+    onAddAsset: () -> Unit = {},
 ) {
     var selectedAsset by remember { mutableStateOf<DemoAsset?>(null) }
     val totalCost = assets.sumOf { it.totalCostMinor }
@@ -64,6 +66,13 @@ fun AssetsScreen(
                 eyebrow = "${assets.size} 件正在使用",
                 title = "物品",
                 supporting = "从购买价格走到真实使用成本，再看清当下残值。",
+                action = {
+                    FilledTonalButton(onClick = onAddAsset) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(Modifier.width(HengjiSpacing.xs))
+                        Text("新增物品")
+                    }
+                },
             )
         }
         item {

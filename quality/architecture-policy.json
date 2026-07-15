@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "rules": [
+    {
+      "id": "ARCH-DOMAIN-SOURCE",
+      "description": "Domain code must not depend on UI, platform, SQL, HTTP, or filesystem APIs.",
+      "include": [
+        "modules/core-domain/src/**/*.kt"
+      ],
+      "forbiddenRegex": [
+        "^\\s*import\\s+(?:android(?:x)?\\.|java\\.io\\.|java\\.nio\\.file\\.|java\\.net\\.|java\\.sql\\.|javax\\.sql\\.|io\\.ktor\\.|okhttp3\\.|retrofit2\\.|app\\.cash\\.sqldelight\\.|org\\.jetbrains\\.exposed\\.|platform\\.)",
+        "^\\s*import\\s+com\\.hengji\\.(?:app|data|connectors|insights)\\."
+      ]
+    },
+    {
+      "id": "ARCH-DOMAIN-BUILD",
+      "description": "The domain module build must remain free of UI, database, HTTP, and platform SDK dependencies.",
+      "include": [
+        "modules/core-domain/build.gradle.kts"
+      ],
+      "forbiddenRegex": [
+        "(?i)(?:compose|androidx\\.room|sqldelight|ktor|okhttp|retrofit|exposed|firebase|sentry|datadog|mixpanel)"
+      ]
+    },
+    {
+      "id": "ARCH-UI-VENDOR",
+      "description": "Common UI may depend on application/domain/repository ports, but not vendor, telemetry, HTTP, or database SDKs.",
+      "include": [
+        "apps/client/src/commonMain/**/*.kt"
+      ],
+      "forbiddenRegex": [
+        "^\\s*import\\s+(?:com\\.alipay\\.|com\\.tencent\\.mm\\.|com\\.taobao\\.|com\\.jd\\.|okhttp3\\.|retrofit2\\.|io\\.ktor\\.|androidx\\.room\\.|app\\.cash\\.sqldelight\\.|com\\.google\\.firebase\\.|com\\.amplitude\\.|com\\.segment\\.|io\\.sentry\\.|com\\.datadog\\.|com\\.mixpanel\\.)"
+      ]
+    }
+  ]
+}

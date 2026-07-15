@@ -27,6 +27,8 @@ class InMemoryLedgerRepository(
     private val maintenanceCosts = LinkedHashMap<String, MaintenanceCost>()
     private val usageEvents = LinkedHashMap<String, UsageEvent>()
     private val marketQuotes = LinkedHashMap<String, MarketQuote>()
+    private var insightPreferences: InsightPreferenceRecord = initial.insightPreferences
+    private val importBatches = LinkedHashMap<String, ImportBatchRecord>()
     private var revision: Long = initial.revision
 
     init {
@@ -40,6 +42,8 @@ class InMemoryLedgerRepository(
         maintenanceCosts = maintenanceCosts.values.toList(),
         usageEvents = usageEvents.values.toList(),
         marketQuotes = marketQuotes.values.toList(),
+        insightPreferences = insightPreferences,
+        importBatches = importBatches.values.toList(),
     )
 
     override fun upsertTransaction(transaction: Transaction): UpsertTransactionResult {
@@ -104,6 +108,8 @@ class InMemoryLedgerRepository(
         maintenanceCosts.clear()
         usageEvents.clear()
         marketQuotes.clear()
+        insightPreferences = InsightPreferenceRecord()
+        importBatches.clear()
         bumpRevision()
     }
 
@@ -114,12 +120,15 @@ class InMemoryLedgerRepository(
         maintenanceCosts.clear()
         usageEvents.clear()
         marketQuotes.clear()
+        importBatches.clear()
 
         snapshot.transactions.forEach { transactions[it.id] = it }
         snapshot.assets.forEach { assets[it.id] = it }
         snapshot.maintenanceCosts.forEach { maintenanceCosts[it.id.value] = it }
         snapshot.usageEvents.forEach { usageEvents[it.id.value] = it }
         snapshot.marketQuotes.forEach { marketQuotes[it.id] = it }
+        insightPreferences = snapshot.insightPreferences
+        snapshot.importBatches.forEach { importBatches[it.batchId] = it }
         revision = if (preserveRevision) snapshot.revision else checkedIncrement(snapshot.revision)
     }
 
@@ -133,6 +142,15 @@ class InMemoryLedgerRepository(
         require(snapshot.maintenanceCosts.all { it.assetId in assetIds }) { "Maintenance references an unknown asset" }
         require(snapshot.usageEvents.all { it.assetId in assetIds }) { "Usage references an unknown asset" }
         require(snapshot.marketQuotes.all { it.assetId in assetIds }) { "Quote references an unknown asset" }
+        require(snapshot.importBatches.distinctBy { it.batchId }.size == snapshot.importBatches.size) {
+            "Duplicate import batch ids"
+        }
+        val transactionIds = snapshot.transactions.mapTo(mutableSetOf()) { it.id.value }
+        snapshot.importBatches.filter { it.state == ImportBatchState.COMMITTED }.forEach { batch ->
+            require(batch.items.all { it.transactionId in transactionIds }) {
+                "Committed import batch references an unknown transaction"
+            }
+        }
     }
 
     private fun bumpRevision() {

@@ -1,0 +1,7 @@
+TEAM_ID=
+BUNDLE_ID=com.hengji.app
+APP_NAME=Hengji
+IPHONEOS_DEPLOYMENT_TARGET=14.0
+
+// Add these files to an iOS application target in Xcode. The pre-build phase is:
+// cd "$SRCROOT/../../../../" && ./gradlew :apps:client:embedAndSignAppleFrameworkForXcode

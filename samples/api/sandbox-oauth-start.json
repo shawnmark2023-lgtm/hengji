@@ -1,0 +1,5 @@
+{
+  "connectorId": "alipay-sandbox",
+  "redirectUri": "hengji://oauth/callback",
+  "disclosure": "请求只用于沙箱演示，非真实支付宝授权或实时同步"
+}

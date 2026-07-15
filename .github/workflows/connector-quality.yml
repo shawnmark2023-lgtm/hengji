@@ -1,0 +1,105 @@
+name: Connector and service quality
+
+on:
+  pull_request:
+    paths:
+      - "modules/connectors/**"
+      - "services/**"
+      - "samples/**"
+      - "docs/05-security-threat-model.md"
+      - "docs/06-api-contracts.md"
+      - ".github/workflows/connector-quality.yml"
+      - "gradle/**"
+      - "gradlew*"
+      - "settings.gradle.kts"
+  push:
+    branches: [main]
+    paths:
+      - "modules/connectors/**"
+      - "services/**"
+      - "samples/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: connector-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  kotlin-connectors:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - name: Test common connector contracts on desktop JVM
+        run: ./gradlew :modules:connectors:desktopTest --stacktrace
+
+  apple-connector-compile:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - name: Compile iOS simulator connector target
+        run: ./gradlew :modules:connectors:compileKotlinIosSimulatorArm64 --stacktrace
+
+  typescript-gateway:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: services/connector-gateway
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: services/connector-gateway/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm audit --omit=dev --audit-level=high
+
+  python-price-intelligence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: services/price-intelligence
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m compileall -q src tests
+      - run: python -m unittest discover -s tests -v
+
+  committed-secret-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject obvious committed credential files and private keys
+        shell: bash
+        run: |
+          set -euo pipefail
+          if find . -type f \( -name '*.p12' -o -name '*.pfx' -o -name '*.jks' -o -name '*.keystore' -o -name '*.pem' -o -name '.env' \) -print -quit | grep -q .; then
+            echo 'Credential-like file committed to repository.' >&2
+            exit 1
+          fi
+          if git grep -nE 'BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|AKIA[0-9A-Z]{16}' -- ':!*.md'; then
+            echo 'Private key or cloud credential signature found.' >&2
+            exit 1
+          fi

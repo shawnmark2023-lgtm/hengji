@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "disclosure": "用户主动导入的虚构示例，非平台实时数据",
+  "transactions": [
+    {
+      "occurredAt": "2026-07-03T09:15:00+08:00",
+      "amountMinor": 6800,
+      "currency": "CNY",
+      "direction": "expense",
+      "merchant": "本地交通示例",
+      "category": "交通",
+      "note": "非实时演示记录",
+      "externalId": "sample-json-001"
+    }
+  ]
+}

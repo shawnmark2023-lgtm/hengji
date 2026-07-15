@@ -1,0 +1,4 @@
+interface:
+  display_name: "本地优先财务应用工程"
+  short_description: "跨平台财务应用的研究、架构、隐私连接器与工程质量门禁"
+  default_prompt: "Use $build-local-first-finance-app to plan, implement, and audit a local-first cross-platform finance app."

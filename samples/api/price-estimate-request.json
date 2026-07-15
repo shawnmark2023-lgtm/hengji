@@ -1,0 +1,50 @@
+{
+  "currency": "CNY",
+  "asOf": "2026-07-15T00:00:00Z",
+  "minimumMatchConfidence": 0.55,
+  "freshnessHalfLifeDays": 30,
+  "quotes": [
+    {
+      "providerId": "demo-non-live",
+      "title": "演示手机 256GB 非实时样本 1",
+      "model": "DEMO-256",
+      "condition": "good",
+      "priceMinor": 420000,
+      "shippingMinor": 1200,
+      "currency": "CNY",
+      "observedAt": "2026-06-10T02:00:00Z",
+      "matchConfidence": 0.72,
+      "provenance": "demo_non_live",
+      "isLive": false,
+      "disclosure": "演示行情，非实时、非平台抓取，不用于成交决策。"
+    },
+    {
+      "providerId": "demo-non-live",
+      "title": "演示手机 256GB 非实时样本 2",
+      "model": "DEMO-256",
+      "condition": "good",
+      "priceMinor": 458000,
+      "shippingMinor": 0,
+      "currency": "CNY",
+      "observedAt": "2026-06-11T02:00:00Z",
+      "matchConfidence": 0.76,
+      "provenance": "demo_non_live",
+      "isLive": false,
+      "disclosure": "演示行情，非实时、非平台抓取，不用于成交决策。"
+    },
+    {
+      "providerId": "demo-non-live",
+      "title": "演示手机 256GB 非实时样本 3",
+      "model": "DEMO-256",
+      "condition": "good",
+      "priceMinor": 489900,
+      "shippingMinor": 1200,
+      "currency": "CNY",
+      "observedAt": "2026-06-12T02:00:00Z",
+      "matchConfidence": 0.80,
+      "provenance": "demo_non_live",
+      "isLive": false,
+      "disclosure": "演示行情，非实时、非平台抓取，不用于成交决策。"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "@hengji/connector-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OAuth and platform proxy boundary for HENGJI; sandbox-only by default",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test dist/test/oauth-state.test.js dist/test/server.test.js",
+    "start": "node dist/src/server.js"
+  },
+  "devDependencies": {
+    "@types/node": "24.0.14",
+    "typescript": "5.8.3"
+  }
+}

@@ -1,0 +1,58 @@
+name: Client quality
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: client-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  desktop-tests:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - name: Test all shared and desktop modules
+        shell: bash
+        run: ./gradlew :modules:core-domain:desktopTest :modules:core-data:desktopTest :modules:core-insights:desktopTest :modules:connectors:desktopTest :apps:client:desktopTest :apps:client:compileKotlinDesktop --stacktrace
+
+  android-debug:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - uses: android-actions/setup-android@v3
+      - name: Assemble Android debug APK
+        run: ./gradlew :apps:client:androidApp:assembleDebug --stacktrace
+
+  apple-compile:
+    runs-on: macos-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - name: Compile iOS simulator framework and shared dependencies
+        run: ./gradlew :apps:client:compileKotlinIosSimulatorArm64 --stacktrace

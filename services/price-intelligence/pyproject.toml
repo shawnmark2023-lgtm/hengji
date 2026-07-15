@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hengji-price-intelligence"
+version = "0.1.0"
+description = "Deterministic second-hand quote aggregation for HENGJI"
+requires-python = ">=3.12"
+license = { text = "Proprietary" }
+dependencies = []
+
+[project.scripts]
+hengji-price-service = "hengji_price_intelligence.server:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+include = ["src", "tests"]

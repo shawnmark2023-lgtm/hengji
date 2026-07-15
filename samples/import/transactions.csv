@@ -1,0 +1,3 @@
+occurredAt,amount,currency,direction,merchant,category,note,externalId
+2026-07-01T08:30:00+08:00,28.50,CNY,expense,本地咖啡示例店,餐饮,"用户主动导入示例，非平台实时数据",sample-csv-001
+2026-07-02T19:20:00+08:00,128.00,CNY,expense,"示例商户, 上海店",生活,"含逗号的 CSV 示例，非实时",sample-csv-002

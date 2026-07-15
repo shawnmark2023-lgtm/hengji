@@ -1,0 +1,143 @@
+openapi: 3.1.0
+info:
+  title: HENGJI Connector Gateway
+  version: 0.1.0
+  description: Sandbox-only OAuth boundary. No production platform access or token persistence is included.
+servers:
+  - url: http://127.0.0.1:8787
+    description: Local sandbox only
+paths:
+  /health:
+    get:
+      operationId: gatewayHealth
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, mode, requestId]
+                properties:
+                  status: { const: ok }
+                  mode: { const: sandbox }
+                  requestId: { type: string }
+  /v1/connectors:
+    get:
+      operationId: listConnectors
+      responses:
+        "200":
+          description: Sandbox connector catalog; every entry is non-live.
+          headers:
+            Cache-Control:
+              schema: { const: no-store }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [connectors, requestId]
+                properties:
+                  connectors:
+                    type: array
+                    items: { $ref: "#/components/schemas/Connector" }
+                  requestId: { type: string }
+  /v1/oauth/sandbox/start:
+    post:
+      operationId: startSandboxOAuth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [connectorId, redirectUri]
+              properties:
+                connectorId: { $ref: "#/components/schemas/ConnectorId" }
+                redirectUri: { type: string, maxLength: 512 }
+      responses:
+        "201":
+          description: One-time sandbox authorization flow created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [flowId, connectorId, authorizationUrl, expiresAt, mode, disclosure]
+                properties:
+                  flowId: { type: string }
+                  connectorId: { $ref: "#/components/schemas/ConnectorId" }
+                  authorizationUrl: { type: string, format: uri }
+                  expiresAt: { type: string, format: date-time }
+                  mode: { const: sandbox_no_token }
+                  disclosure: { type: string }
+        "400": { $ref: "#/components/responses/ClientError" }
+        "413": { $ref: "#/components/responses/ClientError" }
+        "415": { $ref: "#/components/responses/ClientError" }
+  /v1/oauth/sandbox/callback:
+    post:
+      operationId: completeSandboxOAuth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [connectorId, state, code, redirectUri]
+              properties:
+                connectorId: { $ref: "#/components/schemas/ConnectorId" }
+                state: { type: string, maxLength: 256 }
+                code: { type: string, maxLength: 512 }
+                redirectUri: { type: string, maxLength: 512 }
+      responses:
+        "200":
+          description: Sandbox flow consumed. No token is exchanged or stored.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [connectorId, status, tokenStored, disclosure]
+                properties:
+                  connectorId: { $ref: "#/components/schemas/ConnectorId" }
+                  status: { const: authorized_sandbox }
+                  tokenStored: { const: false }
+                  disclosure: { type: string }
+        "400": { $ref: "#/components/responses/ClientError" }
+components:
+  schemas:
+    ConnectorId:
+      type: string
+      enum: [alipay-sandbox, wechat-pay-sandbox, taobao-sandbox, jd-sandbox]
+    Connector:
+      type: object
+      additionalProperties: false
+      required: [id, displayName, availability, authorizationMode, capabilities, live, disclosure]
+      properties:
+        id: { $ref: "#/components/schemas/ConnectorId" }
+        displayName: { type: string }
+        availability: { const: sandbox }
+        authorizationMode: { const: oauth_pkce_simulation }
+        capabilities:
+          type: array
+          items: { enum: [transactions, categories, refunds] }
+        live: { const: false }
+        disclosure:
+          type: string
+          description: Must visibly state that data is non-live.
+    ApiError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, requestId]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            requestId: { type: string }
+  responses:
+    ClientError:
+      description: Stable validation error without payload echo.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiError" }

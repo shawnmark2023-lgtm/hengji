@@ -1,0 +1,117 @@
+# 衡记 HENGJI：分层架构
+
+## 1. 技术决策
+
+客户端选择 Kotlin Multiplatform + Compose Multiplatform。官方已将 Android、iOS 和 Desktop 标为 Stable，能共享领域逻辑与大部分 UI，同时允许 Swift/Kotlin 原生逃生口；相较 Tauri 2 的移动端 WebView 路线，更适合本项目对移动端交互、原生权限和长期稳定性的要求。
+
+语言不设单一限制：共享客户端与 Android 使用 Kotlin，iOS 平台入口/扩展使用 Swift，持久化使用 SQL，未来连接器网关使用 TypeScript，价格/分析服务可使用 Python。跨语言边界必须以 OpenAPI/JSON Schema 和契约测试约束，不能共享数据库表或隐式对象。
+
+## 2. 逻辑分层
+
+```text
+┌──────────────────────────────────────────────────────────┐
+│ Presentation: Compose screens, adaptive shell, a11y      │
+├──────────────────────────────────────────────────────────┤
+│ Application: use cases, orchestration, view state        │
+├──────────────────────────────────────────────────────────┤
+│ Domain: Money, Transaction, Asset, Usage, Insight        │
+├──────────────────────────────────────────────────────────┤
+│ Ports: repositories, importer, quote provider, clock     │
+├──────────────────────────────────────────────────────────┤
+│ Data/Infra: SQLite, files, platform vault, HTTP adapters  │
+├──────────────────────────────────────────────────────────┤
+│ External: official OAuth APIs, FinanceKit, price service │
+└──────────────────────────────────────────────────────────┘
+```
+
+依赖只能向内：UI 不直接执行 SQL/HTTP，领域层不引用 Compose、数据库或平台 SDK，外部返回值必须先转换为内部模型。
+
+## 3. 工程结构
+
+```text
+hengji/
+├─ apps/client/                 # Compose Multiplatform 入口与 UI
+│  ├─ commonMain/               # 共享 UI、状态、导航
+│  ├─ androidMain/              # Android 权限/入口
+│  ├─ iosMain/                  # iOS 入口桥接
+│  └─ desktopMain/              # Windows/macOS 桌面入口
+├─ modules/core-domain/         # 纯 Kotlin 领域模型与计算
+├─ modules/core-data/           # 仓储、导入、样例数据
+├─ modules/core-insights/       # 可解释分析规则
+├─ modules/connectors/          # 连接器端口与沙箱适配器
+├─ services/connector-gateway/  # 后续 OAuth/token/平台代理
+├─ services/price-intelligence/ # 后续报价聚合、归一化
+├─ docs/                        # 产品、架构、ADR、合规
+└─ skills/                      # 最终可复用 Agent Skill
+```
+
+## 4. 关键模型
+
+- `Money(minorUnits: Long, currency: CurrencyCode)`：禁止使用 `Double` 保存金额。
+- `Transaction`：类型、金额、时间、分类、商户、来源、导入指纹、可选关联资产。
+- `Asset`：产品名、购买价、日期、状态、使用次数、维护成本、当前估值。
+- `UsageEvent`：资产、时间、数量、备注；同一天可按需求合并展示但保留原始事件。
+- `MarketQuote`：提供器、规格、成色、价格、运费、采集时间、URL、置信度。
+- `Insight`：类型、标题、证据、估计影响、置信度、动作、反馈状态。
+- `ImportBatch`：来源、哈希、状态、条目、错误和可逆操作。
+
+## 5. 数据与同步
+
+首版采用 Local-first：仓储端口先提供可测试本地实现，持久化切换为 SQLDelight/Room KMP SQLite；网络连接器并非核心体验前置条件。
+
+- 每个写操作由 use case 管理事务。
+- 导入数据携带稳定指纹，防止重复。
+- 删除默认软删除并提供短期撤销；“彻底清除”执行物理删除。
+- 导出格式有 `schemaVersion`，迁移必须向后兼容至少两个版本。
+- 后续同步使用操作日志或版本向量，不做数据库文件级覆盖。
+
+## 6. 分析系统
+
+```text
+Repository snapshot
+  → deterministic metrics
+  → rule evaluators
+  → conflict/deduplication
+  → impact × confidence × actionability ranking
+  → optional wording adapter
+  → UI with evidence
+```
+
+模型解释器是可替换端口。未授权时使用本地模板；授权远端模型时只允许聚合字段白名单，并在请求前给用户预览。
+
+## 7. 平台连接器
+
+每个连接器声明：
+
+- `capabilities`：交易、订单、品类、退款、增量游标、撤权。
+- `authorizationMode`：file、share、oauth、system entitlement。
+- `dataFields`：所需字段白名单与用途。
+- `availability`：sandbox、review-required、production。
+- `privacyClass` 与保留期。
+
+连接器故障不得阻塞本地记账。所有外部数据先进入预览/对账区，再由用户确认写入主账本。
+
+## 8. 安全边界
+
+- MVP 不接受真实 OAuth secret，不在仓库中保存 token。
+- 正式 token 只能保存在 Keychain/Keystore/Credential Locker 或后端加密 vault。
+- 导入解析器视文件为不可信输入：限制大小、行数、编码和公式注入。
+- 日志禁止出现原始账单、token、完整 URL query 或文件内容。
+- 远程价格与模型服务使用域名白名单、超时、重试上限和证书校验。
+- 不在客户端内置平台私钥；需要签名的调用经受控网关完成。
+
+## 9. 质量策略
+
+- 领域层：快速纯单元测试和属性边界测试。
+- 数据层：迁移、导入、幂等、回滚和契约测试。
+- UI：状态驱动的组件测试、关键路径 UI 自动化、平台截图回归。
+- 构建：依赖锁定、编译警告升级策略、SBOM、漏洞扫描、签名产物。
+- 发布：Windows 与 Android 可在当前 Windows 环境验证；iOS/macOS 必须由 macOS runner、Xcode 和真实签名链验证，不能声称已在 Windows 完成。
+
+## 10. ADR
+
+- `ADR-001` 选择 KMP/Compose，而不是 Tauri 2/Flutter：生产稳定级别、原生互操作与平台体验优先；代价是构建链更复杂、iOS 必须 macOS。
+- `ADR-002` 本地优先且无登录：先验证核心价值并减少首版攻击面；代价是首版不跨设备同步。
+- `ADR-003` 平台导入通过端口接入：第三方能力和审核变化频繁，核心领域不能依赖任何单一平台。
+- `ADR-004` 确定性分析优先：财务数字必须可复现；生成式模型只做透明的可选解释。
+- `ADR-005` 二手报价使用区间与置信度：规格、成色和时效会使单点价格产生虚假精确感。

@@ -16,3 +16,15 @@
 # The JDK provider contains an optional reflective Bouncy Castle bridge. Hengji
 # uses the JDK 21 AES-GCM implementation and does not ship the BC backend.
 -dontwarn org.bouncycastle.**
+
+# JNA dispatches JNI entry points and Win32 library methods by their Java names.
+# Preserve those names plus the DPAPI structures used by the Windows key vault.
+-keepclasseswithmembernames,includedescriptorclasses class * {
+    native <methods>;
+}
+-keep class com.sun.jna.* { *; }
+-keep interface com.sun.jna.* { *; }
+-keep interface com.sun.jna.platform.win32.Crypt32 { *; }
+-keep interface com.sun.jna.platform.win32.Kernel32 { *; }
+-keep class com.sun.jna.platform.win32.WinCrypt$DATA_BLOB { *; }
+-keep class com.sun.jna.platform.win32.WinCrypt$CRYPTPROTECT_PROMPTSTRUCT { *; }

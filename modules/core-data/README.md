@@ -41,10 +41,12 @@ platform providers (JCA on JVM/Android and CryptoKit/CommonCrypto on Apple), gen
 the envelope version, ledger schema, key alias, and algorithm as associated data. The versioned JSON envelope rejects
 unknown versions, algorithms, malformed Base64, truncated tags, tampering, wrong keys, and oversized payloads.
 
-This is a real cryptographic primitive, but it does **not** make the current Room database encrypted: no production
-platform key provider or plaintext-to-ciphertext database migration is wired yet. Missing keys never fall back to
-plaintext. Platform key providers must protect the data-encryption key with Keychain, Android Keystore, or Windows
-DPAPI/Credential Locker before `REQUIRE_APPLICATION_ENCRYPTION` can be enabled.
+This is a real cryptographic primitive, but it does **not** make the current Room database encrypted. Missing keys never
+fall back to plaintext. `WindowsDpapiDatabaseKeyProvider` now provisions a 256-bit data key, protects it with
+current-user DPAPI, stores only a versioned protected blob, and refuses to replace corrupt or unreadable material.
+The key alias and blob format are bound as DPAPI optional entropy, so swapping protected blobs between aliases also
+fails closed. Android Keystore, Apple Keychain, plaintext-to-ciphertext migration, and repository wiring are still
+required before `REQUIRE_APPLICATION_ENCRYPTION` can be enabled.
 
 ## Verification
 

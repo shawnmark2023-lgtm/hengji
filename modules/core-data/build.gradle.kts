@@ -40,6 +40,11 @@ kotlin {
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }
+        val desktopMain by getting {
+            dependencies {
+                implementation(libs.jna.platform)
+            }
+        }
         val desktopTest by getting {
             dependencies {
                 implementation(libs.kotlinx.coroutines.test)

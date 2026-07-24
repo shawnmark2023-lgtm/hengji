@@ -9,7 +9,7 @@ import kotlinx.serialization.json.Json
 
 private const val AES_GCM_NONCE_BYTES = 12
 private const val AES_GCM_TAG_BYTES = 16
-private const val AES_256_KEY_BYTES = 32
+internal const val AES_256_KEY_BYTES = 32
 private const val PROTECTED_LEDGER_FORMAT_VERSION = 1
 private const val MAX_PROTECTED_LEDGER_BYTES = 36 * 1024 * 1024
 
@@ -23,12 +23,16 @@ interface DatabaseKeyProvider {
     suspend fun loadKey(alias: String): DatabaseKeyMaterial?
 }
 
+interface ProvisioningDatabaseKeyProvider : DatabaseKeyProvider {
+    suspend fun loadOrCreateKey(alias: String): DatabaseKeyMaterial
+}
+
 class DatabaseKeyMaterial(bytes: ByteArray) {
     private val material = bytes.copyOf()
     private var destroyed = false
 
     init {
-        require(bytes.size >= 32) { "Database key must contain at least 256 bits" }
+        require(bytes.size == AES_256_KEY_BYTES) { "Database key must contain exactly 256 bits" }
     }
 
     fun copyBytes(): ByteArray {
@@ -41,6 +45,14 @@ class DatabaseKeyMaterial(bytes: ByteArray) {
         destroyed = true
     }
 }
+
+internal fun requireValidDatabaseKeyAlias(alias: String) {
+    require(DATABASE_KEY_ALIAS.matches(alias)) {
+        "Database key alias must be 1-64 lowercase ASCII letters, digits, dots, underscores, or hyphens"
+    }
+}
+
+private val DATABASE_KEY_ALIAS = Regex("[a-z0-9][a-z0-9._-]{0,63}")
 
 data class CipherPayload(
     val algorithmId: String,

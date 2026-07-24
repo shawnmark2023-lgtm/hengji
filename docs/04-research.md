@@ -42,6 +42,8 @@ Gradle 9 的 dependency locking 会把解析版本写入应提交到版本库的
 
 静态加密采用“平台密钥保护 + AES-GCM 数据密钥”的分层，而不是自写密码算法。Android 官方建议需要更强密钥安全时使用 Android Keystore，并列出 `AES/GCM/NoPadding` 与 256 位密钥；Apple 推荐 CryptoKit，并由 Keychain 保存小型密钥材料；Windows DPAPI 默认把受保护数据绑定到同一用户与机器并提供完整性校验：[Android cryptography](https://developer.android.com/privacy-and-security/cryptography)、[Android Keystore](https://developer.android.com/privacy-and-security/keystore)、[Apple CryptoKit](https://developer.apple.com/documentation/cryptokit/)、[Apple Keychain Services](https://developer.apple.com/documentation/security/keychain-services/)、[Windows CryptProtectData](https://learn.microsoft.com/windows/win32/api/dpapi/nf-dpapi-cryptprotectdata)。公共加密原语使用 [cryptography-kotlin 0.6.0](https://whyoleg.github.io/cryptography-kotlin/getting-started/) 的 optimal provider，在 JVM/Android 委托 JCA，在 Apple 目标优先委托 CryptoKit；其 AES-GCM 默认格式为随机 IV、密文与认证标签，并支持 AAD。库已锁版本并纳入 SHA-256 dependency verification，但仍须 SBOM、许可证与漏洞审查。
 
+Windows 桌面通过 [JNA 5.18.1](https://java-native-access.github.io/jna/5.18.1/javadoc/overview-summary.html) 调用系统 DPAPI，并设置 `CRYPTPROTECT_UI_FORBIDDEN`，避免后台密钥操作弹出不可控系统提示。JNA/JNI 依赖反射和固定符号名，因此除普通 ProGuard 构建外，还必须直接从混淆后 JAR 执行 DPAPI 往返；该冒烟已捕获并修复一次 JNI 裁剪问题。
+
 ## 设计质量基线
 
 Apple 最新设计原则强调目的、用户自主、责任、熟悉性、灵活性、简洁、工艺和愉悦，并要求每个平台都得到同等关注：[Apple Design Principles](https://developer.apple.com/design/human-interface-guidelines/design-principles)。Apple 也要求尽可能在设备端处理数据、按需请求最少权限，并从一开始考虑可访问性：[Privacy](https://developer.apple.com/design/human-interface-guidelines/privacy/)、[Accessibility](https://developer.apple.com/design/human-interface-guidelines/accessibility/)。

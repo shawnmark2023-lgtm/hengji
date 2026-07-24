@@ -3,6 +3,7 @@ package com.hengji.app.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,6 +28,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -50,7 +54,7 @@ fun BrandBlock(
     ) {
         Image(
             painter = painterResource(Res.drawable.ic_hengji_mark),
-            contentDescription = stringResource(Res.string.app_name),
+            contentDescription = if (compact) stringResource(Res.string.app_name) else null,
             modifier = Modifier.size(42.dp),
         )
         if (!compact) {
@@ -81,37 +85,71 @@ fun ScreenHeader(
     modifier: Modifier = Modifier,
     action: (@Composable () -> Unit)? = null,
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = eyebrow,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Spacer(Modifier.height(HengjiSpacing.xs))
-            Text(text = title, style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.height(HengjiSpacing.xs))
-            Text(
-                text = supporting,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+    val fontScale = LocalDensity.current.fontScale.coerceAtLeast(1f)
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        if (maxWidth / fontScale < 620.dp) {
+            Column {
+                ScreenHeaderCopy(eyebrow, title, supporting)
+                if (action != null) {
+                    Spacer(Modifier.height(HengjiSpacing.md))
+                    Box(Modifier.align(Alignment.End)) {
+                        action()
+                    }
+                }
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ScreenHeaderCopy(
+                    eyebrow = eyebrow,
+                    title = title,
+                    supporting = supporting,
+                    modifier = Modifier.weight(1f),
+                )
+                if (action != null) {
+                    Spacer(Modifier.width(HengjiSpacing.md))
+                    action()
+                }
+            }
         }
-        if (action != null) {
-            Spacer(Modifier.width(HengjiSpacing.md))
-            action()
-        }
+    }
+}
+
+@Composable
+private fun ScreenHeaderCopy(
+    eyebrow: String,
+    title: String,
+    supporting: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier) {
+        Text(
+            text = eyebrow,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Spacer(Modifier.height(HengjiSpacing.xs))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.semantics { heading() },
+        )
+        Spacer(Modifier.height(HengjiSpacing.xs))
+        Text(
+            text = supporting,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
 @Composable
 fun LocalOnlyBadge(modifier: Modifier = Modifier) {
     Surface(
-        modifier = modifier,
+        modifier = modifier.semantics(mergeDescendants = true) {},
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
         shape = CircleShape,
@@ -140,7 +178,7 @@ fun MetricCard(
     accent: Color = MaterialTheme.colorScheme.primary,
 ) {
     Card(
-        modifier = modifier,
+        modifier = modifier.semantics(mergeDescendants = true) {},
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(24.dp),
     ) {
@@ -177,7 +215,7 @@ fun CategoryProgress(
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.primary,
 ) {
-    Column(modifier) {
+    Column(modifier.semantics(mergeDescendants = true) {}) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,

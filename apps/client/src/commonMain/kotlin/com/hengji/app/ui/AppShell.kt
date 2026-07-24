@@ -12,9 +12,11 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -37,7 +39,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -51,27 +56,32 @@ fun AdaptiveAppShell(
     destination: AppDestination,
     onDestinationChange: (AppDestination) -> Unit,
     onAddTransaction: () -> Unit,
+    paneTitle: String = destination.label,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     BoxWithConstraints(modifier.fillMaxSize()) {
+        val effectiveWidth = maxWidth / LocalDensity.current.fontScale.coerceAtLeast(1f)
         when {
-            maxWidth < 700.dp -> CompactShell(
+            effectiveWidth < 700.dp -> CompactShell(
                 destination = destination,
                 onDestinationChange = onDestinationChange,
                 onAddTransaction = onAddTransaction,
+                paneTitle = paneTitle,
                 content = content,
             )
-            maxWidth < 1080.dp -> RailShell(
+            effectiveWidth < 1080.dp -> RailShell(
                 destination = destination,
                 onDestinationChange = onDestinationChange,
                 onAddTransaction = onAddTransaction,
+                paneTitle = paneTitle,
                 content = content,
             )
             else -> ExpandedShell(
                 destination = destination,
                 onDestinationChange = onDestinationChange,
                 onAddTransaction = onAddTransaction,
+                paneTitle = paneTitle,
                 content = content,
             )
         }
@@ -83,6 +93,7 @@ private fun CompactShell(
     destination: AppDestination,
     onDestinationChange: (AppDestination) -> Unit,
     onAddTransaction: () -> Unit,
+    paneTitle: String,
     content: @Composable () -> Unit,
 ) {
     Scaffold(
@@ -98,7 +109,7 @@ private fun CompactShell(
                         icon = {
                             Icon(
                                 imageVector = item.icon,
-                                contentDescription = item.label,
+                                contentDescription = null,
                             )
                         },
                         label = { Text(item.label) },
@@ -123,7 +134,12 @@ private fun CompactShell(
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { innerPadding ->
-        Box(Modifier.fillMaxSize().padding(innerPadding)) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .semantics { this.paneTitle = paneTitle },
+        ) {
             content()
         }
     }
@@ -134,6 +150,7 @@ private fun RailShell(
     destination: AppDestination,
     onDestinationChange: (AppDestination) -> Unit,
     onAddTransaction: () -> Unit,
+    paneTitle: String,
     content: @Composable () -> Unit,
 ) {
     Row(Modifier.fillMaxSize()) {
@@ -156,7 +173,7 @@ private fun RailShell(
                 NavigationRailItem(
                     selected = item == destination,
                     onClick = { onDestinationChange(item) },
-                    icon = { Icon(item.icon, contentDescription = item.label) },
+                    icon = { Icon(item.icon, contentDescription = null) },
                     label = { Text(item.label) },
                 )
             }
@@ -165,7 +182,12 @@ private fun RailShell(
             modifier = Modifier.fillMaxHeight().width(1.dp),
             color = MaterialTheme.colorScheme.outlineVariant,
         )
-        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .semantics { this.paneTitle = paneTitle },
+        ) {
             content()
         }
     }
@@ -176,6 +198,7 @@ private fun ExpandedShell(
     destination: AppDestination,
     onDestinationChange: (AppDestination) -> Unit,
     onAddTransaction: () -> Unit,
+    paneTitle: String,
     content: @Composable () -> Unit,
 ) {
     Row(Modifier.fillMaxSize()) {
@@ -190,7 +213,7 @@ private fun ExpandedShell(
                 Spacer(Modifier.height(HengjiSpacing.xl))
                 Button(
                     onClick = onAddTransaction,
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                     shape = RoundedCornerShape(16.dp),
                     contentPadding = PaddingValues(horizontal = HengjiSpacing.md),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
@@ -204,8 +227,13 @@ private fun ExpandedShell(
                     AppDestination.entries.forEach { item ->
                         val selected = item == destination
                         Surface(
-                            onClick = { onDestinationChange(item) },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = selected,
+                                    role = Role.Tab,
+                                    onClick = { onDestinationChange(item) },
+                                ),
                             shape = RoundedCornerShape(16.dp),
                             color = if (selected) {
                                 MaterialTheme.colorScheme.primaryContainer
@@ -263,7 +291,12 @@ private fun ExpandedShell(
             modifier = Modifier.fillMaxHeight().width(1.dp),
             color = MaterialTheme.colorScheme.outlineVariant,
         )
-        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .semantics { this.paneTitle = paneTitle },
+        ) {
             content()
         }
     }

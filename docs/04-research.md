@@ -38,6 +38,8 @@ Compose Multiplatform 官方当前将 Android、iOS、Desktop UI 标为 Stable�
 
 Tauri 2 也覆盖 Windows、macOS、Android、iOS，但依赖系统 WebView，移动插件需要 Swift/Kotlin 原生实现；本项目对移动原生能力和长期可控性权重更高，因此把 Tauri 保留为备选而不是首选：[Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)、[Tauri mobile plugin](https://v2.tauri.app/develop/plugins/develop-mobile/)。
 
+Gradle 9 的 dependency locking 会把解析版本写入应提交到版本库的 lockfile，`STRICT` 模式会让已启用锁定但缺少锁状态的配置失败；dependency verification 则用 `gradle/verification-metadata.xml` 校验工件内容，两者互补而非替代：[Gradle dependency locking](https://docs.gradle.org/9.3.1/userguide/dependency_locking.html)、[Gradle dependency verification](https://docs.gradle.org/9.3.1/userguide/dependency_verification.html)。本项目采用 SHA-256 完整性校验；官方同时提醒，自动生成元数据只信任生成当时取到的工件，必须审查来源，且校验和本身不等同于发布者身份认证。
+
 ## 设计质量基线
 
 Apple 最新设计原则强调目的、用户自主、责任、熟悉性、灵活性、简洁、工艺和愉悦，并要求每个平台都得到同等关注：[Apple Design Principles](https://developer.apple.com/design/human-interface-guidelines/design-principles)。Apple 也要求尽可能在设备端处理数据、按需请求最少权限，并从一开始考虑可访问性：[Privacy](https://developer.apple.com/design/human-interface-guidelines/privacy/)、[Accessibility](https://developer.apple.com/design/human-interface-guidelines/accessibility/)。

@@ -1,6 +1,7 @@
 package com.hengji.app.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
@@ -21,12 +23,14 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.hengji.app.theme.HengjiSpacing
 import com.hengji.app.ui.components.LocalOnlyBadge
@@ -38,6 +42,8 @@ import com.hengji.app.ui.components.StatusPill
 fun SettingsScreen(
     darkTheme: Boolean,
     onDarkThemeChange: (Boolean) -> Unit,
+    reduceMotion: Boolean = false,
+    onReduceMotionChange: (Boolean) -> Unit = {},
     dataActionStatus: String? = null,
     onExportData: () -> Unit = {},
     onExportCsv: () -> Unit = {},
@@ -46,8 +52,6 @@ fun SettingsScreen(
     onOpenImport: () -> Unit = {},
     storageStatus: String = "内存预览 · 关闭后不保留",
 ) {
-    var reduceMotion by remember { mutableStateOf(false) }
-
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(HengjiSpacing.lg),
@@ -83,28 +87,37 @@ fun SettingsScreen(
                         StatusPill("网络 0 次")
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(HengjiSpacing.sm),
-                    ) {
-                        FilledTonalButton(
-                            onClick = onExportData,
-                            modifier = Modifier.weight(1f),
-                        ) { Text("完整 JSON") }
-                        OutlinedButton(
-                            onClick = onExportCsv,
-                            modifier = Modifier.weight(1f),
-                        ) { Text("流水 CSV") }
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(HengjiSpacing.sm),
-                    ) {
-                        OutlinedButton(onClick = onRestoreData, modifier = Modifier.weight(1f)) { Text("恢复备份") }
-                        OutlinedButton(onClick = onClearData, modifier = Modifier.weight(1f)) { Text("清除数据") }
-                    }
+                    ResponsiveActionPair(
+                        first = {
+                            FilledTonalButton(onClick = onExportData, modifier = Modifier.fillMaxWidth()) {
+                                Text("完整 JSON")
+                            }
+                        },
+                        second = {
+                            OutlinedButton(onClick = onExportCsv, modifier = Modifier.fillMaxWidth()) {
+                                Text("流水 CSV")
+                            }
+                        },
+                    )
+                    ResponsiveActionPair(
+                        first = {
+                            OutlinedButton(onClick = onRestoreData, modifier = Modifier.fillMaxWidth()) {
+                                Text("恢复备份")
+                            }
+                        },
+                        second = {
+                            OutlinedButton(onClick = onClearData, modifier = Modifier.fillMaxWidth()) {
+                                Text("清除数据")
+                            }
+                        },
+                    )
                     dataActionStatus?.let {
-                        Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                        Text(
+                            it,
+                            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
                     }
                 }
             }
@@ -112,7 +125,11 @@ fun SettingsScreen(
         item {
             SectionCard(Modifier.fillMaxWidth()) {
                 Column {
-                    Text("外观与辅助功能", style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        "外观与辅助功能",
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.semantics { heading() },
+                    )
                     Spacer(Modifier.height(HengjiSpacing.sm))
                     SettingSwitchRow(
                         title = "深色外观",
@@ -123,9 +140,9 @@ fun SettingsScreen(
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     SettingSwitchRow(
                         title = "减少动态效果",
-                        supporting = "减少非必要过渡与位移动画",
+                        supporting = "本次使用关闭衡记自定义加载动画；系统界面仍遵循设备设置",
                         checked = reduceMotion,
-                        onCheckedChange = { reduceMotion = it },
+                        onCheckedChange = onReduceMotionChange,
                     )
                 }
             }
@@ -133,7 +150,11 @@ fun SettingsScreen(
         item {
             SectionCard(Modifier.fillMaxWidth()) {
                 Column(verticalArrangement = Arrangement.spacedBy(HengjiSpacing.md)) {
-                    Text("导入与连接器", style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        "导入与连接器",
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.semantics { heading() },
+                    )
                     Text(
                         "所有外部记录先进入预览区，经你确认后才会写入主账本。",
                         style = MaterialTheme.typography.bodyMedium,
@@ -183,7 +204,15 @@ private fun SettingSwitchRow(
     onCheckedChange: (Boolean) -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = HengjiSpacing.sm),
+        modifier = Modifier
+            .fillMaxWidth()
+            .toggleable(
+                value = checked,
+                role = Role.Switch,
+                onValueChange = onCheckedChange,
+            )
+            .semantics(mergeDescendants = true) {}
+            .padding(vertical = HengjiSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
@@ -191,7 +220,31 @@ private fun SettingSwitchRow(
             Text(supporting, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(Modifier.width(HengjiSpacing.md))
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(checked = checked, onCheckedChange = null)
+    }
+}
+
+@Composable
+private fun ResponsiveActionPair(
+    first: @Composable () -> Unit,
+    second: @Composable () -> Unit,
+) {
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val effectiveWidth = maxWidth / LocalDensity.current.fontScale.coerceAtLeast(1f)
+        if (effectiveWidth < 520.dp) {
+            Column(verticalArrangement = Arrangement.spacedBy(HengjiSpacing.sm)) {
+                first()
+                second()
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(HengjiSpacing.sm),
+            ) {
+                androidx.compose.foundation.layout.Box(Modifier.weight(1f)) { first() }
+                androidx.compose.foundation.layout.Box(Modifier.weight(1f)) { second() }
+            }
+        }
     }
 }
 

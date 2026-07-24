@@ -32,6 +32,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hengji.app.model.DemoInsight
@@ -48,6 +51,7 @@ fun InsightsScreen(
     insights: List<DemoInsight>,
     busyDeduplicationKey: String?,
     isResetting: Boolean,
+    reduceMotion: Boolean = false,
     statusMessage: String?,
     onFeedback: (deduplicationKey: String, feedback: InsightFeedback) -> Unit,
     onResetFeedback: () -> Unit,
@@ -71,21 +75,25 @@ fun InsightsScreen(
                         onClick = { showResetConfirmation = true },
                         enabled = !interactionLocked,
                     ) {
-                        if (isResetting) {
+                        if (isResetting && !reduceMotion) {
                             CircularProgressIndicator(
                                 modifier = Modifier.width(18.dp).height(18.dp),
                                 strokeWidth = 2.dp,
                             )
                             Spacer(Modifier.width(HengjiSpacing.xs))
                         }
-                        Text("恢复默认")
+                        Text(if (isResetting) "正在恢复…" else "恢复默认")
                     }
                 },
             )
         }
         statusMessage?.let { message ->
             item {
-                SectionCard(Modifier.fillMaxWidth()) {
+                SectionCard(
+                    Modifier
+                        .fillMaxWidth()
+                        .semantics { liveRegion = LiveRegionMode.Polite },
+                ) {
                     Text(
                         text = message,
                         style = MaterialTheme.typography.bodyMedium,
@@ -97,7 +105,9 @@ fun InsightsScreen(
         item {
             SectionCard(Modifier.fillMaxWidth()) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics { liveRegion = LiveRegionMode.Polite },
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -123,6 +133,7 @@ fun InsightsScreen(
                 insight = insight,
                 busy = busyDeduplicationKey == insight.deduplicationKey,
                 interactionEnabled = !interactionLocked,
+                reduceMotion = reduceMotion,
                 onFeedback = { feedback ->
                     onFeedback(insight.deduplicationKey, feedback)
                 },
@@ -168,6 +179,7 @@ private fun InsightCard(
     insight: DemoInsight,
     busy: Boolean,
     interactionEnabled: Boolean,
+    reduceMotion: Boolean,
     onFeedback: (InsightFeedback) -> Unit,
 ) {
     val accent = when (insight.priority) {
@@ -235,15 +247,19 @@ private fun InsightCard(
             }
             if (busy) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics { liveRegion = LiveRegionMode.Polite },
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.width(20.dp).height(20.dp),
-                        strokeWidth = 2.dp,
-                    )
-                    Spacer(Modifier.width(HengjiSpacing.sm))
+                    if (!reduceMotion) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.width(20.dp).height(20.dp),
+                            strokeWidth = 2.dp,
+                        )
+                        Spacer(Modifier.width(HengjiSpacing.sm))
+                    }
                     Text("正在保存到本机…", style = MaterialTheme.typography.bodyMedium)
                 }
             }

@@ -1,3 +1,5 @@
+import org.gradle.api.artifacts.dsl.LockMode
+
 plugins {
     alias(libs.plugins.androidApplication) apply false
     alias(libs.plugins.androidMultiplatformLibrary) apply false
@@ -11,4 +13,18 @@ plugins {
 allprojects {
     group = "com.hengji"
     version = "0.1.0"
+
+    dependencyLocking {
+        lockAllConfigurations()
+        lockMode = LockMode.STRICT
+    }
+
+    tasks.register("resolveAllDependencies") {
+        notCompatibleWithConfigurationCache("Resolves every resolvable configuration at execution time")
+        doLast {
+            configurations
+                .filter { it.isCanBeResolved }
+                .forEach { it.incoming.resolutionResult.rootComponent.get() }
+        }
+    }
 }

@@ -8,6 +8,27 @@ plugins {
     alias(libs.plugins.composeCompiler)
 }
 
+val desktopDependencyProfile =
+    providers.gradleProperty("hengji.desktopDependencyProfile")
+        .orElse(
+            when {
+                System.getProperty("os.name").startsWith("Windows", ignoreCase = true) -> "windows-x64"
+                System.getProperty("os.name").startsWith("Mac", ignoreCase = true) &&
+                    System.getProperty("os.arch") in setOf("aarch64", "arm64") -> "macos-arm64"
+                System.getProperty("os.name").startsWith("Mac", ignoreCase = true) -> "macos-x64"
+                System.getProperty("os.arch") in setOf("aarch64", "arm64") -> "linux-arm64"
+                else -> "linux-x64"
+            },
+        ).get()
+val composeMultiplatformVersion = libs.versions.compose.asProvider().get()
+
+check(
+    desktopDependencyProfile in
+        setOf("windows-x64", "macos-arm64", "macos-x64", "linux-arm64", "linux-x64"),
+) {
+    "Unsupported desktop dependency profile: $desktopDependencyProfile"
+}
+
 kotlin {
     android {
         namespace = "com.hengji.client"
@@ -64,9 +85,33 @@ kotlin {
         }
 
         desktopMain.dependencies {
-            implementation(compose.desktop.currentOs)
+            implementation(
+                "org.jetbrains.compose.desktop:desktop-jvm-$desktopDependencyProfile:" +
+                    composeMultiplatformVersion,
+            )
             implementation(libs.kotlinx.coroutines.swing)
         }
+    }
+}
+
+dependencyLocking {
+    lockFile = file("gradle-$desktopDependencyProfile.lockfile")
+}
+
+val hostOnlyDevelopmentConfigurations =
+    setOf(
+        "allDevSourceSetsCompileDependenciesMetadata",
+        "composeHotReloadDevDesktopDevRuntimeClasspath",
+        "composeHotReloadDevDesktopRuntimeClasspath",
+        "composeHotReloadDevDesktopTestRuntimeClasspath",
+        "desktopDevCompileClasspath",
+        "desktopDevResolvableDependenciesMetadata",
+        "desktopDevRuntimeClasspath",
+    )
+
+configurations.configureEach {
+    if (name in hostOnlyDevelopmentConfigurations) {
+        resolutionStrategy.deactivateDependencyLocking()
     }
 }
 

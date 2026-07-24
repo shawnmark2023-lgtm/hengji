@@ -1,7 +1,6 @@
 package com.hengji.app.importflow
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -59,6 +58,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
@@ -78,6 +78,7 @@ import com.hengji.connectors.TransactionDirection
 fun ImportWizard(
     state: ImportWizardState,
     onEvent: (ImportFlowEvent) -> Unit,
+    reduceMotion: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -86,7 +87,7 @@ fun ImportWizard(
     ) {
         Column(Modifier.fillMaxSize()) {
             WizardHeader(state = state, onEvent = onEvent)
-            if (state.isBusy) {
+            if (state.isBusy && !reduceMotion) {
                 LinearProgressIndicator(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -109,6 +110,7 @@ fun ImportWizard(
                         WizardContent(
                             state = state,
                             onEvent = onEvent,
+                            reduceMotion = reduceMotion,
                             modifier = Modifier.weight(1f).fillMaxHeight(),
                         )
                     }
@@ -118,6 +120,7 @@ fun ImportWizard(
                         WizardContent(
                             state = state,
                             onEvent = onEvent,
+                            reduceMotion = reduceMotion,
                             modifier = Modifier.weight(1f).fillMaxWidth(),
                         )
                     }
@@ -267,17 +270,22 @@ private fun StepMarker(number: Int, complete: Boolean, current: Boolean) {
 private fun WizardContent(
     state: ImportWizardState,
     onEvent: (ImportFlowEvent) -> Unit,
+    reduceMotion: Boolean,
     modifier: Modifier,
 ) {
-    Column(modifier) {
+    Column(
+        modifier.semantics {
+            paneTitle = "导入中心，第 ${state.step.ordinal + 1} 步：${state.step.label}"
+        },
+    ) {
         state.error?.let { error ->
             ErrorBanner(error = error, onDismiss = { onEvent(ImportFlowEvent.ErrorDismissed) })
         }
         when (state.step) {
-            ImportWizardStep.Source -> SourceStep(state, onEvent)
+            ImportWizardStep.Source -> SourceStep(state, onEvent, reduceMotion)
             ImportWizardStep.Mapping -> MappingStep(state, onEvent)
             ImportWizardStep.Preview -> PreviewStep(state, onEvent)
-            ImportWizardStep.Confirm -> ConfirmStep(state, onEvent)
+            ImportWizardStep.Confirm -> ConfirmStep(state, onEvent, reduceMotion)
             ImportWizardStep.Result -> ResultStep(state, onEvent)
         }
     }
@@ -287,6 +295,7 @@ private fun WizardContent(
 private fun SourceStep(
     state: ImportWizardState,
     onEvent: (ImportFlowEvent) -> Unit,
+    reduceMotion: Boolean,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -351,8 +360,10 @@ private fun SourceStep(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
-                    Spacer(Modifier.width(HengjiSpacing.sm))
+                    if (!reduceMotion) {
+                        CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(HengjiSpacing.sm))
+                    }
                     Text("正在安全读取来源…", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -374,7 +385,6 @@ private fun SourceCard(
         enabled = enabled,
         modifier = Modifier
             .fillMaxWidth()
-            .focusable()
             .semantics {
                 role = Role.Button
                 stateDescription = if (selected) "已选择" else "未选择"
@@ -467,7 +477,18 @@ private fun FieldMappingSelector(
             OutlinedButton(
                 onClick = { expanded = true },
                 enabled = enabled,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 50.dp)
+                    .semantics {
+                        contentDescription = buildString {
+                            append(target.label)
+                            if (target.required) append("，必填")
+                            append("，当前映射：")
+                            append(selectedField ?: "不导入此字段")
+                        }
+                        stateDescription = selectedField ?: "未映射"
+                    },
             ) {
                 Text(
                     selectedField ?: "不导入此字段",
@@ -485,6 +506,7 @@ private fun FieldMappingSelector(
                 if (!target.required) {
                     DropdownMenuItem(
                         text = { Text("不导入此字段") },
+                        modifier = Modifier.semantics { selected = selectedField == null },
                         onClick = {
                             onSelected(null)
                             expanded = false
@@ -494,6 +516,7 @@ private fun FieldMappingSelector(
                 availableFields.forEach { field ->
                     DropdownMenuItem(
                         text = { Text(field) },
+                        modifier = Modifier.semantics { selected = selectedField == field },
                         onClick = {
                             onSelected(field)
                             expanded = false
@@ -606,11 +629,24 @@ private fun PreviewCandidateCard(
         CandidateStatus.DUPLICATE -> "重复项，已跳过"
         CandidateStatus.INVALID -> "存在错误，不能导入"
     }
+    val transactionSummary = candidate.transaction?.let { transaction ->
+        listOfNotNull(
+            transaction.merchant,
+            formatImportedAmount(transaction.amountMinor, transaction.currency, transaction.direction),
+            transaction.occurredAt,
+            transaction.category,
+        ).joinToString("，")
+    } ?: "交易字段未能解析"
+    val issueSummary = candidate.issues
+        .joinToString(separator = "；", prefix = if (candidate.issues.isEmpty()) "" else "，问题：") {
+            friendlyIssue(it)
+        }
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .semantics(mergeDescendants = true) {
-                contentDescription = "第 ${candidate.sourceRowNumber} 行，$statusText"
+                contentDescription =
+                    "第 ${candidate.sourceRowNumber} 行，$statusText，$transactionSummary$issueSummary"
                 stateDescription = statusText
             },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -688,6 +724,7 @@ private fun PreviewCandidateCard(
 private fun ConfirmStep(
     state: ImportWizardState,
     onEvent: (ImportFlowEvent) -> Unit,
+    reduceMotion: Boolean,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -724,7 +761,7 @@ private fun ConfirmStep(
                 enabled = state.canCommit,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
             ) {
-                if (state.isBusy) {
+                if (state.isBusy && !reduceMotion) {
                     CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                     Spacer(Modifier.width(HengjiSpacing.sm))
                 }

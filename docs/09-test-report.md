@@ -6,12 +6,14 @@
 
 | 门禁 | 结果 | 证据 |
 | --- | --- | --- |
+| Gradle 依赖完整性 | 主构建与 quality harness 的 strict 全配置解析通过 | 14 个 lockfile、2 份 SHA-256 verification metadata；`apps/client` 按 5 个桌面 OS/架构 profile 锁定；远端 Linux/macOS CI 尚未产生通过记录 |
 | Kotlin Desktop | 87/87 通过，0 failure/error/skip | client 30、core-domain 12、core-data 20、core-insights 17、connectors 8 |
 | Room 持久层 | core-data 20/20；其中 Room Desktop 6/6 | 9 表 schema v2、事务写入、显式 1→2 迁移、洞察偏好覆盖/重置/跨重启、25 MiB 上限、production fail-closed |
 | Android | Debug APK 构建通过 | `:apps:client:androidApp:assembleDebug` |
 | Android 签名 | v2 验证通过，1 个 signer | `CN=Android Debug`；不是生产发布签名，未做设备安装/启动 |
 | iOS 交叉编译 | 元数据、arm64 与 simulator arm64 Kotlin klib 编译通过 | 覆盖系统文件选择、协调有界读取与临时导出；不是 Xcode 链接、模拟器/真机或签名证据 |
-| 架构与发布守卫 | 30/30、183/183 通过 | 依赖方向、secret、沙箱/production 标签与禁止行为扫描 |
+| 代码级无障碍 | Desktop/Android/iOS 公共 UI 编译通过 | 导航/表单/开关/导入/状态语义、大字体重排与 Reduce Motion；不是 VoiceOver/TalkBack/Narrator 或仅键盘实机证据 |
+| 架构与发布守卫 | 30/30、206/206 通过 | 依赖方向、secret、沙箱/production 标签与禁止行为扫描 |
 | 畸形导入 | 8/8 通过 | 引号未闭合、错列、重复表头、嵌套 JSON、行/文件上限、空必填、BOM/Unicode |
 | 10 万流水开发基线 | 4/4 通过 | 100,000 行，109 ms，内存增量 43.75 MiB；不是代表性设备/加密数据库证据 |
 | Connector gateway | 4/4 通过；`npm audit` 0 vulnerability | state 一次性/过期、沙箱非实时、production fail-closed |
@@ -21,18 +23,22 @@
 主要命令：
 
 ```powershell
+.\gradlew.bat resolveAllDependencies --dependency-verification strict --no-configuration-cache --no-daemon
+.\gradlew.bat -p quality\harness resolveAllDependencies --dependency-verification strict --no-configuration-cache --no-daemon
 .\gradlew.bat desktopTest --no-daemon
-.\gradlew.bat :apps:client:androidApp:assembleDebug --no-daemon
+.\gradlew.bat :apps:client:androidApp:assembleDebug :apps:client:proguardReleaseJars :apps:client:compileKotlinIosArm64 :apps:client:compileKotlinIosSimulatorArm64 --dependency-verification strict --no-configuration-cache --no-daemon
 .\gradlew.bat :apps:client:compileIosMainKotlinMetadata --no-daemon --rerun-tasks
-.\gradlew.bat :apps:client:compileKotlinIosArm64 :apps:client:compileKotlinIosSimulatorArm64 --no-daemon --rerun-tasks
 python scripts/quality/run_quality.py --output-dir quality/evidence
-.\gradlew.bat :apps:client:proguardReleaseJars --no-daemon
 Push-Location services\connector-gateway; npm test; npm audit --audit-level=high; Pop-Location
 Push-Location services\price-intelligence; python -m pytest -q; Pop-Location
 apksigner verify --verbose --print-certs artifacts\hengji-android-debug.apk
 ```
 
+依赖锁由 Gradle 内建 dependency locking 生成并以 `STRICT` 模式执行；verification metadata 校验依赖和插件工件的 SHA-256。`apps/client` 的发行桌面依赖按 `windows-x64`、`linux-x64`、`linux-arm64`、`macos-x64`、`macos-arm64` 分档，避免 `desktop-jvm-*` 与 Skiko 原生运行时在不同宿主间互相污染锁状态。Compose Hot Reload 自动创建的宿主开发配置不参与版本锁，但下载工件仍受 verification metadata 约束；它们不是发行或测试运行时。校验元数据证明内容完整性，不证明发布者身份，也不替代 SBOM、许可证或漏洞审查。当前只在 Windows 完成严格解析及实际 Desktop/Android/iOS 交叉编译；仓库已配置 Linux/macOS CI，但尚无本轮远端通过记录，因此 `FND-003` 仍保持 `PARTIAL`。
+
 本工作树路径包含中文字符，当前 Windows Gradle Test Worker 会把该路径错误编码并导致测试类加载失败；因此本轮 `desktopTest --rerun-tasks` 在同一源码状态的 ASCII 隔离副本中执行。生产源码路径上的 Desktop/Android/iOS 元数据编译及 Android APK 构建均直接通过。
+
+无障碍本轮只取得代码审查、公共源码编译和既有单元测试证据。尚未在 macOS/iOS 上运行 VoiceOver，也未在 Android 上运行 TalkBack、在 Windows 上运行 Narrator 或完成仅键盘/高对比度矩阵，因此 `UX-008` 与 `QA-005` 均保持 `PARTIAL`。
 
 Windows MSI 在 21:07（Asia/Shanghai）用 JDK 21 `jpackage` 与便携 WiX Toolset 3.14 重建；本轮实际命令为：
 

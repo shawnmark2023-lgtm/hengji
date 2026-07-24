@@ -6,9 +6,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
@@ -27,6 +31,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.hengji.app.application.AppLedgerGateway
 import com.hengji.app.application.InsightFeedbackReducer
@@ -113,6 +120,7 @@ fun HengjiApp(
 ) {
     var destination by rememberSaveable { mutableStateOf(AppDestination.Overview) }
     var darkThemeOverride by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    var reduceMotion by rememberSaveable { mutableStateOf(false) }
     var showAddTransaction by rememberSaveable { mutableStateOf(false) }
     var showAddAsset by rememberSaveable { mutableStateOf(false) }
     var showImportWizard by rememberSaveable { mutableStateOf(false) }
@@ -236,6 +244,7 @@ fun HengjiApp(
         Surface(color = MaterialTheme.colorScheme.background) {
             AdaptiveAppShell(
                 destination = destination,
+                paneTitle = if (showImportWizard) "导入中心" else destination.label,
                 onDestinationChange = {
                     showImportWizard = false
                     destination = it
@@ -243,7 +252,11 @@ fun HengjiApp(
                 onAddTransaction = { showAddTransaction = true },
             ) {
                 if (showImportWizard) {
-                    ImportWizard(state = importHost.state, onEvent = importHost.dispatch)
+                    ImportWizard(
+                        state = importHost.state,
+                        onEvent = importHost.dispatch,
+                        reduceMotion = reduceMotion,
+                    )
                 } else when (destination) {
                     AppDestination.Overview -> OverviewScreen(
                         transactions = transactions,
@@ -277,6 +290,7 @@ fun HengjiApp(
                         insights = insights,
                         busyDeduplicationKey = insightFeedbackBusyKey,
                         isResetting = insightFeedbackResetting,
+                        reduceMotion = reduceMotion,
                         statusMessage = insightFeedbackStatus,
                         onFeedback = { deduplicationKey, feedback ->
                             val updatedAt = Clock.System.now().toEpochMilliseconds()
@@ -312,6 +326,8 @@ fun HengjiApp(
                     AppDestination.Settings -> SettingsScreen(
                         darkTheme = darkTheme,
                         onDarkThemeChange = { darkThemeOverride = it },
+                        reduceMotion = reduceMotion,
+                        onReduceMotionChange = { reduceMotion = it },
                         dataActionStatus = dataActionStatus,
                         onExportData = {
                             mutate {
@@ -529,6 +545,7 @@ private fun AddTransactionDialog(
     var amount by remember(initialAmount) { mutableStateOf(initialAmount) }
     var category by remember(initialCategory) { mutableStateOf(initialCategory) }
     val amountMinor = parseMoneyToMinor(amount)
+    val amountError = amount.isNotEmpty() && (amountMinor == null || amountMinor <= 0)
     val valid = merchant.isNotBlank() && amountMinor != null && amountMinor > 0
 
     AlertDialog(
@@ -536,6 +553,9 @@ private fun AddTransactionDialog(
         title = { Text(title) },
         text = {
             androidx.compose.foundation.layout.Column(
+                modifier = Modifier
+                    .heightIn(max = 520.dp)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Text(
@@ -547,18 +567,26 @@ private fun AddTransactionDialog(
                     value = merchant,
                     onValueChange = { merchant = it },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("商户或用途") },
+                    label = { Text("商户或用途（必填）") },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 )
                 OutlinedTextField(
                     value = amount,
                     onValueChange = { amount = it.filter { char -> char.isDigit() || char == '.' } },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("金额") },
+                    label = { Text("金额（必填）") },
                     prefix = { Text("¥") },
                     singleLine = true,
+                    isError = amountError,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Decimal,
+                        imeAction = ImeAction.Done,
+                    ),
                     supportingText = {
-                        if (amount.isNotEmpty() && amountMinor == null) Text("请输入最多两位小数")
+                        if (amountError) {
+                            Text(if (amountMinor == null) "请输入最多两位小数" else "金额必须大于 0")
+                        }
                     },
                 )
                 Row(
@@ -599,6 +627,8 @@ private fun AddAssetDialog(
     var recordExpense by remember { mutableStateOf(true) }
     val purchaseMinor = parseMoneyToMinor(purchaseAmount)
     val estimatedMinor = if (estimatedAmount.isBlank()) null else parseMoneyToMinor(estimatedAmount)
+    val purchaseError = purchaseAmount.isNotEmpty() && (purchaseMinor == null || purchaseMinor <= 0)
+    val estimatedError = estimatedAmount.isNotEmpty() && (estimatedMinor == null || estimatedMinor < 0)
     val valid = name.isNotBlank() && purchaseMinor != null && purchaseMinor > 0 &&
         (estimatedAmount.isBlank() || estimatedMinor != null && estimatedMinor >= 0)
 
@@ -607,6 +637,9 @@ private fun AddAssetDialog(
         title = { Text("新增物品") },
         text = {
             androidx.compose.foundation.layout.Column(
+                modifier = Modifier
+                    .heightIn(max = 520.dp)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Text(
@@ -618,8 +651,9 @@ private fun AddAssetDialog(
                     value = name,
                     onValueChange = { name = it.take(100) },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("产品名称") },
+                    label = { Text("产品名称（必填）") },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -637,9 +671,19 @@ private fun AddAssetDialog(
                     value = purchaseAmount,
                     onValueChange = { purchaseAmount = it.filter { char -> char.isDigit() || char == '.' } },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("购买价格") },
+                    label = { Text("购买价格（必填）") },
                     prefix = { Text("¥") },
                     singleLine = true,
+                    isError = purchaseError,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Decimal,
+                        imeAction = ImeAction.Next,
+                    ),
+                    supportingText = {
+                        if (purchaseError) {
+                            Text(if (purchaseMinor == null) "请输入最多两位小数" else "购买价格必须大于 0")
+                        }
+                    },
                 )
                 OutlinedTextField(
                     value = estimatedAmount,
@@ -648,16 +692,32 @@ private fun AddAssetDialog(
                     label = { Text("当前手工估值（可选）") },
                     prefix = { Text("¥") },
                     singleLine = true,
+                    isError = estimatedError,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Decimal,
+                        imeAction = ImeAction.Done,
+                    ),
+                    supportingText = {
+                        if (estimatedError) {
+                            Text(if (estimatedMinor == null) "请输入最多两位小数" else "估值不能小于 0")
+                        }
+                    },
                 )
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .toggleable(
+                            value = recordExpense,
+                            role = Role.Switch,
+                            onValueChange = { recordExpense = it },
+                        ),
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                 ) {
                     androidx.compose.foundation.layout.Column(Modifier.weight(1f)) {
                         Text("同时记入消费流水", style = MaterialTheme.typography.titleMedium)
                         Text("可在流水页继续编辑商户和分类", style = MaterialTheme.typography.bodySmall)
                     }
-                    Switch(checked = recordExpense, onCheckedChange = { recordExpense = it })
+                    Switch(checked = recordExpense, onCheckedChange = null)
                 }
             }
         },

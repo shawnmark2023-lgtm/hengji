@@ -6,7 +6,7 @@
 
 - [x] `FND-001` P0 建立 Kotlin Multiplatform + Compose Multiplatform 工程，目标 Android/iOS/Windows/macOS。
 - [x] `FND-002` P0 分层与自动化依赖方向检查已建立，领域层禁止 Compose/SQL/HTTP/文件系统依赖。
-- [ ] `FND-003` P0 版本目录、Gradle Wrapper 与 JDK 21 基线已统一；依赖锁和 verification metadata 未完成，暂不声明可复现构建门禁通过。
+- [ ] `FND-003` P0 版本目录、Gradle Wrapper、JDK 21、严格依赖锁与 SHA-256 verification metadata 已统一；本地全配置解析与宿主编译通过，仍待干净 CI 连续构建及产物清单一致性证据。
 - [ ] `FND-004` P0 单元测试、架构/secret/沙箱门禁与依赖审计已建立；统一格式化和覆盖率阈值仍待完成。
 - [x] `FND-005` P0 建立 Windows/Linux 构建 CI；预留 macOS/iOS 签名 CI。
 - [x] `FND-006` P0 建立设计 token、图标、排版、间距、深浅色主题。
@@ -32,7 +32,7 @@
 - [x] `UX-005` P0 二手比价界面，严格区分示例/手工/实时来源。
 - [ ] `UX-006` P0 Desktop/Android 已有来源 → 映射 → 预览去重 → 确认 → 可撤销结果；iOS 系统文件选择适配器已实现并交叉编译，待 macOS 模拟器/真机验收。
 - [ ] `UX-007` P0 四端已有本地模式；Desktop/Android 落盘已验证，iOS JSON/CSV 导出与 JSON 恢复适配器已实现并交叉编译，待 Xcode/真机验收。
-- [ ] `UX-008` P0 无障碍语义、键盘导航、焦点、对比度、减少动态效果。
+- [ ] `UX-008` P0 已补齐主要表单/导航/状态语义、字体缩放重排与 Reduce Motion 行为；仍待四平台屏幕阅读器、键盘焦点和对比度实机验收。
 - [ ] `UX-009` P1 小组件、快捷记账、分享扩展、桌面快捷键。
 
 ## D. 智能分析
@@ -80,7 +80,7 @@
 - [x] `QA-002` P0 重复、公式注入、文件上限、BOM/Unicode、错列、空值、嵌套 JSON 和回滚矩阵通过。
 - [ ] `QA-003` P0 记一笔、跨重启持久化、完整导入与整批撤销、洞察采纳/忽略/稍后与恢复确认已真实 UI 实跑；其余流程与自动化 UI 套件仍待补齐。
 - [x] `QA-004` P0 Desktop 编译/运行与 Android APK 通过；iOS/macOS 目标交由 macOS CI 验证。
-- [ ] `QA-005` P0 无障碍与键盘验收、200% 字体/缩放、深浅色、窄/宽窗口。
+- [ ] `QA-005` P0 代码级语义、响应式重排与减少动态效果已完成；无障碍与键盘验收、200% 字体/缩放、深浅色及窄/宽窗口矩阵仍待执行。
 - [ ] `QA-006` P1 10 万流水开发/CI 基线已通过；代表性低端设备、加密持久层与完整 UI 性能仍待验证。
 - [ ] `QA-007` P2 上线安全审查、渗透测试、备份恢复和商店审核演练。
 
@@ -90,12 +90,12 @@
 
 | ID | 状态 | 关键依赖 | 可量化验收 |
 | --- | --- | --- | --- |
-| FND-003 | PARTIAL | Gradle dependency locking、verification metadata | 全部可解析配置有锁；校验元数据入库；干净环境连续两次构建依赖与产物清单一致 |
+| FND-003 | PARTIAL | 远端 dependency-integrity CI、可复现产物清单 | 主构建与独立 quality harness 严格解析通过；桌面发行配置按 Windows/Linux/macOS 架构分档锁定；仅宿主相关的 Compose Hot Reload 开发配置不锁版本但仍做 SHA-256 校验；干净环境连续两次构建依赖与产物清单一致 |
 | FND-004 | PARTIAL | formatter、coverage engine | Kotlin/TS/Python 格式化检查为 0；核心领域与导入模块达到约定分支覆盖率，CI 失败时阻断 |
 | DAT-004 | PARTIAL | Keychain/Keystore/DPAPI、加密实现 | 四平台密钥不可导出；明文→密文迁移、错误密钥、恢复、轮换和崩溃恢复测试通过 |
 | UX-006 | PARTIAL | macOS/Xcode runner、iOS simulator/device evidence | iOS 真机选择 CSV/JSON，完成映射/预览/提交/重复重试/整批撤销，全程不申请无关权限 |
 | UX-007 | PARTIAL | macOS/Xcode runner、iOS simulator/device evidence | iOS 真机导出 JSON/CSV 到用户选定位置并从 JSON 恢复；清除后重启仍为空 |
-| UX-008 | TODO | semantics、focus order、contrast audit | VoiceOver/TalkBack/Narrator、仅键盘、200% 字体、深浅色和 Reduce Motion 清单 100% 通过 |
+| UX-008 | PARTIAL | platform screen readers、focus order、contrast audit | 主要交互已有角色/选中/标题/状态语义，表单错误可读，200% 字体可重排，Reduce Motion 可抑制不确定动画；VoiceOver/TalkBack/Narrator、仅键盘、深浅色和对比度清单仍须 100% 通过 |
 | UX-009 | TODO | platform widgets/extensions | 至少 Android/iOS 各 1 个快捷记账入口、桌面全局快捷键冲突策略与撤销路径通过 |
 | INS-006 | TODO | consent UI、aggregate contract、model provider | 默认零外发；只发送白名单聚合；撤回同意立即停用；离线规则结果保持可用 |
 | IMP-005 | TODO | OCR/PDF parser、review UI | 20 份脱敏样本字段召回率达到目标；所有低置信度字段必须人工确认后才可提交 |
@@ -110,7 +110,7 @@
 | SEC-006 | TODO | E2EE protocol、sync engine | 双设备离线冲突、密钥轮换、恢复短语、灾难恢复和服务端不可读性测试通过 |
 | REL-001 | TODO | Apple/Google/Microsoft signing accounts | 四平台生产签名、隐私声明、公证/商店审查、分阶段发布和一键回滚演练通过 |
 | QA-003 | PARTIAL | UI automation harness、platform runners | 记账/物品/洞察/导入/导出/恢复/清除在每个平台自动化通过；失败保留截图与隔离数据目录 |
-| QA-005 | TODO | accessibility tooling、device matrix | UX-008 全矩阵通过且无 P0/P1 可访问性缺陷 |
+| QA-005 | PARTIAL | accessibility tooling、device matrix | UX-008 全矩阵通过且无 P0/P1 可访问性缺陷 |
 | QA-006 | PARTIAL | encrypted DB、representative low-end devices | 10 万流水首次载入/筛选/导入峰值分别低于预算，内存不超阈值，三次运行取中位数 |
 | QA-007 | TODO | external security review、store dry run | 高危漏洞为 0；加密备份恢复成功；四平台审核材料与回滚桌面演练签字完成 |
 

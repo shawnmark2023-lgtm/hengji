@@ -45,8 +45,11 @@ This is a real cryptographic primitive, but it does **not** make the current Roo
 fall back to plaintext. `WindowsDpapiDatabaseKeyProvider` now provisions a 256-bit data key, protects it with
 current-user DPAPI, stores only a versioned protected blob, and refuses to replace corrupt or unreadable material.
 The key alias and blob format are bound as DPAPI optional entropy, so swapping protected blobs between aliases also
-fails closed. Android Keystore, Apple Keychain, plaintext-to-ciphertext migration, and repository wiring are still
-required before `REQUIRE_APPLICATION_ENCRYPTION` can be enabled.
+fails closed. `AndroidKeystoreDatabaseKeyProvider` uses a non-exportable AES-256-GCM wrapping key from
+`AndroidKeyStore`, stores the authenticated data-key envelope under `noBackupFilesDir`, binds the alias and format as
+AAD, and publishes the envelope without replacing an existing file. A corrupt or swapped envelope and an unavailable
+wrapping key fail closed. Apple Keychain, plaintext-to-ciphertext migration, and repository wiring are still required
+before `REQUIRE_APPLICATION_ENCRYPTION` can be enabled.
 
 ## Verification
 
@@ -54,7 +57,9 @@ From the repository root:
 
 ```text
 ./gradlew :modules:core-data:desktopTest --configure-on-demand --no-configuration-cache
+./gradlew :modules:core-data:testAndroidHostTest --configure-on-demand
 ./gradlew :modules:core-data:compileAndroidMain :modules:core-data:compileIosMainKotlinMetadata --configure-on-demand
 ```
 
-Native iOS simulator tests require a macOS host.
+Android host tests exercise the vault lifecycle with an injected authenticated protector; a device/emulator is still
+required to exercise the real `AndroidKeyStore` provider. Native iOS simulator tests require a macOS host.

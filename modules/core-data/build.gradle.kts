@@ -13,6 +13,7 @@ kotlin {
         namespace = "com.hengji.data"
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
+        withHostTestBuilder {}.configure {}
         compilerOptions {
             jvmTarget = JvmTarget.JVM_21
         }
@@ -39,6 +40,12 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+        }
+        val androidHostTest by getting {
+            dependencies {
+                implementation(libs.kotlin.test)
+                implementation(libs.kotlinx.coroutines.test)
+            }
         }
         val desktopMain by getting {
             dependencies {

@@ -20,6 +20,7 @@ IGNORED_PARTS = {
     ".kotlin",
     "build",
     "dist",
+    "evidence",
     "node_modules",
     "__pycache__",
 }

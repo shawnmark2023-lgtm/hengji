@@ -44,6 +44,8 @@ Gradle 9 的 dependency locking 会把解析版本写入应提交到版本库的
 
 Windows 桌面通过 [JNA 5.18.1](https://java-native-access.github.io/jna/5.18.1/javadoc/overview-summary.html) 调用系统 DPAPI，并设置 `CRYPTPROTECT_UI_FORBIDDEN`，避免后台密钥操作弹出不可控系统提示。JNA/JNI 依赖反射和固定符号名，因此除普通 ProGuard 构建外，还必须直接从混淆后 JAR 执行 DPAPI 往返；该冒烟已捕获并修复一次 JNI 裁剪问题。
 
+Android 数据密钥由 `AndroidKeyStore` 中不可导出的 AES-256-GCM 包装密钥保护，保护物放在系统明确排除自动备份的 [`noBackupFilesDir`](https://developer.android.com/identity/data/autobackup)，避免恢复到缺少原设备 Keystore 密钥的新设备。保护物以版本、别名 AAD 做认证绑定并采用“仅在目标不存在时发布”，既有保护物损坏、被串换或包装密钥丢失时不会静默生成新数据密钥。主机测试只验证可注入的保护物生命周期；真实 Keystore、卸载/恢复与锁屏行为仍必须由 Android 设备测试提供证据。
+
 ## 设计质量基线
 
 Apple 最新设计原则强调目的、用户自主、责任、熟悉性、灵活性、简洁、工艺和愉悦，并要求每个平台都得到同等关注：[Apple Design Principles](https://developer.apple.com/design/human-interface-guidelines/design-principles)。Apple 也要求尽可能在设备端处理数据、按需请求最少权限，并从一开始考虑可访问性：[Privacy](https://developer.apple.com/design/human-interface-guidelines/privacy/)、[Accessibility](https://developer.apple.com/design/human-interface-guidelines/accessibility/)。

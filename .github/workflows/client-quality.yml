@@ -55,7 +55,7 @@ jobs:
           if-no-files-found: ignore
 
   android-debug:
-    name: Android debug compile
+    name: Android host tests and debug compile
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -69,19 +69,20 @@ jobs:
         with:
           python-version: "3.12"
       - uses: android-actions/setup-android@v3
-      - name: Assemble Android debug APK
+      - name: Test Android data boundary and assemble debug APK
         run: |
           echo "GATE_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
-          ./gradlew :apps:client:androidApp:assembleDebug --stacktrace
+          ./gradlew :modules:core-data:testAndroidHostTest :apps:client:androidApp:assembleDebug --stacktrace
       - name: Record passed Android evidence
         run: |
           python scripts/quality/generate_evidence.py \
             --gate android-debug \
             --status passed \
-            --command "./gradlew :apps:client:androidApp:assembleDebug --stacktrace" \
+            --command "./gradlew :modules:core-data:testAndroidHostTest :apps:client:androidApp:assembleDebug --stacktrace" \
             --started-at "$GATE_STARTED_AT" \
+            --junit-glob "modules/core-data/build/test-results/testAndroidHostTest/TEST-*.xml" \
             --artifact apps/client/androidApp/build/outputs/apk/debug/androidApp-debug.apk \
-            --limitation "Debug compile only; not signing, installation, upgrade, Play review, or representative-device evidence" \
+            --limitation "Host tests use an injected protector; real device Keystore, production signing, installation, upgrade, and Play review remain unverified" \
             --output quality-evidence/android-debug.json
       - name: Upload Android artifact and evidence
         if: always()

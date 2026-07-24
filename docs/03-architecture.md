@@ -57,14 +57,14 @@ hengji/
 
 ## 5. 数据与同步
 
-首版采用 Local-first：生产应用入口使用 Room KMP 2.8.4 + bundled SQLite 2.7.0，本地测试仍可注入内存仓储；网络连接器不是核心体验前置条件。数据库通过平台工厂创建，UI 只依赖 suspend 应用网关，任何 SQL/磁盘操作都不在 Compose 主线程直接执行。
+首版采用 Local-first：UI 只依赖 suspend 仓储/应用网关，本地测试仍可注入内存仓储，网络连接器不是核心体验前置条件。Desktop 生产入口使用平台密钥保护的 AES-256-GCM 账本信封；Room KMP 2.8.4 + bundled SQLite 2.7.0 保留为 Desktop 旧库迁移源和 Android/iOS 明文开发入口。持久化工厂均在平台组合根创建，领域层不引用 SQL、文件系统或平台 SDK。
 
-- 每个写操作由应用网关/use case 管理，导入与资产+购买流水等复合操作由 Room `@Transaction` 原子提交。
+- 每个写操作由应用网关/use case 管理；受保护仓储在认证加密与原子 CAS 成功后才发布内存状态，Room 开发/迁移实现则用 `@Transaction` 原子提交导入与资产+购买流水等复合操作。
 - 导入数据携带稳定指纹，防止重复。
 - 删除默认软删除并提供短期撤销；“彻底清除”执行物理删除。
 - JSON 导出格式带 `schemaVersion`，当前验证 v0→v1；恢复前有 25 MiB 上限和结构校验。
 - 后续同步使用操作日志或版本向量，不做数据库文件级覆盖。
-- `RoomStoragePolicy.REQUIRE_ENCRYPTED_PRODUCTION` 在没有真实加密实现时 fail-closed；当前可运行开发包明确使用 `ALLOW_UNENCRYPTED_DEVELOPMENT`，不能据此声明 Beta 加密门禁已完成。
+- `RoomStoragePolicy.REQUIRE_ENCRYPTED_PRODUCTION` 对直接 Room 生产入口继续 fail-closed；Desktop 组合根绕过明文 Room 工厂并只打开受保护仓储。Android/iOS 当前可运行开发包仍明确使用 `ALLOW_UNENCRYPTED_DEVELOPMENT`，不能据此声明跨平台 Beta 加密门禁已完成。
 
 ## 6. 分析系统
 

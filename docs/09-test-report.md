@@ -7,19 +7,19 @@
 | 门禁 | 结果 | 证据 |
 | --- | --- | --- |
 | Gradle 依赖完整性 | 主构建与 quality harness 的 strict 全配置解析通过 | 14 个 lockfile、2 份 SHA-256 verification metadata；`apps/client` 按 5 个桌面 OS/架构 profile 锁定；远端 Linux/macOS CI 尚未产生通过记录 |
-| Kotlin Desktop | 109/109 通过，0 failure/error/skip | client 30、core-domain 12、core-data 42、core-insights 17、connectors 8 |
+| Kotlin Desktop | 110/110 通过，0 failure/error/skip | client 30、core-domain 12、core-data 43、core-insights 17、connectors 8 |
 | Room 持久层 | core-data 20/20；其中 Room Desktop 6/6 | 9 表 schema v2、事务写入、显式 1→2 迁移、洞察偏好覆盖/重置/跨重启、25 MiB 上限、production fail-closed |
 | Android | Debug APK 构建通过 | `:apps:client:androidApp:assembleDebug` |
 | Android 签名 | v2 验证通过，1 个 signer | `CN=Android Debug`；不是生产发布签名，未做设备安装/启动 |
 | iOS 交叉编译 | 元数据、arm64 与 simulator arm64 Kotlin klib 编译通过 | 覆盖系统文件选择、协调有界读取与临时导出；不是 Xcode 链接、模拟器/真机或签名证据 |
-| 受保护账本 | 20/20 通过 | 6 个密码边界、7 个 copy-on-write/CAS/迁移冲突用例、4 个 JVM 原子文件用例、3 个 Desktop Room 退役恢复用例；失败写入不发布内存、取消窗口不遗留本实例状态、明密文分叉保留源库 |
-| Windows 密钥保护 | DPAPI 4/4 通过；混淆后发布 JAR 真实往返通过 | 当前用户绑定、并发首次创建收敛、跨实例重载、别名/格式 entropy 绑定、保护物交换拒绝、磁盘无原始密钥、损坏不覆盖、非法别名拒绝；已接入 Desktop 受保护仓储工厂，但应用入口尚未切换 |
+| 受保护账本 | 21/21 通过 | 6 个密码边界、7 个 copy-on-write/CAS/迁移冲突用例、4 个 JVM 原子文件用例、3 个 Desktop Room 退役恢复用例、1 个 Desktop 工厂真实 DPAPI 跨实例往返；失败写入不发布内存、取消窗口不遗留本实例状态、明密文分叉保留源库 |
+| Windows 密钥保护 | DPAPI 4/4 通过；Desktop 工厂与混淆后发布 JAR 真实往返通过 | 当前用户绑定、并发首次创建收敛、跨实例重载、别名/格式 entropy 绑定、保护物交换拒绝、磁盘无原始密钥、损坏不覆盖、非法别名拒绝；Desktop 应用入口已 fail-closed 切换到受保护仓储 |
 | Android 密钥保护 | 既有 Android host 22/22，其中保护物生命周期 4/4 | 非导出 Keystore AES-256-GCM 包装密钥、no-backup 保护物、版本/别名 AAD、并发首建、损坏/串换/缺钥不覆盖；新增原子密文文件与 3 个 host 用例本轮因本机无已授权 Android SDK 未执行，仍需补跑 |
 | Apple 密钥保护 | iOS arm64/simulator arm64 与 macOS JVM 源码编译通过；macOS 混淆产物符号/非宿主保护检查通过 | iOS/macOS 使用不同步、`WhenUnlockedThisDeviceOnly` Generic Password；iOS 原子协调密文文件与 fail-closed 工厂已交叉编译；Windows 未执行真实 `SecItem*`、文件协调、签名身份、锁屏或卸载验证 |
 | 代码级无障碍 | Desktop/Android/iOS 公共 UI 编译通过 | 导航/表单/开关/导入/状态语义、大字体重排与 Reduce Motion；不是 VoiceOver/TalkBack/Narrator 或仅键盘实机证据 |
-| 架构与发布守卫 | 30/30、218/218 通过 | 依赖方向、secret、沙箱/production 标签与禁止行为扫描；生成的 `quality/evidence` 已从源码计数排除，重复运行计数稳定 |
+| 架构与发布守卫 | 30/30、219/219 通过 | 依赖方向、secret、沙箱/production 标签与禁止行为扫描；生成的 `quality/evidence` 已从源码计数排除，重复运行计数稳定 |
 | 畸形导入 | 8/8 通过 | 引号未闭合、错列、重复表头、嵌套 JSON、行/文件上限、空必填、BOM/Unicode |
-| 10 万流水开发基线 | 4/4 通过 | 100,000 行，97 ms，内存增量 43.23 MiB；不是代表性设备或加密持久仓储证据 |
+| 10 万流水开发基线 | 4/4 通过 | 100,000 行，95 ms，内存增量 43.35 MiB；不是代表性设备或加密持久仓储证据 |
 | Connector gateway | 4/4 通过；`npm audit` 0 vulnerability | state 一次性/过期、沙箱非实时、production fail-closed |
 | Price intelligence | 3/3 通过 | 中位数/四分位、离群过滤、新鲜度与低置信度行为 |
 | Release 混淆 | 本轮 `proguardReleaseJars` 构建通过；DPAPI 从混淆后 JAR 往返通过；macOS Keychain/CoreFoundation ABI 名称保留；既有 Release 实跑通过 | 保留 Room/领域 ABI、SQLite JNI、加密 provider 服务及 Windows/macOS JNA native 符号；macOS 真实往返仍需 macOS |
@@ -41,7 +41,9 @@ apksigner verify --verbose --print-certs artifacts\hengji-android-debug.apk
 
 依赖锁由 Gradle 内建 dependency locking 生成并以 `STRICT` 模式执行；verification metadata 校验依赖和插件工件的 SHA-256。`apps/client` 的发行桌面依赖按 `windows-x64`、`linux-x64`、`linux-arm64`、`macos-x64`、`macos-arm64` 分档，避免 `desktop-jvm-*` 与 Skiko 原生运行时在不同宿主间互相污染锁状态。Compose Hot Reload 自动创建的宿主开发配置不参与版本锁，但下载工件仍受 verification metadata 约束；它们不是发行或测试运行时。校验元数据证明内容完整性，不证明发布者身份，也不替代 SBOM、许可证或漏洞审查。当前只在 Windows 完成严格解析及实际 Desktop/Android/iOS 交叉编译；仓库已配置 Linux/macOS CI，但尚无本轮远端通过记录，因此 `FND-003` 仍保持 `PARTIAL`。
 
-本工作树路径包含中文字符，当前 Windows Gradle Test Worker 会把该路径错误编码并导致测试类加载失败；因此本轮 `desktopTest --rerun-tasks` 在同一源码状态的 ASCII 隔离副本中执行。生产源码路径上的 Desktop/Android/iOS 元数据编译及 Android APK 构建均直接通过。
+本工作树路径包含中文字符，Android Gradle Plugin 9.1.1 会在 Windows 配置阶段直接拒绝该项目路径；因此本轮所有 Gradle 构建、测试与 quality harness 均在同一源码状态的 ASCII 隔离副本中执行。原工作树直接完成了 finance-app validator（226 个源码文件，0 error/0 warning）、架构/发布守卫和 `git diff --check`；这条宿主路径限制不应通过放松工程检查来掩盖。
+
+Desktop 受保护入口另以 `HENGJI_DATA_DIR=<isolated-data-dir>` 启动真实 Compose 应用。首次启动生成 `hengji.ledger.hjenc` 与 DPAPI 保护物，没有生成 `hengji.db`；关闭后以同一目录再次启动，信封 SHA-256 `0E96D0B835C4F9387383383040414EDF0091586A8AEA2C709CBE6DB6EFAABBAF` 与写入时间均未变化，证明已有账本没有被重新播种或无意义重写。信封文本未命中演示资产 sentinel `asset-headphones`。该证据是 Windows 当前用户、未混淆 `:apps:client:run` 的运行烟雾，不替代签名 Windows 包、macOS Keychain 或升级/卸载验证。
 
 无障碍本轮只取得代码审查、公共源码编译和既有单元测试证据。尚未在 macOS/iOS 上运行 VoiceOver，也未在 Android 上运行 TalkBack、在 Windows 上运行 Narrator 或完成仅键盘/高对比度矩阵，因此 `UX-008` 与 `QA-005` 均保持 `PARTIAL`。
 
@@ -82,7 +84,7 @@ msiexec /a artifacts\hengji-windows-0.1.0.msi /qn TARGETDIR=<work>\hengji-repack
 
 ## 仍未完成，不能宣称 Beta/上线
 
-- 当前应用入口仍使用可跨重启的 Room 明文开发存储；AES-256-GCM 受保护仓储、三平台原子密文文件、平台密钥提供器及 Desktop Room 迁移恢复已实现，但 Android/iOS 旧库迁移、应用入口切换、真机验收和代表性数据量性能门禁未完成。
+- Desktop 应用入口已使用 AES-256-GCM 受保护仓储，并在隔离数据目录完成首次写入、关闭、重启读取与“密文不重写/无明文数据库”烟雾验证；Android/iOS 仍使用 Room 明文开发入口，其旧库迁移、入口切换、真机验收和代表性数据量性能门禁未完成。
 - iOS/macOS 原生编译、真机、签名、公证和商店流程需要 macOS + Xcode；Windows 不能提供该证据。
 - 支付/电商/二手平台尚未取得生产 scope 或合同；沙箱和示例报价不是一键实时同步。
 - Windows 产物未签名；Android 只有 Debug 签名、没有生产发布签名；真实安装、升级、卸载、SmartScreen/Play 流程未验证。

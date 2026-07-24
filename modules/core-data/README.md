@@ -68,11 +68,12 @@ the authenticated target, atomically renames the main SQLite file to a retiremen
 sidecars, and deletes the marker last. A crash therefore leaves either a readable source database or an identifiable
 cleanup-only state. Divergent plaintext and encrypted snapshots fail closed and retain the plaintext source.
 
-The platform application composition roots still select the plaintext Room development factories. Android/iOS legacy
-Room retirement, encrypted-store performance on representative devices, Android store host/device execution, and
-Apple Keychain/file-coordination runtime validation remain required before the protected factories can become the
-default. The Apple implementations currently have cross-compilation and release-shrinking evidence, not a Keychain
-round trip on signed Apple hosts.
+The Desktop application composition root now selects `openDesktopProtectedLedger` and fails closed when its platform
+key or authenticated envelope cannot be opened. Android and iOS still select the plaintext Room development factories.
+Their legacy Room retirement, encrypted-store performance on representative devices, Android store host/device
+execution, and Apple Keychain/file-coordination runtime validation remain required before their protected factories
+can become the default. The Apple implementations currently have cross-compilation and release-shrinking evidence, not
+a Keychain round trip on signed Apple hosts.
 
 ## Verification
 

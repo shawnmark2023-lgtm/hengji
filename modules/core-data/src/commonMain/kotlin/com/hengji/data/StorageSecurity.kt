@@ -13,7 +13,7 @@ internal const val AES_256_KEY_BYTES = 32
 private const val PROTECTED_LEDGER_FORMAT_VERSION = 1
 private const val MAX_PROTECTED_LEDGER_BYTES = 36 * 1024 * 1024
 
-class StorageProtectionException(
+open class StorageProtectionException(
     message: String,
     cause: Throwable? = null,
 ) : IllegalStateException(message, cause)

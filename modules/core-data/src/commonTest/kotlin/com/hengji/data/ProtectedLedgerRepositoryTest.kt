@@ -1,0 +1,234 @@
+package com.hengji.data
+
+import com.hengji.domain.CategoryId
+import com.hengji.domain.CurrencyCode
+import com.hengji.domain.Merchant
+import com.hengji.domain.Money
+import com.hengji.domain.Transaction
+import com.hengji.domain.TransactionId
+import com.hengji.domain.TransactionKind
+import com.hengji.domain.TransactionSource
+import kotlin.coroutines.Continuation
+import kotlin.coroutines.EmptyCoroutineContext
+import kotlin.coroutines.startCoroutine
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+import kotlinx.datetime.LocalDate
+
+class ProtectedLedgerRepositoryTest {
+    @Test
+    fun createsEncryptedStoreAndReopensPersistedMutation() = runProtectedTest {
+        val store = MemoryProtectedLedgerStore()
+        val keys = TestProvisioningKeyProvider()
+
+        val opened = ProtectedLedgerRepository.open(store, "ledger-primary", keys)
+        assertEquals(ProtectedLedgerOpenOutcome.CREATED_EMPTY, opened.outcome)
+        assertEquals(1, keys.provisionCount)
+        assertTrue(store.envelope?.contains("protected-ledger") == false)
+
+        opened.repository.upsertTransaction(transaction("persisted", "fingerprint-persisted"))
+        val reopened = ProtectedLedgerRepository.open(store, "ledger-primary", keys)
+
+        assertEquals(ProtectedLedgerOpenOutcome.OPENED_EXISTING, reopened.outcome)
+        assertEquals(1, keys.provisionCount)
+        assertEquals(listOf("persisted"), reopened.repository.snapshot().transactions.map { it.id.value })
+    }
+
+    @Test
+    fun failedAtomicWriteDoesNotPublishCandidateToMemory() = runProtectedTest {
+        val store = MemoryProtectedLedgerStore()
+        val repository = ProtectedLedgerRepository.open(
+            store,
+            "ledger-primary",
+            TestProvisioningKeyProvider(),
+        ).repository
+        store.rejectNextWrite = true
+
+        assertFailsWith<ConcurrentLedgerWriteException> {
+            runProtectedTest { repository.upsertTransaction(transaction("rejected", "fingerprint-rejected")) }
+        }
+        assertTrue(repository.snapshot().transactions.isEmpty())
+        assertEquals(0, repository.snapshot().revision)
+    }
+
+    @Test
+    fun staleInstanceRefreshesAndCannotLoseExternalWrite() = runProtectedTest {
+        val store = MemoryProtectedLedgerStore()
+        val keys = TestProvisioningKeyProvider()
+        val first = ProtectedLedgerRepository.open(store, "ledger-primary", keys).repository
+        val second = ProtectedLedgerRepository.open(store, "ledger-primary", keys).repository
+
+        second.upsertTransaction(transaction("external", "fingerprint-external"))
+
+        assertEquals(listOf("external"), first.snapshot().transactions.map { it.id.value })
+        first.upsertTransaction(transaction("local", "fingerprint-local"))
+        assertEquals(
+            setOf("external", "local"),
+            second.snapshot().transactions.mapTo(mutableSetOf()) { it.id.value },
+        )
+    }
+
+    @Test
+    fun interruptedMigrationRetainsSourceAndCompletesOnRetry() = runProtectedTest {
+        val store = MemoryProtectedLedgerStore()
+        val keys = TestProvisioningKeyProvider()
+        val source = TestMigrationSource(DemoLedger.snapshot(), failRetirement = true)
+
+        assertFailsWith<IllegalStateException> {
+            runProtectedTest {
+                ProtectedLedgerRepository.open(store, "ledger-primary", keys, plaintextSource = source)
+            }
+        }
+        assertFalse(source.retired)
+        assertTrue(store.envelope != null)
+
+        source.failRetirement = false
+        val recovered = ProtectedLedgerRepository.open(
+            store,
+            "ledger-primary",
+            keys,
+            plaintextSource = source,
+        )
+
+        assertEquals(ProtectedLedgerOpenOutcome.COMPLETED_INTERRUPTED_MIGRATION, recovered.outcome)
+        assertTrue(source.retired)
+        assertEquals(DemoLedger.snapshot(), recovered.repository.snapshot(includeDeleted = true))
+    }
+
+    @Test
+    fun migrationConflictFailsClosedAndRetainsPlaintext() = runProtectedTest {
+        val store = MemoryProtectedLedgerStore()
+        val keys = TestProvisioningKeyProvider()
+        val encrypted = ProtectedLedgerRepository.open(store, "ledger-primary", keys).repository
+        encrypted.upsertTransaction(transaction("encrypted", "fingerprint-encrypted"))
+        val source = TestMigrationSource(DemoLedger.snapshot())
+
+        assertFailsWith<PlaintextLedgerMigrationConflictException> {
+            runProtectedTest {
+                ProtectedLedgerRepository.open(store, "ledger-primary", keys, plaintextSource = source)
+            }
+        }
+        assertFalse(source.retired)
+    }
+
+    @Test
+    fun existingEnvelopeWithMissingKeyFailsWithoutProvisioningReplacement() = runProtectedTest {
+        val store = MemoryProtectedLedgerStore()
+        val originalKeys = TestProvisioningKeyProvider()
+        ProtectedLedgerRepository.open(store, "ledger-primary", originalKeys)
+        val missing = TestProvisioningKeyProvider(keyAvailable = false)
+
+        assertFailsWith<StorageProtectionException> {
+            runProtectedTest { ProtectedLedgerRepository.open(store, "ledger-primary", missing) }
+        }
+        assertEquals(0, missing.provisionCount)
+    }
+
+    @Test
+    fun importCommitIsIdempotentAndRollbackOnlyRemovesInsertedRows() = runProtectedTest {
+        val store = MemoryProtectedLedgerStore()
+        val repository = ProtectedLedgerRepository.open(
+            store,
+            "ledger-primary",
+            TestProvisioningKeyProvider(),
+        ).repository
+        repository.upsertTransaction(transaction("existing", "fingerprint-existing"))
+        val request = CommitImportBatchRequest(
+            batchId = "batch_secure_001",
+            sourceConnectorId = "local-test",
+            sourceDigest = "digest-001",
+            createdAtEpochMillis = 10,
+            committedAtEpochMillis = 20,
+            transactions = listOf(
+                transaction("duplicate-request", "fingerprint-existing"),
+                transaction("inserted", "fingerprint-inserted"),
+            ),
+        )
+
+        val committed = repository.commitImportBatch(request)
+        val repeated = repository.commitImportBatch(request)
+        val rolledBack = repository.rollbackImportBatch("batch_secure_001", 30)
+
+        assertEquals(ImportBatchCommitStatus.COMMITTED, committed.status)
+        assertEquals(listOf("inserted"), committed.insertedTransactionIds)
+        assertEquals(listOf("fingerprint-existing"), committed.skippedFingerprints)
+        assertEquals(ImportBatchCommitStatus.ALREADY_COMMITTED, repeated.status)
+        assertEquals(listOf("inserted"), rolledBack.removedTransactionIds)
+        assertEquals(listOf("existing"), repository.snapshot().transactions.map { it.id.value })
+        assertEquals(ImportBatchState.ROLLED_BACK, repository.snapshot().importBatches.single().state)
+    }
+}
+
+private class MemoryProtectedLedgerStore : ProtectedLedgerStore {
+    var envelope: String? = null
+    var rejectNextWrite: Boolean = false
+
+    override suspend fun readEnvelope(): String? = envelope
+
+    override suspend fun compareAndSwap(expectedEnvelope: String?, replacementEnvelope: String): Boolean {
+        if (rejectNextWrite) {
+            rejectNextWrite = false
+            return false
+        }
+        if (envelope != expectedEnvelope) return false
+        envelope = replacementEnvelope
+        return true
+    }
+}
+
+private class TestProvisioningKeyProvider(
+    private var keyAvailable: Boolean = true,
+) : ProvisioningDatabaseKeyProvider {
+    var provisionCount: Int = 0
+        private set
+    private val key = ByteArray(32) { 42 }
+
+    override suspend fun loadKey(alias: String): DatabaseKeyMaterial? =
+        if (keyAvailable) DatabaseKeyMaterial(key) else null
+
+    override suspend fun loadOrCreateKey(alias: String): DatabaseKeyMaterial {
+        provisionCount += 1
+        keyAvailable = true
+        return DatabaseKeyMaterial(key)
+    }
+}
+
+private class TestMigrationSource(
+    private val snapshot: LedgerSnapshot,
+    var failRetirement: Boolean = false,
+) : PlaintextLedgerMigrationSource {
+    var retired: Boolean = false
+        private set
+
+    override suspend fun snapshotForMigration(): LedgerSnapshot = snapshot
+
+    override suspend fun retireAfterVerifiedMigration() {
+        if (failRetirement) error("simulated retirement failure")
+        retired = true
+    }
+}
+
+private fun transaction(id: String, fingerprint: String) = Transaction(
+    id = TransactionId(id),
+    kind = TransactionKind.EXPENSE,
+    amount = Money(1_234, CurrencyCode.CNY),
+    bookedOn = LocalDate(2026, 7, 25),
+    categoryId = CategoryId("daily"),
+    merchant = Merchant("Test Merchant"),
+    source = TransactionSource.FILE_IMPORT,
+    importFingerprint = fingerprint,
+)
+
+private fun runProtectedTest(block: suspend () -> Unit) {
+    var completion: Result<Unit>? = null
+    block.startCoroutine(object : Continuation<Unit> {
+        override val context = EmptyCoroutineContext
+        override fun resumeWith(result: Result<Unit>) {
+            completion = result
+        }
+    })
+    requireNotNull(completion).getOrThrow()
+}

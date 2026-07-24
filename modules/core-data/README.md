@@ -5,12 +5,15 @@
 
 ## Platform entry points
 
-- Desktop: `createDesktopLedgerRepository(absolutePath, policy)`
-- Android: `createAndroidLedgerRepository(context, databaseName, policy)`
-- iOS: `createIosLedgerRepository(absolutePath, policy)`
+- Encrypted desktop: `openDesktopProtectedLedger(dataDirectory)`
+- Encrypted Android: `openAndroidProtectedLedger(context, plaintextSource = ...)`
+- Encrypted iOS: `openIosProtectedLedger(applicationSupportDirectory, plaintextSource = ...)`
+- Plaintext development Room: `createDesktopLedgerRepository`, `createAndroidLedgerRepository`,
+  and `createIosLedgerRepository`
 
-Each factory returns `RoomLedgerRepository`. Repository operations are suspending and mutations are committed in
-Room transactions. Call `close()` when the platform application shuts down or replaces the repository.
+All repositories implement `PersistentLedgerRepository`. The Room factories remain explicit development and migration
+sources. The protected factories use an authenticated encrypted envelope and the platform key providers; Android and
+iOS refuse to create an unrelated empty ledger when legacy Room artifacts exist without an explicit migration source.
 
 Schema v2 persists ledger revision, transactions, assets, maintenance costs, usage events, market quotes, insight
 preferences, and reversible import batches. Monetary values use signed 64-bit minor units; domain validation remains
@@ -30,13 +33,19 @@ the aggregate atomically.
 
 ## Security status
 
-Room currently uses `BundledSQLiteDriver`, which is **not encrypted at rest**. The default
+Room uses `BundledSQLiteDriver`, which is **not encrypted at rest**. The default
 `ALLOW_UNENCRYPTED_DEVELOPMENT` policy is only for development and tests. Production must request
 `REQUIRE_APPLICATION_ENCRYPTION`; it deliberately fails with `DatabaseEncryptionUnavailableException` until an audited
 encrypted SQLite driver is integrated.
 
 `DatabaseKeyProvider`, `PayloadCipher`, and `ProtectedLedgerPayloadCodec` define a fail-closed authenticated-encryption
-boundary for protected exports or an encrypted snapshot adapter. `Aes256GcmPayloadCipher` uses cryptography-kotlin's
+boundary. `ProtectedLedgerRepository` is the encrypted snapshot adapter: it refreshes before every operation, applies
+mutations to a candidate snapshot, authenticates and atomically compare-and-swaps the encrypted envelope, and publishes
+the candidate to memory only after the durable write succeeds. A stale process cannot silently overwrite a newer
+cooperating writer. Cancellation during the commit window cannot leave the in-memory instance behind its own committed
+write.
+
+`Aes256GcmPayloadCipher` uses cryptography-kotlin's
 platform providers (JCA on JVM/Android and CryptoKit/CommonCrypto on Apple), generates a fresh 96-bit nonce, and binds
 the envelope version, ledger schema, key alias, and algorithm as associated data. The versioned JSON envelope rejects
 unknown versions, algorithms, malformed Base64, truncated tags, tampering, wrong keys, and oversized payloads.
@@ -53,9 +62,17 @@ data key as a non-synchronizing generic-password item with `WhenUnlockedThisDevi
 into the data-protection Keychain. Both reject unexpected status/type/size and resolve concurrent first creation
 through Keychain's duplicate-item result without replacing the winner.
 
-The Apple implementations currently have cross-compilation and release-shrinking evidence, not a Keychain round trip
-on signed Apple hosts. Apple platform runtime validation, plaintext-to-ciphertext migration, and repository wiring are
-still required before `REQUIRE_APPLICATION_ENCRYPTION` can be enabled.
+`JvmAtomicProtectedLedgerStore`, `AndroidAtomicProtectedLedgerStore`, and `IosAtomicProtectedLedgerStore` provide bounded
+atomic envelope replacement. Desktop additionally has a tested Room migration gate. It snapshots Room twice, verifies
+the authenticated target, atomically renames the main SQLite file to a retirement marker, removes WAL/SHM/journal
+sidecars, and deletes the marker last. A crash therefore leaves either a readable source database or an identifiable
+cleanup-only state. Divergent plaintext and encrypted snapshots fail closed and retain the plaintext source.
+
+The platform application composition roots still select the plaintext Room development factories. Android/iOS legacy
+Room retirement, encrypted-store performance on representative devices, Android store host/device execution, and
+Apple Keychain/file-coordination runtime validation remain required before the protected factories can become the
+default. The Apple implementations currently have cross-compilation and release-shrinking evidence, not a Keychain
+round trip on signed Apple hosts.
 
 ## Verification
 

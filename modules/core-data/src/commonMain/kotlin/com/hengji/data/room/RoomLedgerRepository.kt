@@ -9,6 +9,7 @@ import com.hengji.data.LedgerSnapshot
 import com.hengji.data.PersistentLedgerRepository
 import com.hengji.data.RollbackImportBatchResult
 import com.hengji.data.UpsertTransactionResult
+import com.hengji.data.validateLedgerSnapshot
 import com.hengji.domain.Asset
 import com.hengji.domain.AssetId
 import com.hengji.domain.MaintenanceCost
@@ -102,7 +103,7 @@ class RoomLedgerRepository(
     }
 
     override suspend fun replaceWith(snapshot: LedgerSnapshot) {
-        validateSnapshot(snapshot)
+        validateLedgerSnapshot(snapshot)
         dao.atomicReplace(snapshot.toRoomRows(checkedNext(snapshot.revision)))
     }
 
@@ -112,25 +113,6 @@ class RoomLedgerRepository(
 
     fun close() {
         database.close()
-    }
-}
-
-private fun validateSnapshot(snapshot: LedgerSnapshot) {
-    require(snapshot.revision >= 0) { "Ledger revision cannot be negative" }
-    val assetIds = snapshot.assets.mapTo(mutableSetOf()) { it.id }
-    val transactionIds = snapshot.transactions.mapTo(mutableSetOf()) { it.id.value }
-    require(assetIds.size == snapshot.assets.size) { "Duplicate asset ids" }
-    require(transactionIds.size == snapshot.transactions.size) { "Duplicate transaction ids" }
-    require(snapshot.transactions.mapNotNull { it.importFingerprint }.distinct().size ==
-        snapshot.transactions.mapNotNull { it.importFingerprint }.size
-    ) { "Duplicate import fingerprints" }
-    require(snapshot.maintenanceCosts.all { it.assetId in assetIds }) { "Maintenance references an unknown asset" }
-    require(snapshot.usageEvents.all { it.assetId in assetIds }) { "Usage references an unknown asset" }
-    require(snapshot.marketQuotes.all { it.assetId in assetIds }) { "Quote references an unknown asset" }
-    snapshot.importBatches.forEach { batch ->
-        if (batch.state == ImportBatchState.COMMITTED) {
-            require(batch.items.all { it.transactionId in transactionIds }) { "Import batch references an unknown transaction" }
-        }
     }
 }
 

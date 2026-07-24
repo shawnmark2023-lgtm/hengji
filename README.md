@@ -45,5 +45,5 @@ Windows 发行构建还要执行 Release 混淆后的真实启动冒烟；Room �
 - iOS/macOS 原生编译、真机、签名、公证和商店发布仍需 macOS + Xcode。
 - Windows MSI/免安装包未签名；Android APK 由 Android Debug 证书以 v2 方案签名，但未做生产发布签名，也未做设备安装/启动验证。
 - iOS 系统文件选择、JSON/CSV 导出与 JSON 恢复适配器已实现并通过 Kotlin/Native arm64/simulator 交叉编译；Swift host、Xcode 链接、模拟器/真机交互与签名仍需 macOS 验证。
-- 应用层数据库加密、Apple Keychain/macOS 密钥实现、账户验证、加密同步、灾难恢复和真实平台授权尚未完成；Windows DPAPI 与 Android Keystore 数据密钥保护边界已实现，但尚未接入 Room。
+- 应用层数据库加密、平台密钥真机验收、账户验证、加密同步、灾难恢复和真实平台授权尚未完成；Windows DPAPI、Android Keystore 与 iOS/macOS Keychain 数据密钥边界已实现，但尚未接入 Room。
 - 演示二手报价不是实时市场价；没有授权的数据源不会在生产模式降级为沙箱。

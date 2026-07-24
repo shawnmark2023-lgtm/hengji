@@ -15,13 +15,14 @@
 | 受保护账本 | core-data 6/6 安全边界用例通过 | 未认证算法/缺钥 fail-closed，AES-256-GCM 往返、随机 nonce、密文/错钥/AAD 篡改拒绝、版本/算法/Base64 拒绝与密钥材料清零；当前 Room 仍为开发明文存储 |
 | Windows 密钥保护 | DPAPI 4/4 通过；混淆后发布 JAR 真实往返通过 | 当前用户绑定、并发首次创建收敛、跨实例重载、别名/格式 entropy 绑定、保护物交换拒绝、磁盘无原始密钥、损坏不覆盖、非法别名拒绝；尚未接入 Room |
 | Android 密钥保护 | Android host 22/22，其中保护物生命周期 4/4；Android 主代码编译通过 | 非导出 Keystore AES-256-GCM 包装密钥、no-backup 保护物、版本/别名 AAD、并发首建、损坏/串换/缺钥不覆盖；host 使用可注入 JCA 保护器，不是真实设备 Keystore 证据，尚未接入 Room |
+| Apple 密钥保护 | iOS arm64/simulator arm64 与 macOS JVM 源码编译通过；macOS 混淆产物符号/非宿主保护检查通过 | iOS/macOS 使用不同步、`WhenUnlockedThisDeviceOnly` Generic Password；macOS 使用 data-protection Keychain；Windows 未执行真实 `SecItem*` 往返、签名身份、锁屏或卸载验证，尚未接入 Room |
 | 代码级无障碍 | Desktop/Android/iOS 公共 UI 编译通过 | 导航/表单/开关/导入/状态语义、大字体重排与 Reduce Motion；不是 VoiceOver/TalkBack/Narrator 或仅键盘实机证据 |
-| 架构与发布守卫 | 30/30、204/204 通过 | 依赖方向、secret、沙箱/production 标签与禁止行为扫描；生成的 `quality/evidence` 已从源码计数排除，重复运行计数稳定 |
+| 架构与发布守卫 | 30/30、206/206 通过 | 依赖方向、secret、沙箱/production 标签与禁止行为扫描；生成的 `quality/evidence` 已从源码计数排除，重复运行计数稳定 |
 | 畸形导入 | 8/8 通过 | 引号未闭合、错列、重复表头、嵌套 JSON、行/文件上限、空必填、BOM/Unicode |
-| 10 万流水开发基线 | 4/4 通过 | 100,000 行，99 ms，内存增量 43.50 MiB；不是代表性设备/加密数据库证据 |
+| 10 万流水开发基线 | 4/4 通过 | 100,000 行，90 ms，内存增量 43.78 MiB；不是代表性设备/加密数据库证据 |
 | Connector gateway | 4/4 通过；`npm audit` 0 vulnerability | state 一次性/过期、沙箱非实时、production fail-closed |
 | Price intelligence | 3/3 通过 | 中位数/四分位、离群过滤、新鲜度与低置信度行为 |
-| Release 混淆 | 本轮 `proguardReleaseJars` 构建通过；DPAPI 从混淆后 JAR 往返通过；既有 Release 实跑通过 | 保留 Room/领域 ABI、SQLite JNI、加密 provider 服务与 JNA native 符号；发布态冒烟捕获并修复了 JNA JNI 裁剪 |
+| Release 混淆 | 本轮 `proguardReleaseJars` 构建通过；DPAPI 从混淆后 JAR 往返通过；macOS Keychain/CoreFoundation ABI 名称保留；既有 Release 实跑通过 | 保留 Room/领域 ABI、SQLite JNI、加密 provider 服务及 Windows/macOS JNA native 符号；macOS 真实往返仍需 macOS |
 
 主要命令：
 
@@ -81,7 +82,7 @@ msiexec /a artifacts\hengji-windows-0.1.0.msi /qn TARGETDIR=<work>\hengji-repack
 
 ## 仍未完成，不能宣称 Beta/上线
 
-- 当前 Room 数据库仍是可跨重启的明文开发存储；AES-256-GCM 受保护账本原语、Windows 当前用户 DPAPI 与 Android Keystore 密钥提供器已完成，但 Android 真机 Keystore 验收、Apple Keychain、Room 密文映射和加密迁移/恢复未完成。
+- 当前 Room 数据库仍是可跨重启的明文开发存储；AES-256-GCM 受保护账本原语及四平台密钥提供器源码已完成，但 Android/Apple 真实平台验收、Room 密文映射和加密迁移/恢复未完成。
 - iOS/macOS 原生编译、真机、签名、公证和商店流程需要 macOS + Xcode；Windows 不能提供该证据。
 - 支付/电商/二手平台尚未取得生产 scope 或合同；沙箱和示例报价不是一键实时同步。
 - Windows 产物未签名；Android 只有 Debug 签名、没有生产发布签名；真实安装、升级、卸载、SmartScreen/Play 流程未验证。

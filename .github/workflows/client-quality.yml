@@ -124,7 +124,7 @@ jobs:
             --status passed \
             --command "./gradlew :apps:client:iosSimulatorArm64Test :apps:client:linkDebugFrameworkIosSimulatorArm64 :apps:client:linkReleaseFrameworkIosSimulatorArm64 :apps:client:linkReleaseFrameworkIosArm64 --stacktrace" \
             --started-at "$GATE_STARTED_AT" \
-            --limitation "Kotlin/Native tests and framework links only; the Swift host, simulator app launch, device execution, signing, notarization, TestFlight, and App Store approval remain unverified" \
+            --limitation "Kotlin/Native tests and framework links only; Keychain round trips, the Swift host, simulator app launch, device execution, signing, notarization, TestFlight, and App Store approval remain unverified" \
             --output quality-evidence/apple-simulator-compile.json
       - name: Upload Apple compile evidence
         if: always()
@@ -202,7 +202,7 @@ jobs:
             --command "./gradlew :apps:client:packageDmg --stacktrace" \
             --started-at "$GATE_STARTED_AT" \
             --artifact-glob "apps/client/build/compose/binaries/main/dmg/*.dmg" \
-            --limitation "Unsigned package build only; installation, upgrade, Developer ID signing, notarization, and Gatekeeper remain unverified" \
+            --limitation "Unsigned package build only; Keychain round trips, installation, upgrade, Developer ID signing, notarization, and Gatekeeper remain unverified" \
             --output quality-evidence/macos-dmg-package.json
       - name: Upload DMG and evidence
         if: always()

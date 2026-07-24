@@ -64,7 +64,7 @@
 | T13 | 错误响应回显原始交易或内部堆栈 | 隐私/实现泄露 | 稳定错误码 + request ID；500 使用通用文案 | 集中脱敏日志与响应快照测试 |
 | T14 | 依赖、CI 或签名供应链被篡改 | 恶意发行包 | 锁文件、最小依赖、CI 测试、禁止提交密钥 | SBOM、依赖审查、固定 action SHA、隔离签名 runner |
 | T15 | 日后账户恢复绕过、设备撤销失效 | 云端账本泄露 | 首版无账户/云同步，攻击面不存在 | Passkey、恢复码、设备清单、会话/密钥吊销专项评审 |
-| T16 | 本地数据库、备份或临时文件被离线复制/篡改 | 高敏财务明文泄露、静默数据操纵 | 受保护账本 envelope 使用 AES-256-GCM、随机 96-bit nonce、版本/算法/密钥别名 AAD、大小上限与 fail-closed；Windows 数据密钥用当前用户 DPAPI 保护；Android 用不可导出 Keystore AES 密钥和 no-backup 保护物，损坏/串换/缺钥均不覆盖；当前 Room 仍仅限开发明文策略 | Apple Keychain、Room 明文→密文原子迁移、错钥/轮换/崩溃恢复与 Android/Apple 设备验收 |
+| T16 | 本地数据库、备份或临时文件被离线复制/篡改 | 高敏财务明文泄露、静默数据操纵 | 受保护账本 envelope 使用 AES-256-GCM、随机 96-bit nonce、版本/算法/密钥别名 AAD、大小上限与 fail-closed；Windows 用当前用户 DPAPI；Android 用不可导出 Keystore AES 密钥和 no-backup 保护物；iOS/macOS 用不迁移、不同步、仅解锁可用的 Keychain 项；当前 Room 仍仅限开发明文策略 | Room 明文→密文原子迁移、错钥/轮换/崩溃恢复与 Android/Apple 设备验收 |
 
 ## 5. OAuth 上线约束
 
@@ -91,4 +91,4 @@
 
 P0 门禁：导入边界/公式/去重/撤销测试，沙箱非实时不变量测试，网关 state 一次性与过期测试，服务请求体限制，生产模式 fail-closed，仓库 secret 扫描。iOS/macOS 签名、Keychain、FinanceKit entitlement、Android SMS 例外和真实 OAuth 均不能在 Windows 首轮构建中宣称完成。
 
-剩余高风险项：AES-256-GCM 受保护账本原语、Windows 当前用户 DPAPI 与 Android Keystore 数据密钥提供器已经实现，但 Android 真机 Keystore 行为、Apple 平台密钥、本地 Room 密文映射与迁移尚未完成；批次撤销与用户后续编辑的冲突策略待持久化层实现；沙箱网关为单进程内存 state；服务未配置真实 vault/限流/集中审计；真实平台 scope 尚未取得。这些都必须在生产开关开启前关闭或书面接受。
+剩余高风险项：AES-256-GCM 受保护账本原语及 Windows DPAPI、Android Keystore、iOS/macOS Keychain 数据密钥提供器已经实现，但 Android/Apple 平台真实密钥行为、本地 Room 密文映射与迁移尚未完成；批次撤销与用户后续编辑的冲突策略待持久化层实现；沙箱网关为单进程内存 state；服务未配置真实 vault/限流/集中审计；真实平台 scope 尚未取得。这些都必须在生产开关开启前关闭或书面接受。

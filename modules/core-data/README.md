@@ -48,8 +48,14 @@ The key alias and blob format are bound as DPAPI optional entropy, so swapping p
 fails closed. `AndroidKeystoreDatabaseKeyProvider` uses a non-exportable AES-256-GCM wrapping key from
 `AndroidKeyStore`, stores the authenticated data-key envelope under `noBackupFilesDir`, binds the alias and format as
 AAD, and publishes the envelope without replacing an existing file. A corrupt or swapped envelope and an unavailable
-wrapping key fail closed. Apple Keychain, plaintext-to-ciphertext migration, and repository wiring are still required
-before `REQUIRE_APPLICATION_ENCRYPTION` can be enabled.
+wrapping key fail closed. `IosKeychainDatabaseKeyProvider` and `MacOsKeychainDatabaseKeyProvider` store the 256-bit
+data key as a non-synchronizing generic-password item with `WhenUnlockedThisDeviceOnly`; the macOS implementation opts
+into the data-protection Keychain. Both reject unexpected status/type/size and resolve concurrent first creation
+through Keychain's duplicate-item result without replacing the winner.
+
+The Apple implementations currently have cross-compilation and release-shrinking evidence, not a Keychain round trip
+on signed Apple hosts. Apple platform runtime validation, plaintext-to-ciphertext migration, and repository wiring are
+still required before `REQUIRE_APPLICATION_ENCRYPTION` can be enabled.
 
 ## Verification
 
@@ -62,4 +68,5 @@ From the repository root:
 ```
 
 Android host tests exercise the vault lifecycle with an injected authenticated protector; a device/emulator is still
-required to exercise the real `AndroidKeyStore` provider. Native iOS simulator tests require a macOS host.
+required to exercise the real `AndroidKeyStore` provider. iOS/macOS Keychain runtime tests require a macOS host and an
+appropriately signed app/test host.

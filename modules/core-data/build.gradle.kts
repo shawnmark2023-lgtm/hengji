@@ -34,6 +34,8 @@ kotlin {
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.androidx.room.runtime)
             implementation(libs.androidx.sqlite.bundled)
+            implementation(libs.cryptography.core)
+            implementation(libs.cryptography.provider.optimal)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

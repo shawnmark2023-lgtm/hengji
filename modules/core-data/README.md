@@ -12,7 +12,7 @@
 Each factory returns `RoomLedgerRepository`. Repository operations are suspending and mutations are committed in
 Room transactions. Call `close()` when the platform application shuts down or replaces the repository.
 
-Schema v1 persists ledger revision, transactions, assets, maintenance costs, usage events, market quotes, insight
+Schema v2 persists ledger revision, transactions, assets, maintenance costs, usage events, market quotes, insight
 preferences, and reversible import batches. Monetary values use signed 64-bit minor units; domain validation remains
 the source of truth for whether a particular value is allowed.
 
@@ -36,9 +36,15 @@ Room currently uses `BundledSQLiteDriver`, which is **not encrypted at rest**. T
 encrypted SQLite driver is integrated.
 
 `DatabaseKeyProvider`, `PayloadCipher`, and `ProtectedLedgerPayloadCodec` define a fail-closed authenticated-encryption
-boundary for protected exports or a future encrypted-file adapter. This module intentionally ships no cryptographic
-implementation and never falls back to plaintext when a key is unavailable. Platform key providers should use
-Keychain, Android Keystore, or Windows Credential Locker.
+boundary for protected exports or an encrypted snapshot adapter. `Aes256GcmPayloadCipher` uses cryptography-kotlin's
+platform providers (JCA on JVM/Android and CryptoKit/CommonCrypto on Apple), generates a fresh 96-bit nonce, and binds
+the envelope version, ledger schema, key alias, and algorithm as associated data. The versioned JSON envelope rejects
+unknown versions, algorithms, malformed Base64, truncated tags, tampering, wrong keys, and oversized payloads.
+
+This is a real cryptographic primitive, but it does **not** make the current Room database encrypted: no production
+platform key provider or plaintext-to-ciphertext database migration is wired yet. Missing keys never fall back to
+plaintext. Platform key providers must protect the data-encryption key with Keychain, Android Keystore, or Windows
+DPAPI/Credential Locker before `REQUIRE_APPLICATION_ENCRYPTION` can be enabled.
 
 ## Verification
 

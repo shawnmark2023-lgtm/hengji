@@ -21,7 +21,7 @@
 - [x] `DAT-001` P0 suspend 仓储接口、内存测试实现与 Room KMP/bundled SQLite 持久化实现。
 - [x] `DAT-002` P0 schema v2、v0→v1→v2 导出恢复、显式 Room 1→2 迁移、样例数据、幂等导入、去重和原子撤销批次。
 - [x] `DAT-003` P0 完整 JSON 导出/恢复与防公式注入 CSV 导出。
-- [ ] `DAT-004` P1 Room KMP、迁移与恢复测试已完成；平台密钥支持的应用层数据库加密仍是 Beta 门禁。
+- [ ] `DAT-004` P1 已实现跨平台 AES-256-GCM 账本封装、版本化 envelope 与篡改/错钥/fail-closed 测试；平台密钥支持、Room 明文迁移和崩溃恢复仍是 Beta 门禁。
 
 ## C. 用户体验
 
@@ -92,7 +92,7 @@
 | --- | --- | --- | --- |
 | FND-003 | PARTIAL | 远端 dependency-integrity CI、可复现产物清单 | 主构建与独立 quality harness 严格解析通过；桌面发行配置按 Windows/Linux/macOS 架构分档锁定；仅宿主相关的 Compose Hot Reload 开发配置不锁版本但仍做 SHA-256 校验；干净环境连续两次构建依赖与产物清单一致 |
 | FND-004 | PARTIAL | formatter、coverage engine | Kotlin/TS/Python 格式化检查为 0；核心领域与导入模块达到约定分支覆盖率，CI 失败时阻断 |
-| DAT-004 | PARTIAL | Keychain/Keystore/DPAPI、加密实现 | 四平台密钥不可导出；明文→密文迁移、错误密钥、恢复、轮换和崩溃恢复测试通过 |
+| DAT-004 | PARTIAL | Keychain/Keystore/DPAPI、Room 加密映射 | AES-256-GCM envelope 已绑定版本/算法/密钥别名并通过篡改、错钥、随机 nonce、超限与清零测试；仍需四平台密钥保护、明文→密文迁移、轮换和崩溃恢复 |
 | UX-006 | PARTIAL | macOS/Xcode runner、iOS simulator/device evidence | iOS 真机选择 CSV/JSON，完成映射/预览/提交/重复重试/整批撤销，全程不申请无关权限 |
 | UX-007 | PARTIAL | macOS/Xcode runner、iOS simulator/device evidence | iOS 真机导出 JSON/CSV 到用户选定位置并从 JSON 恢复；清除后重启仍为空 |
 | UX-008 | PARTIAL | platform screen readers、focus order、contrast audit | 主要交互已有角色/选中/标题/状态语义，表单错误可读，200% 字体可重排，Reduce Motion 可抑制不确定动画；VoiceOver/TalkBack/Narrator、仅键盘、深浅色和对比度清单仍须 100% 通过 |

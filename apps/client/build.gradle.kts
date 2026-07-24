@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.androidMultiplatformLibrary)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.cryptography)
 }
 
 val desktopDependencyProfile =
@@ -27,6 +28,10 @@ check(
         setOf("windows-x64", "macos-arm64", "macos-x64", "linux-arm64", "linux-x64"),
 ) {
     "Unsupported desktop dependency profile: $desktopDependencyProfile"
+}
+
+cryptography {
+    configureSwiftLinkerOpts = true
 }
 
 kotlin {

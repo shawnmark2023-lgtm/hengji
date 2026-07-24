@@ -19,7 +19,7 @@
 - [x] `DOM-004` P0 精确实现总拥有成本、日均成本、净日均成本、单次使用成本。
 - [x] `DOM-005` P0 预算、月度汇总、分类占比、趋势和异常计算。
 - [x] `DAT-001` P0 suspend 仓储接口、内存测试实现与 Room KMP/bundled SQLite 持久化实现。
-- [x] `DAT-002` P0 schema v1、v0→v1 恢复、样例数据、幂等导入、去重和原子撤销批次。
+- [x] `DAT-002` P0 schema v2、v0→v1→v2 导出恢复、显式 Room 1→2 迁移、样例数据、幂等导入、去重和原子撤销批次。
 - [x] `DAT-003` P0 完整 JSON 导出/恢复与防公式注入 CSV 导出。
 - [ ] `DAT-004` P1 Room KMP、迁移与恢复测试已完成；平台密钥支持的应用层数据库加密仍是 Beta 门禁。
 
@@ -41,7 +41,7 @@
 - [x] `INS-002` P0 商户集中度、重复扣款/疑似订阅规则。
 - [x] `INS-003` P0 低使用资产和建议出售候选，展示节省估算与依据。
 - [x] `INS-004` P0 建议排序：影响 × 置信度 × 可执行性，避免重复和冲突。
-- [ ] `INS-005` P0 建议反馈（采纳/稍后/忽略）与本地学习偏好。
+- [x] `INS-005` P0 建议反馈（采纳/稍后 7 天/忽略/恢复默认）与本地学习偏好，按稳定去重键持久化。
 - [ ] `INS-006` P1 可选模型解释器；只接收脱敏聚合，不接收原始流水，默认关闭。
 
 ## E. 导入与平台连接器
@@ -78,7 +78,7 @@
 
 - [x] `QA-001` P0 领域单元测试：金额精度、跨月、退款、零使用、残值高于成本等边界。
 - [x] `QA-002` P0 重复、公式注入、文件上限、BOM/Unicode、错列、空值、嵌套 JSON 和回滚矩阵通过。
-- [ ] `QA-003` P0 记一笔、跨重启持久化、完整导入与整批撤销已真实 UI 实跑；其余流程与自动化 UI 套件仍待补齐。
+- [ ] `QA-003` P0 记一笔、跨重启持久化、完整导入与整批撤销、洞察采纳/忽略/稍后与恢复确认已真实 UI 实跑；其余流程与自动化 UI 套件仍待补齐。
 - [x] `QA-004` P0 Desktop 编译/运行与 Android APK 通过；iOS/macOS 目标交由 macOS CI 验证。
 - [ ] `QA-005` P0 无障碍与键盘验收、200% 字体/缩放、深浅色、窄/宽窗口。
 - [ ] `QA-006` P1 10 万流水开发/CI 基线已通过；代表性低端设备、加密持久层与完整 UI 性能仍待验证。
@@ -97,7 +97,6 @@
 | UX-007 | PARTIAL | iOS writer/restore picker | iOS 真机导出 JSON/CSV 到用户选定位置并从 JSON 恢复；清除后重启仍为空 |
 | UX-008 | TODO | semantics、focus order、contrast audit | VoiceOver/TalkBack/Narrator、仅键盘、200% 字体、深浅色和 Reduce Motion 清单 100% 通过 |
 | UX-009 | TODO | platform widgets/extensions | 至少 Android/iOS 各 1 个快捷记账入口、桌面全局快捷键冲突策略与撤销路径通过 |
-| INS-005 | TODO | insight preference repository | 采纳/稍后/忽略跨重启保持；被忽略规则不再出现，用户可恢复默认 |
 | INS-006 | TODO | consent UI、aggregate contract、model provider | 默认零外发；只发送白名单聚合；撤回同意立即停用；离线规则结果保持可用 |
 | IMP-005 | TODO | OCR/PDF parser、review UI | 20 份脱敏样本字段召回率达到目标；所有低置信度字段必须人工确认后才可提交 |
 | IMP-006 | TODO | Google Play SMS declaration | 获批前构建不声明读取短信；获批版本只解析金融模板并有本地确认/删除路径 |
@@ -135,10 +134,11 @@
 | FND-005 | GitHub Actions | Windows/Linux Desktop、Android、macOS iOS 编译作业已配置；尚无远端 run 结果 |
 | FND-006 | Compose UI | token、品牌标记、排版、间距、自适应深浅色主题实跑通过 |
 | DOM-001..005 | core-domain / core-insights | 精确金额、日期、流水、资产、成本、预算、占比、趋势与异常测试通过 |
-| DAT-001..003 | Room KMP / bundled SQLite | 9 表 schema v1、跨重启持久化、完整备份恢复、幂等批次和回滚测试/实跑通过 |
+| DAT-001..003 | Room KMP / bundled SQLite | 9 表 schema v2、显式 1→2 迁移、跨重启持久化、完整备份恢复、幂等批次和回滚测试/实跑通过 |
 | UX-001..002 | DomainDemoData / Compose | 宽屏侧栏、移动断点、同源总览/预算/占比/洞察编译并实跑 |
 | UX-004..005 | repository / market estimate | 使用打卡写入仓储；成本指标与非实时二手来源实跑 |
 | INS-001..004 | core-domain | 规则证据、阈值、影响、置信度、可执行性、去重排序测试通过 |
+| INS-005 | core-insights / core-data / Compose | 采纳、忽略与精确 7 天稍后按稳定键持久化；跨重启 UI、Room、导出恢复和恢复默认测试通过 |
 | IMP-001..004 | connectors / gateway | 协议、CSV/JSON、四个沙箱、PKCE/state、禁用 token vault 测试通过 |
 | PRI-001..004 | domain / Python service | 来源、运费、四分位、离群值、新鲜度；低置信度单点隐藏测试通过 |
 | SEC-001..002 | threat model / CI | 威胁模型、secret guard、脱敏 token、生产 fail-closed 测试通过 |

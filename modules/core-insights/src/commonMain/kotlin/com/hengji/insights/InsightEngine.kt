@@ -50,6 +50,7 @@ class InsightEngine(
     fun generate(
         snapshot: InsightSnapshot,
         preferences: InsightPreferences = InsightPreferences(),
+        nowEpochMillis: Long = 0L,
     ): List<Insight> {
         require(snapshot.currentPeriod.days > 0 && snapshot.previousPeriod.days > 0) {
             "Insight periods cannot be empty"
@@ -73,7 +74,7 @@ class InsightEngine(
                 ),
             )
         }
-        return InsightRanker.rank(insights, preferences)
+        return InsightRanker.rank(insights, preferences, nowEpochMillis)
     }
 
     private fun MutableList<Insight>.addCategoryInsights(snapshot: InsightSnapshot) {

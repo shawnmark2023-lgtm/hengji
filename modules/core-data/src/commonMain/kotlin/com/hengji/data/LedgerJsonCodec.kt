@@ -31,7 +31,7 @@ import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
-const val LEDGER_EXPORT_SCHEMA_VERSION: Int = 1
+const val LEDGER_EXPORT_SCHEMA_VERSION: Int = 2
 
 object LedgerJsonCodec {
     private val json = Json {
@@ -54,20 +54,42 @@ object LedgerJsonCodec {
         val root = element as? JsonObject ?: throw IllegalArgumentException("Ledger export root must be an object")
         val version = root["schemaVersion"]?.jsonPrimitive?.intOrNull ?: 0
         require(version <= LEDGER_EXPORT_SCHEMA_VERSION) { "Ledger export schema $version is newer than supported" }
-        return when (version) {
-            0 -> JsonObject(root + mapOf(
-                "schemaVersion" to JsonPrimitive(1),
-                "revision" to (root["revision"] ?: JsonPrimitive(0)),
-                "transactions" to (root["transactions"] ?: JsonArray(emptyList())),
-                "assets" to (root["assets"] ?: JsonArray(emptyList())),
-                "maintenanceCosts" to (root["maintenanceCosts"] ?: JsonArray(emptyList())),
-                "usageEvents" to (root["usageEvents"] ?: JsonArray(emptyList())),
-                "marketQuotes" to (root["marketQuotes"] ?: JsonArray(emptyList())),
-                "importBatches" to (root["importBatches"] ?: JsonArray(emptyList())),
-            ))
-            1 -> root
-            else -> error("Unsupported ledger schema")
+        var migrated = root
+        var migratedVersion = version
+        while (migratedVersion < LEDGER_EXPORT_SCHEMA_VERSION) {
+            migrated = when (migratedVersion) {
+                0 -> migrateVersionZeroToOne(migrated)
+                1 -> migrateVersionOneToTwo(migrated)
+                else -> error("Unsupported ledger schema")
+            }
+            migratedVersion += 1
         }
+        return migrated
+    }
+
+    private fun migrateVersionZeroToOne(root: JsonObject) = JsonObject(root + mapOf(
+        "schemaVersion" to JsonPrimitive(1),
+        "revision" to (root["revision"] ?: JsonPrimitive(0)),
+        "transactions" to (root["transactions"] ?: JsonArray(emptyList())),
+        "assets" to (root["assets"] ?: JsonArray(emptyList())),
+        "maintenanceCosts" to (root["maintenanceCosts"] ?: JsonArray(emptyList())),
+        "usageEvents" to (root["usageEvents"] ?: JsonArray(emptyList())),
+        "marketQuotes" to (root["marketQuotes"] ?: JsonArray(emptyList())),
+        "importBatches" to (root["importBatches"] ?: JsonArray(emptyList())),
+    ))
+
+    private fun migrateVersionOneToTwo(root: JsonObject): JsonObject {
+        val legacyPreferences = root["insightPreferences"] as? JsonObject ?: JsonObject(emptyMap())
+        val migratedPreferences = JsonObject(legacyPreferences + mapOf(
+            "adoptedDeduplicationKeys" to
+                (legacyPreferences["adoptedDeduplicationKeys"] ?: JsonArray(emptyList())),
+            "snoozedUntilEpochMillisByKey" to
+                (legacyPreferences["snoozedUntilEpochMillisByKey"] ?: JsonObject(emptyMap())),
+        ))
+        return JsonObject(root + mapOf(
+            "schemaVersion" to JsonPrimitive(2),
+            "insightPreferences" to migratedPreferences,
+        ))
     }
 }
 
@@ -279,11 +301,23 @@ private data class InsightPreferencesDto(
     val mutedTypes: Set<String> = emptySet(),
     val ignoredDeduplicationKeys: Set<String> = emptySet(),
     val updatedAtEpochMillis: Long = 0,
+    val adoptedDeduplicationKeys: Set<String> = emptySet(),
+    val snoozedUntilEpochMillisByKey: Map<String, Long> = emptyMap(),
 ) {
-    fun toDomain() = InsightPreferenceRecord(mutedTypes, ignoredDeduplicationKeys, updatedAtEpochMillis)
+    fun toDomain() = InsightPreferenceRecord(
+        mutedTypes = mutedTypes,
+        ignoredDeduplicationKeys = ignoredDeduplicationKeys,
+        updatedAtEpochMillis = updatedAtEpochMillis,
+        adoptedDeduplicationKeys = adoptedDeduplicationKeys,
+        snoozedUntilEpochMillisByKey = snoozedUntilEpochMillisByKey,
+    )
     companion object {
         fun from(value: InsightPreferenceRecord) = InsightPreferencesDto(
-            value.mutedTypes, value.ignoredDeduplicationKeys, value.updatedAtEpochMillis,
+            mutedTypes = value.mutedTypes,
+            ignoredDeduplicationKeys = value.ignoredDeduplicationKeys,
+            updatedAtEpochMillis = value.updatedAtEpochMillis,
+            adoptedDeduplicationKeys = value.adoptedDeduplicationKeys,
+            snoozedUntilEpochMillisByKey = value.snoozedUntilEpochMillisByKey,
         )
     }
 }

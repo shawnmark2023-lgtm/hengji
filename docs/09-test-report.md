@@ -1,22 +1,22 @@
 # 测试与构建报告
 
-验证日期：2026-07-15（Asia/Shanghai）。环境：Windows 11、JDK 21.0.2、Gradle 9.3.1、Python 3.12.13。本文只记录实际执行结果，不把工程入口、调试签名或未做生产签名的产物等同于商店发布。
+验证日期：2026-07-25（Asia/Shanghai）。环境：Windows 11、JDK 21.0.2、Gradle 9.3.1、Python 3.12.13。本文只记录实际执行结果，不把工程入口、调试签名或未做生产签名的产物等同于商店发布。
 
 ## 自动化结果
 
 | 门禁 | 结果 | 证据 |
 | --- | --- | --- |
-| Kotlin Desktop | 62/62 通过，0 failure/error/skip | client 15、core-domain 12、core-data 15、core-insights 12、connectors 8 |
-| Room 持久层 | core-data 15/15；其中 Room Desktop 4/4 | 9 表 schema v1、事务写入、v0→v1、25 MiB 上限、production fail-closed、clear→重启仍为空且非 pristine |
+| Kotlin Desktop | 77/77 通过，0 failure/error/skip | client 20、core-domain 12、core-data 20、core-insights 17、connectors 8 |
+| Room 持久层 | core-data 20/20；其中 Room Desktop 6/6 | 9 表 schema v2、事务写入、显式 1→2 迁移、洞察偏好覆盖/重置/跨重启、25 MiB 上限、production fail-closed |
 | Android | Debug APK 构建通过 | `:apps:client:androidApp:assembleDebug` |
 | Android 签名 | v2 验证通过，1 个 signer | `CN=Android Debug`；不是生产发布签名，未做设备安装/启动 |
 | iOS 元数据 | 编译通过 | client/core-data 的 iOS source-set 元数据；不是 Xcode 原生构建证据 |
-| 架构与发布守卫 | 29/29、191/191 通过 | 依赖方向、secret、沙箱/production 标签与禁止行为扫描 |
+| 架构与发布守卫 | 30/30、178/178 通过 | 依赖方向、secret、沙箱/production 标签与禁止行为扫描 |
 | 畸形导入 | 8/8 通过 | 引号未闭合、错列、重复表头、嵌套 JSON、行/文件上限、空必填、BOM/Unicode |
-| 10 万流水开发基线 | 4/4 通过 | 100,000 行，119 ms，内存增量 43.55 MiB；不是代表性设备/加密数据库证据 |
+| 10 万流水开发基线 | 4/4 通过 | 100,000 行，121 ms，内存增量 43.21 MiB；不是代表性设备/加密数据库证据 |
 | Connector gateway | 4/4 通过；`npm audit` 0 vulnerability | state 一次性/过期、沙箱非实时、production fail-closed |
 | Price intelligence | 3/3 通过 | 中位数/四分位、离群过滤、新鲜度与低置信度行为 |
-| Release 混淆 | 构建并实跑通过 | 保留 Room/领域 ABI 与 SQLite JNI；修复了仅 Release 暴露的三类崩溃 |
+| Release 混淆 | 本轮 `proguardReleaseJars` 构建通过；既有 Release 实跑通过 | 保留 Room/领域 ABI 与 SQLite JNI；修复了仅 Release 暴露的三类崩溃 |
 
 主要命令：
 
@@ -30,6 +30,8 @@ Push-Location services\connector-gateway; npm test; npm audit --audit-level=high
 Push-Location services\price-intelligence; python -m pytest -q; Pop-Location
 apksigner verify --verbose --print-certs artifacts\hengji-android-debug.apk
 ```
+
+本工作树路径包含中文字符，当前 Windows Gradle Test Worker 会把该路径错误编码并导致测试类加载失败；因此本轮 `desktopTest --rerun-tasks` 在同一源码状态的 ASCII 隔离副本中执行。生产源码路径上的 Desktop/Android/iOS 元数据编译及 Android APK 构建均直接通过。
 
 Windows MSI 在 21:07（Asia/Shanghai）用 JDK 21 `jpackage` 与便携 WiX Toolset 3.14 重建；本轮实际命令为：
 
@@ -51,6 +53,10 @@ msiexec /a artifacts\hengji-windows-0.1.0.msi /qn TARGETDIR=<work>\hengji-repack
 6. 查看洞察页：可见本月可优化空间、证据、95% 置信度、预估影响和采纳/稍后动作。
 7. 21:12–21:15 使用独立空 `HENGJI_DATA_DIR` 启动同一 Release，新增“Release持久化验收 / ¥23.45”，关闭并重启；首页 ¥261.80→¥285.25，流水仍为 6 笔且记录可见。
 8. 将新 MSI 行政解包并从解包结果启动，进程保持运行。
+9. 2026-07-25 使用新的隔离 `HENGJI_DATA_DIR` 启动当前 Desktop 开发构建，在洞察页采纳第一条建议；关闭并重启后仍显示“已采纳”。
+10. 忽略第二条品类建议后列表即时从 3 条变为 2 条；Room 中保存稳定键 `category:transport:concentration`，再次重启后仍为 2 条且该建议不再出现。
+11. 将商户集中建议“稍后 7 天”；列表变为 1 条，Room 截止时间与更新时间差值精确为 7.0 天。
+12. “恢复默认”会先显示确认框，并明确说明只清除采纳/稍后/忽略状态、不修改账本数据；本次 UI 验证选择取消，实际重置行为由 reducer、gateway 与 Room 自动化测试覆盖。
 
 这轮 Release 冒烟先后捕获并修复：Room 生成数据库类被移除、SQLite JNI 方法被改名、领域枚举被优化失去枚举形态。最终规则保留 `com.hengji.**` ABI 和 `androidx.sqlite.driver.bundled.**` native 符号，证明“编译成功”不能替代发行二进制启动测试。
 

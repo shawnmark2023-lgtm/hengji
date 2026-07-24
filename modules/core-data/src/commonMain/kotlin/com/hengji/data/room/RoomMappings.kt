@@ -160,12 +160,24 @@ internal fun InsightPreferenceRecord.toRoomEntity() = InsightPreferencesEntity(
     mutedTypesJson = preferenceJson.encodeToString(mutedTypes.sorted()),
     ignoredDeduplicationKeysJson = preferenceJson.encodeToString(ignoredDeduplicationKeys.sorted()),
     updatedAtEpochMillis = updatedAtEpochMillis,
+    adoptedDeduplicationKeysJson = preferenceJson.encodeToString(adoptedDeduplicationKeys.sorted()),
+    snoozedUntilEpochMillisByKeyJson = preferenceJson.encodeToString<Map<String, Long>>(
+        buildMap {
+            snoozedUntilEpochMillisByKey.entries.sortedBy { it.key }.forEach { (key, value) ->
+                put(key, value)
+            }
+        },
+    ),
 )
 
 internal fun InsightPreferencesEntity.toDomain() = InsightPreferenceRecord(
     mutedTypes = preferenceJson.decodeFromString<List<String>>(mutedTypesJson).toSet(),
     ignoredDeduplicationKeys = preferenceJson.decodeFromString<List<String>>(ignoredDeduplicationKeysJson).toSet(),
     updatedAtEpochMillis = updatedAtEpochMillis,
+    adoptedDeduplicationKeys =
+        preferenceJson.decodeFromString<List<String>>(adoptedDeduplicationKeysJson).toSet(),
+    snoozedUntilEpochMillisByKey =
+        preferenceJson.decodeFromString<Map<String, Long>>(snoozedUntilEpochMillisByKeyJson),
 )
 
 internal fun ImportBatchRecord.toRoomEntity() = ImportBatchEntity(

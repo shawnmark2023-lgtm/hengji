@@ -13,22 +13,25 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hengji.app.model.DemoInsight
@@ -38,11 +41,20 @@ import com.hengji.app.theme.HengjiSpacing
 import com.hengji.app.ui.components.ScreenHeader
 import com.hengji.app.ui.components.SectionCard
 import com.hengji.app.ui.components.StatusPill
+import com.hengji.insights.InsightFeedback
 
 @Composable
-fun InsightsScreen(insights: List<DemoInsight>) {
-    val feedback = remember { mutableStateMapOf<Int, String>() }
+fun InsightsScreen(
+    insights: List<DemoInsight>,
+    busyDeduplicationKey: String?,
+    isResetting: Boolean,
+    statusMessage: String?,
+    onFeedback: (deduplicationKey: String, feedback: InsightFeedback) -> Unit,
+    onResetFeedback: () -> Unit,
+) {
     val totalImpact = insights.sumOf { it.impactMinor }
+    val interactionLocked = busyDeduplicationKey != null || isResetting
+    var showResetConfirmation by rememberSaveable { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -54,7 +66,33 @@ fun InsightsScreen(insights: List<DemoInsight>) {
                 eyebrow = "确定性规则 · 本机计算",
                 title = "洞察",
                 supporting = "每条建议都说明依据、影响和置信度；你始终拥有最终决定权。",
+                action = {
+                    TextButton(
+                        onClick = { showResetConfirmation = true },
+                        enabled = !interactionLocked,
+                    ) {
+                        if (isResetting) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.width(18.dp).height(18.dp),
+                                strokeWidth = 2.dp,
+                            )
+                            Spacer(Modifier.width(HengjiSpacing.xs))
+                        }
+                        Text("恢复默认")
+                    }
+                },
             )
+        }
+        statusMessage?.let { message ->
+            item {
+                SectionCard(Modifier.fillMaxWidth()) {
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
         }
         item {
             SectionCard(Modifier.fillMaxWidth()) {
@@ -76,12 +114,18 @@ fun InsightsScreen(insights: List<DemoInsight>) {
                 }
             }
         }
-        itemsIndexed(insights) { index, insight ->
+        itemsIndexed(
+            items = insights,
+            key = { _, insight -> insight.deduplicationKey },
+        ) { index, insight ->
             InsightCard(
                 index = index,
                 insight = insight,
-                feedback = feedback[index],
-                onFeedback = { feedback[index] = it },
+                busy = busyDeduplicationKey == insight.deduplicationKey,
+                interactionEnabled = !interactionLocked,
+                onFeedback = { feedback ->
+                    onFeedback(insight.deduplicationKey, feedback)
+                },
             )
         }
         item {
@@ -93,14 +137,38 @@ fun InsightsScreen(insights: List<DemoInsight>) {
             )
         }
     }
+
+    if (showResetConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showResetConfirmation = false },
+            title = { Text("恢复默认建议？") },
+            text = { Text("这会清除已采纳、稍后和忽略状态，但不会修改任何账本数据。") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showResetConfirmation = false
+                        onResetFeedback()
+                    },
+                ) {
+                    Text("恢复默认")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetConfirmation = false }) {
+                    Text("取消")
+                }
+            },
+        )
+    }
 }
 
 @Composable
 private fun InsightCard(
     index: Int,
     insight: DemoInsight,
-    feedback: String?,
-    onFeedback: (String) -> Unit,
+    busy: Boolean,
+    interactionEnabled: Boolean,
+    onFeedback: (InsightFeedback) -> Unit,
 ) {
     val accent = when (insight.priority) {
         InsightPriority.High -> MaterialTheme.colorScheme.primary
@@ -153,26 +221,59 @@ private fun InsightCard(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (feedback == null) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(HengjiSpacing.sm),
-                ) {
-                    Button(onClick = { onFeedback("已采纳") }, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Default.Check, contentDescription = null)
-                        Spacer(Modifier.width(HengjiSpacing.xs))
-                        Text("采纳")
-                    }
-                    FilledTonalButton(onClick = { onFeedback("稍后提醒") }, modifier = Modifier.weight(1f)) {
-                        Text("稍后")
-                    }
-                }
-            } else {
+            if (insight.feedback != InsightFeedback.NEW) {
                 StatusPill(
-                    text = feedback,
+                    text = when (insight.feedback) {
+                        InsightFeedback.ADOPTED -> "已采纳"
+                        InsightFeedback.SNOOZED -> "已稍后提醒"
+                        InsightFeedback.IGNORED -> "已忽略"
+                        InsightFeedback.NEW -> error("Handled by condition")
+                    },
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
+            }
+            if (busy) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.width(20.dp).height(20.dp),
+                        strokeWidth = 2.dp,
+                    )
+                    Spacer(Modifier.width(HengjiSpacing.sm))
+                    Text("正在保存到本机…", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(HengjiSpacing.sm),
+            ) {
+                Button(
+                    onClick = { onFeedback(InsightFeedback.ADOPTED) },
+                    modifier = Modifier.weight(1f),
+                    enabled = interactionEnabled && insight.feedback != InsightFeedback.ADOPTED,
+                ) {
+                    Icon(Icons.Default.Check, contentDescription = null)
+                    Spacer(Modifier.width(HengjiSpacing.xs))
+                    Text("采纳")
+                }
+                FilledTonalButton(
+                    onClick = { onFeedback(InsightFeedback.SNOOZED) },
+                    modifier = Modifier.weight(1f),
+                    enabled = interactionEnabled && insight.feedback != InsightFeedback.SNOOZED,
+                ) {
+                    Text("稍后 7 天")
+                }
+            }
+            TextButton(
+                onClick = { onFeedback(InsightFeedback.IGNORED) },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = interactionEnabled && insight.feedback != InsightFeedback.IGNORED,
+            ) {
+                Text("忽略这条建议")
             }
         }
     }

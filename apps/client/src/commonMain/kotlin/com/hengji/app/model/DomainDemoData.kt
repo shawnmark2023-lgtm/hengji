@@ -10,6 +10,7 @@ import com.hengji.domain.TransactionSource
 import com.hengji.insights.EvidenceValue
 import com.hengji.insights.Insight
 import com.hengji.insights.InsightEngine
+import com.hengji.insights.InsightPreferences
 import com.hengji.insights.InsightSnapshot
 import com.hengji.insights.InsightType
 import kotlinx.datetime.LocalDate
@@ -95,23 +96,36 @@ internal object DomainDemoData {
         }
     }
 
-    fun insights(snapshot: LedgerSnapshot, asOf: LocalDate): List<DemoInsight> {
+    fun insights(
+        snapshot: LedgerSnapshot,
+        asOf: LocalDate,
+        nowEpochMillis: Long,
+    ): List<DemoInsight> {
         val estimates = estimates(snapshot, asOf)
         val currentPeriodStart = startOfMonth(asOf)
         val nextPeriodStart = shiftMonth(currentPeriodStart, 1)
         val previousPeriodStart = shiftMonth(currentPeriodStart, -1)
+        val knownTypes = enumValues<InsightType>().associateBy(InsightType::name)
+        val storedPreferences = snapshot.insightPreferences
         return InsightEngine().generate(
-        InsightSnapshot(
-            asOf = asOf,
-            currency = DemoLedger.cny,
-            currentPeriod = DateRange(currentPeriodStart, nextPeriodStart),
-            previousPeriod = DateRange(previousPeriodStart, currentPeriodStart),
-            transactions = snapshot.transactions,
-            assets = snapshot.assets,
-            maintenanceCosts = snapshot.maintenanceCosts,
-            usageEvents = snapshot.usageEvents,
-            marketEstimates = estimates,
-        ),
+            snapshot = InsightSnapshot(
+                asOf = asOf,
+                currency = DemoLedger.cny,
+                currentPeriod = DateRange(currentPeriodStart, nextPeriodStart),
+                previousPeriod = DateRange(previousPeriodStart, currentPeriodStart),
+                transactions = snapshot.transactions,
+                assets = snapshot.assets,
+                maintenanceCosts = snapshot.maintenanceCosts,
+                usageEvents = snapshot.usageEvents,
+                marketEstimates = estimates,
+            ),
+            preferences = InsightPreferences(
+                mutedTypes = storedPreferences.mutedTypes.mapNotNull(knownTypes::get).toSet(),
+                ignoredDeduplicationKeys = storedPreferences.ignoredDeduplicationKeys,
+                adoptedDeduplicationKeys = storedPreferences.adoptedDeduplicationKeys,
+                snoozedUntilEpochMillisByKey = storedPreferences.snoozedUntilEpochMillisByKey,
+            ),
+            nowEpochMillis = nowEpochMillis,
         ).take(4).map(::toDemoInsight)
     }
 
@@ -141,6 +155,8 @@ internal object DomainDemoData {
             InsightType.SELL_CANDIDATE -> Triple("物品可考虑出售", "低使用物品仍有可参考的二手残值。", "核对成色并创建出售清单")
         }
         return DemoInsight(
+            deduplicationKey = insight.deduplicationKey,
+            type = insight.type,
             title = localized.first,
             summary = localized.second,
             evidence = insight.evidence.joinToString(" · ") { evidenceLabel(it.code, it.observed) },
@@ -152,6 +168,7 @@ internal object DomainDemoData {
                 insight.rankScore >= 3_500 -> InsightPriority.Medium
                 else -> InsightPriority.Low
             },
+            feedback = insight.feedback,
         )
     }
 

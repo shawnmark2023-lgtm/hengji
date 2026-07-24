@@ -1,5 +1,6 @@
 package com.hengji.data.room
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 
@@ -87,6 +88,10 @@ data class InsightPreferencesEntity(
     val mutedTypesJson: String,
     val ignoredDeduplicationKeysJson: String,
     val updatedAtEpochMillis: Long,
+    @ColumnInfo(defaultValue = "[]")
+    val adoptedDeduplicationKeysJson: String = "[]",
+    @ColumnInfo(defaultValue = "{}")
+    val snoozedUntilEpochMillisByKeyJson: String = "{}",
 )
 
 @Entity(tableName = "import_batches", primaryKeys = ["batchId"], indices = [Index(value = ["state"])])

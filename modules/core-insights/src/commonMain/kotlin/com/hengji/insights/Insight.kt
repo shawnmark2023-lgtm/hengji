@@ -89,26 +89,61 @@ data class Insight(
 data class InsightPreferences(
     val mutedTypes: Set<InsightType> = emptySet(),
     val ignoredDeduplicationKeys: Set<String> = emptySet(),
-)
+    val adoptedDeduplicationKeys: Set<String> = emptySet(),
+    val snoozedUntilEpochMillisByKey: Map<String, Long> = emptyMap(),
+) {
+    init {
+        require(ignoredDeduplicationKeys.none(String::isBlank)) {
+            "Ignored insight keys cannot be blank"
+        }
+        require(adoptedDeduplicationKeys.none(String::isBlank)) {
+            "Adopted insight keys cannot be blank"
+        }
+        require(snoozedUntilEpochMillisByKey.keys.none(String::isBlank)) {
+            "Snoozed insight keys cannot be blank"
+        }
+        require(snoozedUntilEpochMillisByKey.values.all { it >= 0 }) {
+            "Snooze deadlines cannot be negative"
+        }
+
+        val snoozedKeys = snoozedUntilEpochMillisByKey.keys
+        require(adoptedDeduplicationKeys.intersect(ignoredDeduplicationKeys).isEmpty() &&
+            adoptedDeduplicationKeys.intersect(snoozedKeys).isEmpty() &&
+            ignoredDeduplicationKeys.intersect(snoozedKeys).isEmpty()
+        ) {
+            "Adopted, ignored, and snoozed insight keys must be mutually exclusive"
+        }
+    }
+}
 
 object InsightRanker {
     fun rank(
         insights: Iterable<Insight>,
         preferences: InsightPreferences = InsightPreferences(),
+        nowEpochMillis: Long = 0L,
     ): List<Insight> {
+        require(nowEpochMillis >= 0) { "Current time cannot be negative" }
         val bestByKey = mutableMapOf<String, Insight>()
         insights.forEach { insight ->
+            val key = insight.deduplicationKey
+            val snoozedUntilEpochMillis = preferences.snoozedUntilEpochMillisByKey[key]
             if (insight.type in preferences.mutedTypes ||
-                insight.deduplicationKey in preferences.ignoredDeduplicationKeys ||
-                insight.feedback == InsightFeedback.IGNORED
+                key in preferences.ignoredDeduplicationKeys ||
+                insight.feedback == InsightFeedback.IGNORED ||
+                (snoozedUntilEpochMillis != null && nowEpochMillis < snoozedUntilEpochMillis)
             ) {
                 return@forEach
             }
-            val current = bestByKey[insight.deduplicationKey]
-            if (current == null || insight.rankScore > current.rankScore ||
-                (insight.rankScore == current.rankScore && insight.id < current.id)
+            val candidate = when {
+                key in preferences.adoptedDeduplicationKeys -> insight.copy(feedback = InsightFeedback.ADOPTED)
+                snoozedUntilEpochMillis != null -> insight.copy(feedback = InsightFeedback.NEW)
+                else -> insight
+            }
+            val current = bestByKey[key]
+            if (current == null || candidate.rankScore > current.rankScore ||
+                (candidate.rankScore == current.rankScore && candidate.id < current.id)
             ) {
-                bestByKey[insight.deduplicationKey] = insight
+                bestByKey[key] = candidate
             }
         }
         return bestByKey.values.sortedWith(compareByDescending<Insight> { it.rankScore }.thenBy { it.id })

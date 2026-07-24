@@ -6,6 +6,7 @@ import com.hengji.data.ImportBatchCommitStatus
 import com.hengji.data.ImportBatchItemRecord
 import com.hengji.data.ImportBatchRecord
 import com.hengji.data.ImportBatchState
+import com.hengji.data.InsightPreferenceRecord
 import com.hengji.data.LedgerRepository
 import com.hengji.data.LedgerSnapshot
 import com.hengji.data.PersistentLedgerRepository
@@ -25,6 +26,7 @@ interface AppLedgerGateway {
     suspend fun upsertAsset(asset: Asset)
     suspend fun addUsageEvent(event: UsageEvent)
     suspend fun addMarketQuote(quote: MarketQuote)
+    suspend fun saveInsightPreferences(preferences: InsightPreferenceRecord)
     suspend fun commitImportBatch(request: CommitImportBatchRequest): CommitImportBatchResult
     suspend fun rollbackImportBatch(batchId: String, rolledBackAtEpochMillis: Long): RollbackImportBatchResult
     suspend fun replaceWith(snapshot: LedgerSnapshot)
@@ -45,6 +47,8 @@ class PreviewLedgerGateway(
     override suspend fun upsertAsset(asset: Asset) = repository.upsertAsset(asset)
     override suspend fun addUsageEvent(event: UsageEvent) = repository.addUsageEvent(event)
     override suspend fun addMarketQuote(quote: MarketQuote) = repository.addMarketQuote(quote)
+    override suspend fun saveInsightPreferences(preferences: InsightPreferenceRecord) =
+        repository.saveInsightPreferences(preferences)
 
     override suspend fun commitImportBatch(request: CommitImportBatchRequest): CommitImportBatchResult {
         val current = repository.snapshot(includeDeleted = true)
@@ -124,6 +128,8 @@ class PersistentAppLedgerGateway(
     override suspend fun upsertAsset(asset: Asset) = repository.upsertAsset(asset)
     override suspend fun addUsageEvent(event: UsageEvent) = repository.addUsageEvent(event)
     override suspend fun addMarketQuote(quote: MarketQuote) = repository.addMarketQuote(quote)
+    override suspend fun saveInsightPreferences(preferences: InsightPreferenceRecord) =
+        repository.saveInsightPreferences(preferences)
     override suspend fun commitImportBatch(request: CommitImportBatchRequest): CommitImportBatchResult =
         repository.commitImportBatch(request)
     override suspend fun rollbackImportBatch(batchId: String, rolledBackAtEpochMillis: Long): RollbackImportBatchResult =

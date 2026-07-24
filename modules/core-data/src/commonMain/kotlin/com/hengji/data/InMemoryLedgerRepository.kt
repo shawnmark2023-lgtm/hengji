@@ -98,6 +98,11 @@ class InMemoryLedgerRepository(
         bumpRevision()
     }
 
+    override fun saveInsightPreferences(preferences: InsightPreferenceRecord) {
+        insightPreferences = preferences
+        bumpRevision()
+    }
+
     override fun replaceWith(snapshot: LedgerSnapshot) {
         load(snapshot, preserveRevision = false)
     }

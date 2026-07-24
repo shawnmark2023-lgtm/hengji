@@ -1,5 +1,7 @@
 package com.hengji.app.model
 
+import com.hengji.insights.InsightFeedback
+import com.hengji.insights.InsightType
 import kotlinx.datetime.LocalDate
 
 enum class EntryKind {
@@ -49,6 +51,8 @@ enum class InsightPriority {
 }
 
 data class DemoInsight(
+    val deduplicationKey: String,
+    val type: InsightType,
     val title: String,
     val summary: String,
     val evidence: String,
@@ -56,12 +60,17 @@ data class DemoInsight(
     val impactMinor: Long,
     val confidence: Int,
     val priority: InsightPriority,
+    val feedback: InsightFeedback = InsightFeedback.NEW,
 )
 
 private val demoAsOf = LocalDate(2026, 7, 15)
 val sampleTransactions: List<DemoTransaction> = DomainDemoData.transactions(DomainDemoData.initialSnapshot, demoAsOf)
 val sampleAssets: List<DemoAsset> = DomainDemoData.assets(DomainDemoData.initialSnapshot, demoAsOf)
-val sampleInsights: List<DemoInsight> = DomainDemoData.insights(DomainDemoData.initialSnapshot, demoAsOf)
+val sampleInsights: List<DemoInsight> = DomainDemoData.insights(
+    snapshot = DomainDemoData.initialSnapshot,
+    asOf = demoAsOf,
+    nowEpochMillis = 0,
+)
 
 fun formatMoney(minorUnits: Long, showSign: Boolean = false): String {
     val negative = minorUnits < 0

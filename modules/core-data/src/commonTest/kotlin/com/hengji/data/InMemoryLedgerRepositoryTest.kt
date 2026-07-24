@@ -11,6 +11,7 @@ import com.hengji.domain.TransactionSource
 import kotlinx.datetime.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -50,7 +51,7 @@ class InMemoryLedgerRepositoryTest {
     @Test
     fun jsonExportDeclaresSchemaAndDoesNotInventIdentityFields() {
         val json = LedgerJsonExporter.export(DemoLedger.snapshot())
-        assertTrue("\"schemaVersion\": 1" in json)
+        assertTrue("\"schemaVersion\": 2" in json)
         assertTrue("\"transactions\"" in json)
         assertFalse("\"phone\"" in json.lowercase())
         assertFalse("\"email\"" in json.lowercase())
@@ -87,6 +88,58 @@ class InMemoryLedgerRepositoryTest {
         repository.clear()
         assertEquals(InsightPreferenceRecord(), repository.snapshot().insightPreferences)
         assertTrue(repository.snapshot().importBatches.isEmpty())
+    }
+
+    @Test
+    fun insightPreferencesCanBeSavedOverwrittenAndReset() {
+        val repository: LedgerRepository = InMemoryLedgerRepository()
+        val first = InsightPreferenceRecord(
+            mutedTypes = setOf("BUDGET_PACE"),
+            ignoredDeduplicationKeys = setOf("ignored:key"),
+            updatedAtEpochMillis = 10,
+            adoptedDeduplicationKeys = setOf("adopted:key"),
+            snoozedUntilEpochMillisByKey = mapOf("snoozed:key" to 100),
+        )
+        repository.saveInsightPreferences(first)
+        val firstRevision = repository.snapshot().revision
+        assertEquals(first, repository.snapshot().insightPreferences)
+
+        val overwritten = InsightPreferenceRecord(
+            updatedAtEpochMillis = 20,
+            adoptedDeduplicationKeys = setOf("new:key"),
+        )
+        repository.saveInsightPreferences(overwritten)
+        assertEquals(overwritten, repository.snapshot().insightPreferences)
+        assertTrue(repository.snapshot().revision > firstRevision)
+
+        val reset = InsightPreferenceRecord(updatedAtEpochMillis = 30)
+        repository.saveInsightPreferences(reset)
+        assertEquals(reset, repository.snapshot().insightPreferences)
+    }
+
+    @Test
+    fun insightPreferenceFeedbackStatesAreMutuallyExclusive() {
+        assertFailsWith<IllegalArgumentException> {
+            InsightPreferenceRecord(
+                ignoredDeduplicationKeys = setOf("same:key"),
+                adoptedDeduplicationKeys = setOf("same:key"),
+            )
+        }
+        assertFailsWith<IllegalArgumentException> {
+            InsightPreferenceRecord(
+                adoptedDeduplicationKeys = setOf("same:key"),
+                snoozedUntilEpochMillisByKey = mapOf("same:key" to 100),
+            )
+        }
+        assertFailsWith<IllegalArgumentException> {
+            InsightPreferenceRecord(
+                ignoredDeduplicationKeys = setOf("same:key"),
+                snoozedUntilEpochMillisByKey = mapOf("same:key" to 100),
+            )
+        }
+        assertFailsWith<IllegalArgumentException> {
+            InsightPreferenceRecord(snoozedUntilEpochMillisByKey = mapOf("key" to -1))
+        }
     }
 
     private fun importedTransaction(id: String, fingerprint: String) = Transaction(

@@ -6,7 +6,9 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import com.hengji.domain.QuoteProvenance
 import kotlinx.datetime.LocalDate
+import com.hengji.data.InsightPreferenceRecord
 import com.hengji.data.LedgerSnapshot
+import com.hengji.insights.InsightFeedback
 
 class DemoModelsTest {
     @Test
@@ -94,6 +96,69 @@ class DemoModelsTest {
 
         assertTrue(DomainDemoData.transactions(empty, asOf).isEmpty())
         assertTrue(DomainDemoData.assets(empty, asOf).isEmpty())
-        assertTrue(DomainDemoData.insights(empty, asOf).isEmpty())
+        assertTrue(DomainDemoData.insights(empty, asOf, nowEpochMillis = 0).isEmpty())
+    }
+
+    @Test
+    fun insightProjectionPreservesStableKeysAcrossLedgerRevisions() {
+        val asOf = LocalDate(2026, 7, 15)
+        val initial = DomainDemoData.initialSnapshot
+        val first = DomainDemoData.insights(initial, asOf, nowEpochMillis = 1_000)
+        val revised = DomainDemoData.insights(
+            initial.copy(revision = initial.revision + 1),
+            asOf,
+            nowEpochMillis = 2_000,
+        )
+
+        assertTrue(first.isNotEmpty())
+        assertEquals(first.map { it.deduplicationKey }, revised.map { it.deduplicationKey })
+        assertEquals(first.size, first.map { it.deduplicationKey }.distinct().size)
+    }
+
+    @Test
+    fun insightProjectionAppliesAdoptedSnoozedAndIgnoredPreferencesBeforeTakingFour() {
+        val asOf = LocalDate(2026, 7, 15)
+        val now = 10_000L
+        val initial = DomainDemoData.insights(DomainDemoData.initialSnapshot, asOf, now)
+        val target = initial.first()
+
+        val adopted = DomainDemoData.insights(
+            DomainDemoData.initialSnapshot.copy(
+                insightPreferences = InsightPreferenceRecord(
+                    adoptedDeduplicationKeys = setOf(target.deduplicationKey),
+                    updatedAtEpochMillis = now,
+                ),
+            ),
+            asOf,
+            now,
+        )
+        assertEquals(
+            InsightFeedback.ADOPTED,
+            adopted.first { it.deduplicationKey == target.deduplicationKey }.feedback,
+        )
+
+        val snoozed = DomainDemoData.insights(
+            DomainDemoData.initialSnapshot.copy(
+                insightPreferences = InsightPreferenceRecord(
+                    snoozedUntilEpochMillisByKey = mapOf(target.deduplicationKey to now + 1),
+                    updatedAtEpochMillis = now,
+                ),
+            ),
+            asOf,
+            now,
+        )
+        assertTrue(snoozed.none { it.deduplicationKey == target.deduplicationKey })
+
+        val ignored = DomainDemoData.insights(
+            DomainDemoData.initialSnapshot.copy(
+                insightPreferences = InsightPreferenceRecord(
+                    ignoredDeduplicationKeys = setOf(target.deduplicationKey),
+                    updatedAtEpochMillis = now,
+                ),
+            ),
+            asOf,
+            now,
+        )
+        assertTrue(ignored.none { it.deduplicationKey == target.deduplicationKey })
     }
 }

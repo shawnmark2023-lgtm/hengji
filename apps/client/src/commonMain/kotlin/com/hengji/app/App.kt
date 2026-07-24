@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.hengji.app.application.AppLedgerGateway
+import com.hengji.app.application.InsightFeedbackReducer
 import com.hengji.app.application.LocalImportFlowPort
 import com.hengji.app.application.PersistentAppLedgerGateway
 import com.hengji.app.application.PreviewLedgerGateway
@@ -50,6 +51,7 @@ import com.hengji.app.ui.screens.LedgerScreen
 import com.hengji.app.ui.screens.OverviewScreen
 import com.hengji.app.ui.screens.SettingsScreen
 import com.hengji.data.InMemoryLedgerRepository
+import com.hengji.data.InsightPreferenceRecord
 import com.hengji.data.LedgerJsonExporter
 import com.hengji.data.LedgerCsvExporter
 import com.hengji.data.LedgerRepository
@@ -67,6 +69,7 @@ import com.hengji.domain.TransactionKind
 import com.hengji.domain.TransactionSource
 import com.hengji.domain.UsageEvent
 import com.hengji.domain.UsageEventId
+import com.hengji.insights.InsightFeedback
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -119,6 +122,9 @@ fun HengjiApp(
     var snapshot by remember(gateway) { mutableStateOf<LedgerSnapshot?>(null) }
     var storageBusy by remember { mutableStateOf(false) }
     var storageError by remember { mutableStateOf<String?>(null) }
+    var insightFeedbackBusyKey by remember { mutableStateOf<String?>(null) }
+    var insightFeedbackResetting by remember { mutableStateOf(false) }
+    var insightFeedbackStatus by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val importPort = remember(gateway, userImportDocumentPicker) {
         LocalImportFlowPort(gateway, userImportDocumentPicker)
@@ -166,8 +172,38 @@ fun HengjiApp(
         }
     }
 
+    fun persistInsightPreferences(
+        preferences: InsightPreferenceRecord,
+        busyKey: String?,
+        resetting: Boolean,
+        successMessage: String,
+    ) {
+        if (storageBusy) return
+        scope.launch {
+            storageBusy = true
+            storageError = null
+            insightFeedbackStatus = null
+            insightFeedbackBusyKey = busyKey
+            insightFeedbackResetting = resetting
+            try {
+                gateway.saveInsightPreferences(preferences)
+                snapshot = gateway.snapshot()
+                insightFeedbackStatus = successMessage
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                storageError = error.message ?: "建议反馈未能保存到本机"
+            } finally {
+                insightFeedbackBusyKey = null
+                insightFeedbackResetting = false
+                storageBusy = false
+            }
+        }
+    }
+
     val currentSnapshot = snapshot
-    val today = remember { currentLocalDate() }
+    val today = remember(currentSnapshot) { currentLocalDate() }
+    val nowEpochMillis = remember(currentSnapshot) { Clock.System.now().toEpochMilliseconds() }
     val darkTheme = darkThemeOverride ?: isSystemInDarkTheme()
 
     if (currentSnapshot == null) {
@@ -191,7 +227,9 @@ fun HengjiApp(
 
     val transactions = remember(currentSnapshot, today) { DomainDemoData.transactions(currentSnapshot, today) }
     val assets = remember(currentSnapshot, today) { DomainDemoData.assets(currentSnapshot, today) }
-    val insights = remember(currentSnapshot, today) { DomainDemoData.insights(currentSnapshot, today) }
+    val insights = remember(currentSnapshot, today, nowEpochMillis) {
+        DomainDemoData.insights(currentSnapshot, today, nowEpochMillis)
+    }
 
     HengjiTheme(darkTheme = darkTheme) {
         Surface(color = MaterialTheme.colorScheme.background) {
@@ -234,7 +272,42 @@ fun HengjiApp(
                             }
                         },
                     )
-                    AppDestination.Insights -> InsightsScreen(insights = insights)
+                    AppDestination.Insights -> InsightsScreen(
+                        insights = insights,
+                        busyDeduplicationKey = insightFeedbackBusyKey,
+                        isResetting = insightFeedbackResetting,
+                        statusMessage = insightFeedbackStatus,
+                        onFeedback = { deduplicationKey, feedback ->
+                            val updatedAt = Clock.System.now().toEpochMilliseconds()
+                            val preferences = InsightFeedbackReducer.apply(
+                                current = currentSnapshot.insightPreferences,
+                                deduplicationKey = deduplicationKey,
+                                feedback = feedback,
+                                nowEpochMillis = updatedAt,
+                            )
+                            val message = when (feedback) {
+                                InsightFeedback.ADOPTED -> "已采纳建议，反馈已保存到本机"
+                                InsightFeedback.SNOOZED -> "已稍后 7 天，届时建议会重新出现"
+                                InsightFeedback.IGNORED -> "已忽略建议，可通过“恢复默认”找回"
+                                InsightFeedback.NEW -> error("NEW is not a user feedback action")
+                            }
+                            persistInsightPreferences(
+                                preferences = preferences,
+                                busyKey = deduplicationKey,
+                                resetting = false,
+                                successMessage = message,
+                            )
+                        },
+                        onResetFeedback = {
+                            val updatedAt = Clock.System.now().toEpochMilliseconds()
+                            persistInsightPreferences(
+                                preferences = InsightFeedbackReducer.reset(updatedAt),
+                                busyKey = null,
+                                resetting = true,
+                                successMessage = "已恢复默认建议偏好",
+                            )
+                        },
+                    )
                     AppDestination.Settings -> SettingsScreen(
                         darkTheme = darkTheme,
                         onDarkThemeChange = { darkThemeOverride = it },

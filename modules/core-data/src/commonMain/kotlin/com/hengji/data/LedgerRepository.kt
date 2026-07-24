@@ -23,11 +23,25 @@ data class InsightPreferenceRecord(
     val mutedTypes: Set<String> = emptySet(),
     val ignoredDeduplicationKeys: Set<String> = emptySet(),
     val updatedAtEpochMillis: Long = 0,
+    val adoptedDeduplicationKeys: Set<String> = emptySet(),
+    val snoozedUntilEpochMillisByKey: Map<String, Long> = emptyMap(),
 ) {
     init {
         require(mutedTypes.none { it.isBlank() }) { "Muted insight types cannot be blank" }
         require(ignoredDeduplicationKeys.none { it.isBlank() }) { "Ignored insight keys cannot be blank" }
         require(updatedAtEpochMillis >= 0) { "Preference update time cannot be negative" }
+        require(adoptedDeduplicationKeys.none { it.isBlank() }) { "Adopted insight keys cannot be blank" }
+        require(snoozedUntilEpochMillisByKey.keys.none { it.isBlank() }) { "Snoozed insight keys cannot be blank" }
+        require(snoozedUntilEpochMillisByKey.values.none { it < 0 }) { "Snooze expiry cannot be negative" }
+        require(adoptedDeduplicationKeys.intersect(ignoredDeduplicationKeys).isEmpty()) {
+            "An insight cannot be both adopted and ignored"
+        }
+        require(adoptedDeduplicationKeys.intersect(snoozedUntilEpochMillisByKey.keys).isEmpty()) {
+            "An insight cannot be both adopted and snoozed"
+        }
+        require(ignoredDeduplicationKeys.intersect(snoozedUntilEpochMillisByKey.keys).isEmpty()) {
+            "An insight cannot be both ignored and snoozed"
+        }
     }
 }
 
@@ -130,6 +144,8 @@ interface LedgerRepository {
     fun addUsageEvent(event: UsageEvent)
 
     fun addMarketQuote(quote: MarketQuote)
+
+    fun saveInsightPreferences(preferences: InsightPreferenceRecord)
 
     fun replaceWith(snapshot: LedgerSnapshot)
 

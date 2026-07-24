@@ -1,5 +1,7 @@
 package com.hengji.data.room
 
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import androidx.sqlite.execSQL
 import com.hengji.data.CommitImportBatchRequest
 import com.hengji.data.ImportBatchCommitStatus
 import com.hengji.data.ImportBatchState
@@ -28,7 +30,13 @@ class RoomLedgerRepositoryTest {
             val transaction = importedTransaction("tx-max", "hj1_max", Long.MAX_VALUE)
             repository.upsertTransaction(transaction)
             repository.saveInsightPreferences(
-                InsightPreferenceRecord(setOf("SELL_CANDIDATE"), setOf("asset:demo"), 99),
+                InsightPreferenceRecord(
+                    mutedTypes = setOf("SELL_CANDIDATE"),
+                    ignoredDeduplicationKeys = setOf("asset:ignored"),
+                    updatedAtEpochMillis = 99,
+                    adoptedDeduplicationKeys = setOf("asset:adopted"),
+                    snoozedUntilEpochMillisByKey = mapOf("asset:snoozed" to 999),
+                ),
             )
             repository.close()
 
@@ -36,7 +44,98 @@ class RoomLedgerRepositoryTest {
             val snapshot = repository.snapshot()
             assertEquals(Long.MAX_VALUE, snapshot.transactions.single().amount.minorUnits)
             assertEquals(setOf("SELL_CANDIDATE"), snapshot.insightPreferences.mutedTypes)
+            assertEquals(setOf("asset:ignored"), snapshot.insightPreferences.ignoredDeduplicationKeys)
+            assertEquals(setOf("asset:adopted"), snapshot.insightPreferences.adoptedDeduplicationKeys)
+            assertEquals(mapOf("asset:snoozed" to 999L), snapshot.insightPreferences.snoozedUntilEpochMillisByKey)
+            assertEquals(99L, snapshot.insightPreferences.updatedAtEpochMillis)
             repository.close()
+        }
+    }
+
+    @Test
+    fun insightPreferencesCanBeOverwrittenAndResetAcrossReopen() = runTest {
+        withDatabaseFile { path ->
+            var repository = open(path)
+            repository.saveInsightPreferences(
+                InsightPreferenceRecord(
+                    ignoredDeduplicationKeys = setOf("old:key"),
+                    updatedAtEpochMillis = 10,
+                ),
+            )
+            repository.saveInsightPreferences(
+                InsightPreferenceRecord(
+                    adoptedDeduplicationKeys = setOf("new:key"),
+                    updatedAtEpochMillis = 20,
+                ),
+            )
+            repository.close()
+
+            repository = open(path)
+            assertEquals(
+                InsightPreferenceRecord(
+                    adoptedDeduplicationKeys = setOf("new:key"),
+                    updatedAtEpochMillis = 20,
+                ),
+                repository.snapshot().insightPreferences,
+            )
+            repository.saveInsightPreferences(InsightPreferenceRecord(updatedAtEpochMillis = 30))
+            repository.close()
+
+            repository = open(path)
+            assertEquals(
+                InsightPreferenceRecord(updatedAtEpochMillis = 30),
+                repository.snapshot().insightPreferences,
+            )
+            repository.close()
+        }
+    }
+
+    @Test
+    fun migrationOneToTwoPreservesExistingPreferencesAndAddsEmptyFeedbackState() {
+        withDatabaseFileBlocking { path ->
+            BundledSQLiteDriver().open(path).use { connection ->
+                connection.execSQL(
+                    """
+                    CREATE TABLE insight_preferences (
+                        singletonId INTEGER NOT NULL PRIMARY KEY,
+                        mutedTypesJson TEXT NOT NULL,
+                        ignoredDeduplicationKeysJson TEXT NOT NULL,
+                        updatedAtEpochMillis INTEGER NOT NULL
+                    )
+                    """.trimIndent(),
+                )
+                connection.execSQL(
+                    """
+                    INSERT INTO insight_preferences (
+                        singletonId,
+                        mutedTypesJson,
+                        ignoredDeduplicationKeysJson,
+                        updatedAtEpochMillis
+                    ) VALUES (1, '["BUDGET_PACE"]', '["ignored:key"]', 77)
+                    """.trimIndent(),
+                )
+
+                MIGRATION_1_2.migrate(connection)
+
+                connection.prepare(
+                    """
+                    SELECT mutedTypesJson,
+                           ignoredDeduplicationKeysJson,
+                           updatedAtEpochMillis,
+                           adoptedDeduplicationKeysJson,
+                           snoozedUntilEpochMillisByKeyJson
+                    FROM insight_preferences
+                    WHERE singletonId = 1
+                    """.trimIndent(),
+                ).use { statement ->
+                    assertTrue(statement.step())
+                    assertEquals("""["BUDGET_PACE"]""", statement.getText(0))
+                    assertEquals("""["ignored:key"]""", statement.getText(1))
+                    assertEquals(77, statement.getLong(2))
+                    assertEquals("[]", statement.getText(3))
+                    assertEquals("{}", statement.getText(4))
+                }
+            }
         }
     }
 

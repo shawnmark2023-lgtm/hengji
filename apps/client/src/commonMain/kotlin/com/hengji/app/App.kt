@@ -35,6 +35,7 @@ import com.hengji.app.application.PersistentAppLedgerGateway
 import com.hengji.app.application.PreviewLedgerGateway
 import com.hengji.app.application.rememberImportFlowHost
 import com.hengji.app.application.UnavailableUserImportDocumentPicker
+import com.hengji.app.application.UserDocumentPurpose
 import com.hengji.app.application.UserImportDocumentPicker
 import com.hengji.app.application.LedgerExportWriter
 import com.hengji.app.application.PreviewOnlyLedgerExportWriter
@@ -346,7 +347,10 @@ fun HengjiApp(
                         },
                         onRestoreData = {
                             mutate {
-                                val picked = userImportDocumentPicker.pick(ImportDocumentFormat.Json)
+                                val picked = userImportDocumentPicker.pick(
+                                    format = ImportDocumentFormat.Json,
+                                    purpose = UserDocumentPurpose.LedgerRestore,
+                                )
                                 if (picked != null) {
                                     val restored = LedgerJsonExporter.restore(picked.content)
                                     gateway.replaceWith(restored)

@@ -5,9 +5,9 @@
 ## 当前已验证基础
 
 - [x] Room KMP/bundled SQLite 跨重启持久化、schema v1、备份/恢复、批次回滚。
-- [x] 自动架构/secret/沙箱门禁、62 个 Kotlin 测试、8 类畸形导入、10 万流水开发基线。
+- [x] 自动架构/secret/沙箱门禁、87 个 Kotlin 测试、8 类畸形导入、10 万流水开发基线。
 - [x] Android Debug APK 构建；Windows Release 免安装包启动；MSI 生成、行政解包并启动。
-- [x] iOS 客户端与数据层 source-set 元数据编译；此项不代表 Xcode/真机/签名通过。
+- [x] iOS 客户端与数据层 source-set 元数据及 arm64/simulator Kotlin klib 交叉编译；此项不代表 Xcode 链接、真机或签名通过。
 - [x] 真实 UI 走通新增流水→关闭→重启保留，以及五步导入→原子写入→整批撤销。
 - [ ] 应用层数据库加密、平台密钥实现与加密迁移/恢复。
 - [ ] 签名、商店/公证、真实平台授权、账号验证与端到端加密同步。
@@ -25,7 +25,7 @@
 ## iOS
 
 - [ ] macOS + 当前 Xcode 真机构建、归档、签名和 TestFlight 验证。
-- [ ] iOS 系统文件选择器、JSON/CSV 落盘导出与恢复适配器完成并真机验证。
+- [ ] iOS 系统文件选择、JSON/CSV 落盘导出与 JSON 恢复适配器已实现并交叉编译；仍需模拟器/真机成功、超限、取消、清理与跨重启验证。
 - [ ] App Privacy、Privacy Manifest、entitlement 和用途说明匹配实际代码。
 - [ ] FinanceKit 仅在 entitlement/地区/eligible account 满足时出现。
 - [ ] Dynamic Type、VoiceOver、Reduce Motion、深浅色、后台模糊通过。

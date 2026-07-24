@@ -2,7 +2,7 @@
 
 `HengjiIOSApp.swift` and `ContentView.swift` are the native SwiftUI host for the
 `HengjiClient` framework. Open this folder in Xcode by adding the files to an iOS
-14+ application target, use `Configuration/Config.xcconfig`, and add this build
+15+ application target, use `Configuration/Config.xcconfig`, and add this build
 phase before **Compile Sources**:
 
 ```sh

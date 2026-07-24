@@ -36,12 +36,62 @@ data class PickedImportDocument(
     val format: ImportDocumentFormat,
 )
 
+enum class UserDocumentPurpose {
+    TransactionImport,
+    LedgerRestore,
+}
+
+object UserDocumentPolicy {
+    const val MAX_TRANSACTION_IMPORT_BYTES: Int = 5 * 1024 * 1024
+    const val MAX_LEDGER_RESTORE_BYTES: Int = 25 * 1024 * 1024
+
+    fun maximumBytes(purpose: UserDocumentPurpose): Int = when (purpose) {
+        UserDocumentPurpose.TransactionImport -> MAX_TRANSACTION_IMPORT_BYTES
+        UserDocumentPurpose.LedgerRestore -> MAX_LEDGER_RESTORE_BYTES
+    }
+
+    fun decode(
+        displayName: String,
+        bytes: ByteArray,
+        format: ImportDocumentFormat,
+        purpose: UserDocumentPurpose,
+    ): PickedImportDocument {
+        val safeDisplayName = displayName
+            .replace('\\', '/')
+            .substringAfterLast('/')
+            .trim()
+        require(safeDisplayName.isNotEmpty()) { "文件名不能为空" }
+        require(bytes.isNotEmpty()) { "文件为空" }
+        require(bytes.size <= maximumBytes(purpose)) {
+            when (purpose) {
+                UserDocumentPurpose.TransactionImport -> "文件超过 5 MiB 安全上限"
+                UserDocumentPurpose.LedgerRestore -> "账本备份超过 25 MiB 安全上限"
+            }
+        }
+        val expectedExtension = format.name.lowercase()
+        require(safeDisplayName.substringAfterLast('.', "").equals(expectedExtension, ignoreCase = true)) {
+            "文件扩展名与所选格式不一致"
+        }
+        return PickedImportDocument(
+            displayName = safeDisplayName,
+            content = bytes.decodeToString(throwOnInvalidSequence = true),
+            format = format,
+        )
+    }
+}
+
 fun interface UserImportDocumentPicker {
-    suspend fun pick(format: ImportDocumentFormat): PickedImportDocument?
+    suspend fun pick(
+        format: ImportDocumentFormat,
+        purpose: UserDocumentPurpose,
+    ): PickedImportDocument?
 }
 
 object UnavailableUserImportDocumentPicker : UserImportDocumentPicker {
-    override suspend fun pick(format: ImportDocumentFormat): PickedImportDocument =
+    override suspend fun pick(
+        format: ImportDocumentFormat,
+        purpose: UserDocumentPurpose,
+    ): PickedImportDocument =
         throw UnsupportedOperationException("此平台的系统文件选择器尚未接入；可先体验明确标注的沙箱样例。")
 }
 
@@ -65,7 +115,10 @@ class LocalImportFlowPort(
                 content = JSON_SANDBOX,
                 format = ImportDocumentFormat.Json,
             )
-            is ImportSource.UserFile -> picker.pick(source.format) ?: return null
+            is ImportSource.UserFile -> picker.pick(
+                format = source.format,
+                purpose = UserDocumentPurpose.TransactionImport,
+            ) ?: return null
         }
         val documentId = documentId(picked.content, picked.format)
         rawDocuments[documentId] = picked.content

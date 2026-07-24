@@ -94,7 +94,7 @@ jobs:
           if-no-files-found: ignore
 
   apple-compile:
-    name: Apple simulator compile
+    name: Apple framework and simulator tests
     runs-on: macos-latest
     timeout-minutes: 35
     steps:
@@ -107,18 +107,23 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Compile iOS simulator framework and shared dependencies
+      - name: Compile and link Apple frameworks and run simulator tests
         run: |
           echo "GATE_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
-          ./gradlew :apps:client:compileKotlinIosSimulatorArm64 --stacktrace
+          ./gradlew \
+            :apps:client:iosSimulatorArm64Test \
+            :apps:client:linkDebugFrameworkIosSimulatorArm64 \
+            :apps:client:linkReleaseFrameworkIosSimulatorArm64 \
+            :apps:client:linkReleaseFrameworkIosArm64 \
+            --stacktrace
       - name: Record passed Apple compile evidence
         run: |
           python scripts/quality/generate_evidence.py \
             --gate apple-simulator-compile \
             --status passed \
-            --command "./gradlew :apps:client:compileKotlinIosSimulatorArm64 --stacktrace" \
+            --command "./gradlew :apps:client:iosSimulatorArm64Test :apps:client:linkDebugFrameworkIosSimulatorArm64 :apps:client:linkReleaseFrameworkIosSimulatorArm64 :apps:client:linkReleaseFrameworkIosArm64 --stacktrace" \
             --started-at "$GATE_STARTED_AT" \
-            --limitation "Simulator source compile only; not device execution, signing, notarization, TestFlight, or App Store approval" \
+            --limitation "Kotlin/Native tests and framework links only; the Swift host, simulator app launch, device execution, signing, notarization, TestFlight, and App Store approval remain unverified" \
             --output quality-evidence/apple-simulator-compile.json
       - name: Upload Apple compile evidence
         if: always()

@@ -1,6 +1,6 @@
 # 衡记 HENGJI：安全与隐私威胁模型 v0.1
 
-更新日期：2026-07-15。范围：首版无登录、本地优先客户端，用户主动 CSV/JSON 导入，沙箱平台连接器，以及可选的连接器网关/二手估价服务边界。
+更新日期：2026-07-25。范围：首版无登录、本地优先客户端，用户主动 CSV/JSON 导入，沙箱平台连接器，以及可选的连接器网关/二手估价服务边界。
 
 ## 1. 安全目标与非目标
 
@@ -49,7 +49,7 @@
 
 | ID | 威胁/滥用路径 | 影响 | 首版缓解 | 上线门禁 |
 |---|---|---|---|---|
-| T01 | 恶意超大 CSV/JSON、超长单元格、行列炸弹 | 内存/CPU 耗尽 | 5 MiB、1 万行、64 列、4096 字符硬限制；解析前检查字节数 | 流式解析、性能基准、模糊测试 |
+| T01 | 恶意超大 CSV/JSON、超长单元格、行列炸弹 | 内存/CPU 耗尽 | 普通导入 5 MiB、完整恢复 25 MiB、1 万行、64 列、4096 字符硬限制；Android/iOS 在分配完整内容前做有界读取 | 流式解析、性能基准、模糊测试 |
 | T02 | CSV 公式注入在后续导出时执行 | 本地命令/数据外带 | 导入文本字段拒绝 `= + - @` 等公式前缀；导出层还需二次转义 | CSV 导出契约测试覆盖所有危险前缀 |
 | T03 | 金额浮点、指数、过多小数或整数溢出 | 账本失真 | 仅十进制定点字符串/整数；币种精度检查；64 位溢出检测 | 属性测试覆盖上下界、不同币种 |
 | T04 | 重复导入、并发提交、部分写入 | 重复支出/审计困难 | 版本化稳定指纹；批内与账本去重；`ImportLedger` 规定提交/撤销原子性 | SQLite 事务与故障注入测试 |
@@ -80,7 +80,7 @@
 
 ## 6. 不可信文件基线
 
-首版只接受用户主动选择的 UTF-8 CSV/JSON 文本，不根据文件名信任类型。解析器采用字段白名单、对象/数组形状检查、大小/行/列/单元格限制、金额和日期验证。正式版增加 MIME 与扩展名一致性、流式读取、临时文件隔离、模糊测试和恶意样本回归库。原则参考 [OWASP File Upload Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html)、[OWASP Input Validation Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html) 和 [OWASP CSV Injection](https://owasp.org/www-community/attacks/CSV_Injection)。
+首版只接受用户主动选择的 UTF-8 CSV/JSON 文本，不根据文件名信任内容。平台选择器限制候选类型，共享策略再校验扩展名、严格 UTF-8、非空和 5/25 MiB 上限；解析器继续执行字段白名单、对象/数组形状、行/列/单元格、金额和日期验证。iOS 在安全作用域与 `NSFileCoordinator` 内最多读取“上限 + 1 字节”，导出仅使用应用沙箱内受控前缀临时目录并在取消/完成后清理。正式版仍需 MIME 内容探测、完整流式解析、模糊测试和恶意样本回归库。原则参考 [OWASP File Upload Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html)、[OWASP Input Validation Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html) 和 [OWASP CSV Injection](https://owasp.org/www-community/attacks/CSV_Injection)。
 
 ## 7. 日志与遥测
 

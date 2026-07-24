@@ -16,6 +16,7 @@
 - Apple FinanceKit 可以在用户同意下向财务管理 App 分享 eligible Apple Wallet 账户余额和交易，但受地区、账户和 entitlement 限制：[Apple FinanceKit](https://developer.apple.com/financekit/)。
 - Android 金融预算类应用可能申请 SMS 例外，但需 Google Play 声明和审批，且不得外传非金融短信：[Google Play SMS/Call Log Policy](https://support.google.com/googleplay/android-developer/answer/10208820?hl=en)。
 - Apple 沙箱不允许任意读取其他 App 容器；用户选择文件和官方扩展/授权才是稳定路径：[Apple Shared Data](https://developer.apple.com/documentation/technologyoverviews/shared-data)。
+- iOS 用户文件导入/导出应走系统 `UIDocumentPickerViewController`；安全作用域 URL 必须成对开始/结束访问，Kotlin/Native 通过 Objective-C/Swift 互操作调用这些 Foundation/UIKit API：[Document picker](https://developer.apple.com/documentation/uikit/uidocumentpickerviewcontroller)、[Security-scoped URL](https://developer.apple.com/documentation/foundation/nsurl)、[Kotlin/Native interoperability](https://kotlinlang.org/docs/native-objc-interop.html)。
 
 结论：首版必须把“用户主动导入 + 官方连接器适配层”做扎实；任何“一键同步”只能在取得对应平台真实 scope 后逐个平台上线。
 

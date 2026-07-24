@@ -1,6 +1,7 @@
 package com.hengji.app.application
 
 import com.hengji.app.importflow.ImportCommitSelection
+import com.hengji.app.importflow.ImportDocumentFormat
 import com.hengji.app.importflow.ImportSource
 import com.hengji.connectors.CandidateStatus
 import com.hengji.connectors.ImportFieldMapping
@@ -11,6 +12,30 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
 class LocalImportFlowPortTest {
+    @Test
+    fun userFileImportRequestsTransactionImportPolicy() = runTest {
+        var observedFormat: ImportDocumentFormat? = null
+        var observedPurpose: UserDocumentPurpose? = null
+        val picker = UserImportDocumentPicker { format, purpose ->
+            observedFormat = format
+            observedPurpose = purpose
+            PickedImportDocument(
+                displayName = "transactions.csv",
+                content = "date,amount\n2026-07-01,12.34",
+                format = format,
+            )
+        }
+        val port = LocalImportFlowPort(
+            ledger = PreviewLedgerGateway(InMemoryLedgerRepository()),
+            picker = picker,
+        )
+
+        port.openSource(ImportSource.UserFile(ImportDocumentFormat.Csv))
+
+        assertEquals(ImportDocumentFormat.Csv, observedFormat)
+        assertEquals(UserDocumentPurpose.TransactionImport, observedPurpose)
+    }
+
     @Test
     fun sandboxImportCommitsToLedgerAndRollsBackAsOneBatch() = runTest {
         val repository = InMemoryLedgerRepository()

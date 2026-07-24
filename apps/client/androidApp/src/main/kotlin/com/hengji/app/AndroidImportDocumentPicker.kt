@@ -6,6 +6,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
 import com.hengji.app.application.PickedImportDocument
+import com.hengji.app.application.UserDocumentPolicy
+import com.hengji.app.application.UserDocumentPurpose
 import com.hengji.app.application.UserImportDocumentPicker
 import com.hengji.app.importflow.ImportDocumentFormat
 import java.io.ByteArrayOutputStream
@@ -29,7 +31,9 @@ class AndroidImportDocumentPicker(
         }
         activity.lifecycleScope.launch {
             val result = runCatching {
-                withContext(Dispatchers.IO) { readDocument(uri, request.format) }
+                withContext(Dispatchers.IO) {
+                    readDocument(uri, request.format, request.purpose)
+                }
             }
             result.fold(
                 onSuccess = { request.continuation.resume(it) },
@@ -38,10 +42,13 @@ class AndroidImportDocumentPicker(
         }
     }
 
-    override suspend fun pick(format: ImportDocumentFormat): PickedImportDocument? =
+    override suspend fun pick(
+        format: ImportDocumentFormat,
+        purpose: UserDocumentPurpose,
+    ): PickedImportDocument? =
         suspendCancellableCoroutine { continuation ->
             check(pending == null) { "已有文件选择请求正在进行" }
-            pending = PendingPick(format, continuation)
+            pending = PendingPick(format, purpose, continuation)
             continuation.invokeOnCancellation {
                 if (pending?.continuation === continuation) pending = null
             }
@@ -53,21 +60,28 @@ class AndroidImportDocumentPicker(
             )
         }
 
-    private fun readDocument(uri: Uri, format: ImportDocumentFormat): PickedImportDocument {
+    private fun readDocument(
+        uri: Uri,
+        format: ImportDocumentFormat,
+        purpose: UserDocumentPurpose,
+    ): PickedImportDocument {
         val resolver = activity.contentResolver
         val displayName = resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
             if (cursor.moveToFirst()) cursor.getString(0) else null
         } ?: "消费记录.${format.name.lowercase()}"
-        val bytes = resolver.openInputStream(uri)?.use(::readBounded)
+        val bytes = resolver.openInputStream(uri)?.use { input ->
+            readBounded(input, UserDocumentPolicy.maximumBytes(purpose))
+        }
             ?: error("无法读取所选文件")
-        return PickedImportDocument(
+        return UserDocumentPolicy.decode(
             displayName = displayName,
-            content = bytes.decodeToString(throwOnInvalidSequence = true),
+            bytes = bytes,
             format = format,
+            purpose = purpose,
         )
     }
 
-    private fun readBounded(input: java.io.InputStream): ByteArray {
+    private fun readBounded(input: java.io.InputStream, maximumBytes: Int): ByteArray {
         val output = ByteArrayOutputStream()
         val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
         var total = 0
@@ -75,7 +89,7 @@ class AndroidImportDocumentPicker(
             val read = input.read(buffer)
             if (read < 0) break
             total += read
-            require(total <= MAX_IMPORT_BYTES) { "文件超过 5 MiB 安全上限" }
+            require(total <= maximumBytes) { "文件超过安全上限" }
             output.write(buffer, 0, read)
         }
         require(total > 0) { "文件为空" }
@@ -84,10 +98,7 @@ class AndroidImportDocumentPicker(
 
     private data class PendingPick(
         val format: ImportDocumentFormat,
+        val purpose: UserDocumentPurpose,
         val continuation: CancellableContinuation<PickedImportDocument?>,
     )
-
-    private companion object {
-        const val MAX_IMPORT_BYTES = 5 * 1024 * 1024
-    }
 }

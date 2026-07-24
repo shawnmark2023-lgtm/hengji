@@ -6,14 +6,14 @@
 
 | 门禁 | 结果 | 证据 |
 | --- | --- | --- |
-| Kotlin Desktop | 77/77 通过，0 failure/error/skip | client 20、core-domain 12、core-data 20、core-insights 17、connectors 8 |
+| Kotlin Desktop | 87/87 通过，0 failure/error/skip | client 30、core-domain 12、core-data 20、core-insights 17、connectors 8 |
 | Room 持久层 | core-data 20/20；其中 Room Desktop 6/6 | 9 表 schema v2、事务写入、显式 1→2 迁移、洞察偏好覆盖/重置/跨重启、25 MiB 上限、production fail-closed |
 | Android | Debug APK 构建通过 | `:apps:client:androidApp:assembleDebug` |
 | Android 签名 | v2 验证通过，1 个 signer | `CN=Android Debug`；不是生产发布签名，未做设备安装/启动 |
-| iOS 元数据 | 编译通过 | client/core-data 的 iOS source-set 元数据；不是 Xcode 原生构建证据 |
-| 架构与发布守卫 | 30/30、178/178 通过 | 依赖方向、secret、沙箱/production 标签与禁止行为扫描 |
+| iOS 交叉编译 | 元数据、arm64 与 simulator arm64 Kotlin klib 编译通过 | 覆盖系统文件选择、协调有界读取与临时导出；不是 Xcode 链接、模拟器/真机或签名证据 |
+| 架构与发布守卫 | 30/30、183/183 通过 | 依赖方向、secret、沙箱/production 标签与禁止行为扫描 |
 | 畸形导入 | 8/8 通过 | 引号未闭合、错列、重复表头、嵌套 JSON、行/文件上限、空必填、BOM/Unicode |
-| 10 万流水开发基线 | 4/4 通过 | 100,000 行，121 ms，内存增量 43.21 MiB；不是代表性设备/加密数据库证据 |
+| 10 万流水开发基线 | 4/4 通过 | 100,000 行，109 ms，内存增量 43.75 MiB；不是代表性设备/加密数据库证据 |
 | Connector gateway | 4/4 通过；`npm audit` 0 vulnerability | state 一次性/过期、沙箱非实时、production fail-closed |
 | Price intelligence | 3/3 通过 | 中位数/四分位、离群过滤、新鲜度与低置信度行为 |
 | Release 混淆 | 本轮 `proguardReleaseJars` 构建通过；既有 Release 实跑通过 | 保留 Room/领域 ABI 与 SQLite JNI；修复了仅 Release 暴露的三类崩溃 |
@@ -23,7 +23,8 @@
 ```powershell
 .\gradlew.bat desktopTest --no-daemon
 .\gradlew.bat :apps:client:androidApp:assembleDebug --no-daemon
-.\gradlew.bat :apps:client:compileIosMainKotlinMetadata :modules:core-data:compileIosMainKotlinMetadata --no-daemon
+.\gradlew.bat :apps:client:compileIosMainKotlinMetadata --no-daemon --rerun-tasks
+.\gradlew.bat :apps:client:compileKotlinIosArm64 :apps:client:compileKotlinIosSimulatorArm64 --no-daemon --rerun-tasks
 python scripts/quality/run_quality.py --output-dir quality/evidence
 .\gradlew.bat :apps:client:proguardReleaseJars --no-daemon
 Push-Location services\connector-gateway; npm test; npm audit --audit-level=high; Pop-Location
@@ -74,6 +75,6 @@ msiexec /a artifacts\hengji-windows-0.1.0.msi /qn TARGETDIR=<work>\hengji-repack
 - iOS/macOS 原生编译、真机、签名、公证和商店流程需要 macOS + Xcode；Windows 不能提供该证据。
 - 支付/电商/二手平台尚未取得生产 scope 或合同；沙箱和示例报价不是一键实时同步。
 - Windows 产物未签名；Android 只有 Debug 签名、没有生产发布签名；真实安装、升级、卸载、SmartScreen/Play 流程未验证。
-- iOS 的系统文件选择器与落盘导出适配器尚未实现；当前只有共享沙箱导入和屏内导出预览。
+- iOS 文件适配器尚未在 Xcode、模拟器或真机运行；Windows 上的 Kotlin/Native 交叉编译不能证明 File Provider/iCloud、取消、超限、临时清理和跨重启流程正确。
 - `org.jetbrains.compose.material3:material3:1.11.0-alpha07` 是预发布依赖；升级到稳定兼容版本及回归验证属于 Beta 依赖门禁。
 - 全量 UI 自动化、屏幕阅读器、代表性低端设备性能、渗透测试、账户验证和加密同步仍是后续门禁。

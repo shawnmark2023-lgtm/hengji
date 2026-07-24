@@ -30,8 +30,8 @@
 - [x] `UX-003` P0 流水列表、搜索筛选和新增/编辑表单。
 - [x] `UX-004` P0 物品库、物品详情、使用打卡、成本指标和价格历史。
 - [x] `UX-005` P0 二手比价界面，严格区分示例/手工/实时来源。
-- [ ] `UX-006` P0 Desktop/Android 已有来源 → 映射 → 预览去重 → 确认 → 可撤销结果；iOS 用户文件选择适配器待补。
-- [ ] `UX-007` P0 Desktop/Android 已有本地模式、JSON/CSV 落盘、恢复、清除和连接器状态；iOS 当前仅预览导出，待补落盘/恢复适配器。
+- [ ] `UX-006` P0 Desktop/Android 已有来源 → 映射 → 预览去重 → 确认 → 可撤销结果；iOS 系统文件选择适配器已实现并交叉编译，待 macOS 模拟器/真机验收。
+- [ ] `UX-007` P0 四端已有本地模式；Desktop/Android 落盘已验证，iOS JSON/CSV 导出与 JSON 恢复适配器已实现并交叉编译，待 Xcode/真机验收。
 - [ ] `UX-008` P0 无障碍语义、键盘导航、焦点、对比度、减少动态效果。
 - [ ] `UX-009` P1 小组件、快捷记账、分享扩展、桌面快捷键。
 
@@ -68,7 +68,7 @@
 
 - [x] `SEC-001` P0 威胁模型：本地数据库、导入文件、OAuth token、备份、日志、模型调用。
 - [x] `SEC-002` P0 日志脱敏、禁止明文 secret、依赖最小化和能力白名单。
-- [ ] `SEC-003` P0 Desktop/Android 一键导出/恢复/删除和网络访问状态可见；iOS 落盘导出/恢复未完成。
+- [ ] `SEC-003` P0 Desktop/Android 一键导出/恢复/删除和网络访问状态可见；iOS 有界导入、导出临时文件隔离/清扫与恢复已实现，待真机跨重启和隐私清理验收。
 - [ ] `SEC-004` P1 Keychain/Keystore/Windows Credential Locker 抽象和实现。
 - [ ] `SEC-005` P2 Passkey/Sign in with Apple、2FA 恢复流程、会话撤销。
 - [ ] `SEC-006` P2 端到端加密同步、密钥轮换、冲突与灾难恢复演练。
@@ -93,8 +93,8 @@
 | FND-003 | PARTIAL | Gradle dependency locking、verification metadata | 全部可解析配置有锁；校验元数据入库；干净环境连续两次构建依赖与产物清单一致 |
 | FND-004 | PARTIAL | formatter、coverage engine | Kotlin/TS/Python 格式化检查为 0；核心领域与导入模块达到约定分支覆盖率，CI 失败时阻断 |
 | DAT-004 | PARTIAL | Keychain/Keystore/DPAPI、加密实现 | 四平台密钥不可导出；明文→密文迁移、错误密钥、恢复、轮换和崩溃恢复测试通过 |
-| UX-006 | PARTIAL | iOS document picker | iOS 真机选择 CSV/JSON，完成映射/预览/提交/重复重试/整批撤销，全程不申请无关权限 |
-| UX-007 | PARTIAL | iOS writer/restore picker | iOS 真机导出 JSON/CSV 到用户选定位置并从 JSON 恢复；清除后重启仍为空 |
+| UX-006 | PARTIAL | macOS/Xcode runner、iOS simulator/device evidence | iOS 真机选择 CSV/JSON，完成映射/预览/提交/重复重试/整批撤销，全程不申请无关权限 |
+| UX-007 | PARTIAL | macOS/Xcode runner、iOS simulator/device evidence | iOS 真机导出 JSON/CSV 到用户选定位置并从 JSON 恢复；清除后重启仍为空 |
 | UX-008 | TODO | semantics、focus order、contrast audit | VoiceOver/TalkBack/Narrator、仅键盘、200% 字体、深浅色和 Reduce Motion 清单 100% 通过 |
 | UX-009 | TODO | platform widgets/extensions | 至少 Android/iOS 各 1 个快捷记账入口、桌面全局快捷键冲突策略与撤销路径通过 |
 | INS-006 | TODO | consent UI、aggregate contract、model provider | 默认零外发；只发送白名单聚合；撤回同意立即停用；离线规则结果保持可用 |
@@ -104,7 +104,7 @@
 | IMP-008 | TODO | provider app、scope、DPA/合同 | 每个生产连接器有批准 scope、最小字段清单、撤权/过期/限流测试和上线回滚预案 |
 | PRI-005 | TODO | 官方 API 或授权聚合合同 | 0 个抓取/私有 API；缓存 TTL、来源、运费、币种、成色和删除 SLA 均可审计 |
 | PRI-006 | TODO | notification permissions、price history | 提醒阈值、冷却期、撤销和过期报价行为通过；通知不含敏感流水原文 |
-| SEC-003 | PARTIAL | iOS file adapters | Desktop/Android/iOS 都能导出、恢复、清除并跨重启验证；网络计数为 0 时界面可见 |
+| SEC-003 | PARTIAL | iOS simulator/device privacy and restart evidence | Desktop/Android/iOS 都能导出、恢复、清除并跨重启验证；网络计数为 0 时界面可见 |
 | SEC-004 | TODO | platform credential stores | token/密钥只进入平台安全存储；锁屏、备份、卸载、轮换和访问失败策略通过 |
 | SEC-005 | TODO | account backend、Passkey/SIWA | 注册/验证/恢复/2FA/会话撤销/设备丢失演练通过，且不破坏无账号本地模式 |
 | SEC-006 | TODO | E2EE protocol、sync engine | 双设备离线冲突、密钥轮换、恢复短语、灾难恢复和服务端不可读性测试通过 |

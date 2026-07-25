@@ -68,6 +68,11 @@ the authenticated target, atomically renames the main SQLite file to a retiremen
 sidecars, and deletes the marker last. A crash therefore leaves either a readable source database or an identifiable
 cleanup-only state. Divergent plaintext and encrypted snapshots fail closed and retain the plaintext source.
 
+Opening a new protected ledger first checks for an existing platform key. If the envelope and migration source are both
+missing while a key still exists, opening fails closed instead of creating an empty ledger that could hide file loss or
+trigger demo reseeding. A crash after first key provisioning but before the initial envelope commit also requires an
+explicit recovery/reset path; a durable initialization journal remains a pre-Beta recovery improvement.
+
 The Desktop application composition root now selects `openDesktopProtectedLedger` and fails closed when its platform
 key or authenticated envelope cannot be opened. Android and iOS still select the plaintext Room development factories.
 Their legacy Room retirement, encrypted-store performance on representative devices, Android store host/device

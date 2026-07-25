@@ -64,7 +64,7 @@
 | T13 | 错误响应回显原始交易或内部堆栈 | 隐私/实现泄露 | 稳定错误码 + request ID；500 使用通用文案 | 集中脱敏日志与响应快照测试 |
 | T14 | 依赖、CI 或签名供应链被篡改 | 恶意发行包 | 锁文件、最小依赖、CI 测试、禁止提交密钥 | SBOM、依赖审查、固定 action SHA、隔离签名 runner |
 | T15 | 日后账户恢复绕过、设备撤销失效 | 云端账本泄露 | 首版无账户/云同步，攻击面不存在 | Passkey、恢复码、设备清单、会话/密钥吊销专项评审 |
-| T16 | 本地数据库、备份或临时文件被离线复制/篡改 | 高敏财务明文泄露、静默数据操纵 | 受保护账本 envelope 使用 AES-256-GCM、随机 96-bit nonce、版本/算法/密钥别名 AAD、大小上限与 fail-closed；Windows 用当前用户 DPAPI；Android 用不可导出 Keystore AES 密钥和 no-backup 保护物；iOS/macOS 用不迁移、不同步、仅解锁可用的 Keychain 项；Desktop 入口已受保护，Android/iOS Room 仍仅限开发明文策略 | Android/iOS Room 明文→密文原子迁移、错钥/轮换/崩溃恢复与 Android/Apple 设备验收 |
+| T16 | 本地数据库、备份或临时文件被离线复制/篡改 | 高敏财务明文泄露、静默数据操纵 | 受保护账本 envelope 使用 AES-256-GCM、随机 96-bit nonce、版本/算法/密钥别名 AAD、大小上限与 fail-closed；密文缺失但平台密钥仍在时禁止空账本重建；Windows 用当前用户 DPAPI；Android 用不可导出 Keystore AES 密钥和 no-backup 保护物；iOS/macOS 用不迁移、不同步、仅解锁可用的 Keychain 项；Desktop 入口已受保护，Android/iOS Room 仍仅限开发明文策略 | 持久初始化 journal、Android/iOS Room 明文→密文原子迁移、错钥/轮换/崩溃恢复与 Android/Apple 设备验收 |
 
 ## 5. OAuth 上线约束
 

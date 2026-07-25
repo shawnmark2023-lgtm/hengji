@@ -55,7 +55,7 @@ class JvmAtomicProtectedLedgerStoreTest {
         val repository = ProtectedLedgerRepository.open(
             store = store,
             keyAlias = "ledger-primary",
-            keyProvider = DesktopTestKeyProvider,
+            keyProvider = DesktopTestKeyProvider(),
         ).repository
         store.blockWrites = true
 
@@ -83,12 +83,17 @@ class JvmAtomicProtectedLedgerStoreTest {
     }
 }
 
-private object DesktopTestKeyProvider : ProvisioningDatabaseKeyProvider {
+private class DesktopTestKeyProvider : ProvisioningDatabaseKeyProvider {
     private val key = ByteArray(32) { 17 }
+    private var available = false
 
-    override suspend fun loadKey(alias: String): DatabaseKeyMaterial = DatabaseKeyMaterial(key)
+    override suspend fun loadKey(alias: String): DatabaseKeyMaterial? =
+        if (available) DatabaseKeyMaterial(key) else null
 
-    override suspend fun loadOrCreateKey(alias: String): DatabaseKeyMaterial = DatabaseKeyMaterial(key)
+    override suspend fun loadOrCreateKey(alias: String): DatabaseKeyMaterial {
+        available = true
+        return DatabaseKeyMaterial(key)
+    }
 }
 
 private class BlockingProtectedLedgerStore : ProtectedLedgerStore {

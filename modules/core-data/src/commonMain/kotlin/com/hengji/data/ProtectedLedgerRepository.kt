@@ -356,6 +356,16 @@ class ProtectedLedgerRepository private constructor(
                     "Plaintext retirement artifacts exist without an encrypted ledger; manual recovery is required",
                 )
             }
+            if (plaintextSource == null) {
+                val orphanedKey = keyProvider.loadKey(keyAlias)
+                if (orphanedKey != null) {
+                    orphanedKey.destroy()
+                    throw StorageProtectionException(
+                        "A protected ledger key exists but the encrypted ledger is missing; " +
+                            "automatic replacement is forbidden",
+                    )
+                }
+            }
             val provisioned = keyProvider.loadOrCreateKey(keyAlias)
             provisioned.destroy()
             val initial = sourceSnapshot ?: emptyLedgerSnapshot()

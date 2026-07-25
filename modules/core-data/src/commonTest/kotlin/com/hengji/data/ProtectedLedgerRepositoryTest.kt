@@ -128,6 +128,19 @@ class ProtectedLedgerRepositoryTest {
     }
 
     @Test
+    fun existingKeyWithMissingEnvelopeFailsWithoutCreatingEmptyReplacement() = runProtectedTest {
+        val store = MemoryProtectedLedgerStore()
+        val keys = TestProvisioningKeyProvider(keyAvailable = true)
+
+        assertFailsWith<StorageProtectionException> {
+            runProtectedTest { ProtectedLedgerRepository.open(store, "ledger-primary", keys) }
+        }
+
+        assertEquals(0, keys.provisionCount)
+        assertEquals(null, store.envelope)
+    }
+
+    @Test
     fun importCommitIsIdempotentAndRollbackOnlyRemovesInsertedRows() = runProtectedTest {
         val store = MemoryProtectedLedgerStore()
         val repository = ProtectedLedgerRepository.open(
@@ -180,7 +193,7 @@ private class MemoryProtectedLedgerStore : ProtectedLedgerStore {
 }
 
 private class TestProvisioningKeyProvider(
-    private var keyAvailable: Boolean = true,
+    private var keyAvailable: Boolean = false,
 ) : ProvisioningDatabaseKeyProvider {
     var provisionCount: Int = 0
         private set

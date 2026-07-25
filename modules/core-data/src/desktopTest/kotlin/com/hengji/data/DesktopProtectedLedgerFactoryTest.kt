@@ -5,6 +5,7 @@ import java.nio.file.Path
 import java.util.Comparator
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
@@ -27,6 +28,13 @@ class DesktopProtectedLedgerFactoryTest {
                 assertFalse(Files.exists(directory.resolve("hengji.db")))
                 assertFalse(Files.readString(directory.resolve("hengji.ledger.hjenc")).contains("asset-headphones"))
             }
+
+            Files.delete(directory.resolve("hengji.ledger.hjenc"))
+            assertFailsWith<StorageProtectionException> {
+                runTest { openDesktopProtectedLedger(directory) }
+            }
+            assertFalse(Files.exists(directory.resolve("hengji.ledger.hjenc")))
+            assertFalse(Files.exists(directory.resolve("hengji.db")))
         }
     }
 

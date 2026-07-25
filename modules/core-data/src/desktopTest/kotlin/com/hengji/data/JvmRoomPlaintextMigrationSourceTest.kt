@@ -28,7 +28,7 @@ class JvmRoomPlaintextMigrationSourceTest {
             val opened = ProtectedLedgerRepository.open(
                 store = JvmAtomicProtectedLedgerStore(directory.resolve("hengji.ledger.hjenc")),
                 keyAlias = "ledger-primary",
-                keyProvider = MigrationTestKeyProvider,
+                keyProvider = MigrationTestKeyProvider(),
                 plaintextSource = requireNotNull(
                     JvmRoomPlaintextMigrationSource.openIfPresent(databasePath),
                 ),
@@ -48,7 +48,8 @@ class JvmRoomPlaintextMigrationSourceTest {
     fun authenticatedTargetCompletesRetirementMarkerLeftByCrash() = withDirectory { directory ->
         runTest {
             val store = JvmAtomicProtectedLedgerStore(directory.resolve("hengji.ledger.hjenc"))
-            ProtectedLedgerRepository.open(store, "ledger-primary", MigrationTestKeyProvider)
+            val keys = MigrationTestKeyProvider()
+            ProtectedLedgerRepository.open(store, "ledger-primary", keys)
             val marker = directory.resolve("hengji.db.hengji-retiring")
             Files.writeString(marker, "legacy plaintext bytes")
             val source = requireNotNull(
@@ -58,7 +59,7 @@ class JvmRoomPlaintextMigrationSourceTest {
             val recovered = ProtectedLedgerRepository.open(
                 store,
                 "ledger-primary",
-                MigrationTestKeyProvider,
+                keys,
                 plaintextSource = source,
             )
 
@@ -80,7 +81,7 @@ class JvmRoomPlaintextMigrationSourceTest {
                 ProtectedLedgerRepository.open(
                     JvmAtomicProtectedLedgerStore(directory.resolve("hengji.ledger.hjenc")),
                     "ledger-primary",
-                    MigrationTestKeyProvider,
+                    MigrationTestKeyProvider(),
                     plaintextSource = source,
                 )
             }
@@ -100,10 +101,15 @@ class JvmRoomPlaintextMigrationSourceTest {
     }
 }
 
-private object MigrationTestKeyProvider : ProvisioningDatabaseKeyProvider {
+private class MigrationTestKeyProvider : ProvisioningDatabaseKeyProvider {
     private val key = ByteArray(32) { 31 }
+    private var available = false
 
-    override suspend fun loadKey(alias: String): DatabaseKeyMaterial = DatabaseKeyMaterial(key)
+    override suspend fun loadKey(alias: String): DatabaseKeyMaterial? =
+        if (available) DatabaseKeyMaterial(key) else null
 
-    override suspend fun loadOrCreateKey(alias: String): DatabaseKeyMaterial = DatabaseKeyMaterial(key)
+    override suspend fun loadOrCreateKey(alias: String): DatabaseKeyMaterial {
+        available = true
+        return DatabaseKeyMaterial(key)
+    }
 }

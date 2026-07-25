@@ -5,10 +5,10 @@
 ## 当前已验证基础
 
 - [x] Room KMP/bundled SQLite 跨重启持久化、schema v1、备份/恢复、批次回滚。
-- [x] 自动架构/secret/沙箱门禁、115 个 Desktop Kotlin 测试、42 个 Android host 测试、8 类畸形导入、10 万流水开发基线。
+- [x] 自动架构/secret/沙箱门禁、122 个 Desktop Kotlin 测试、43 个 Android host 测试、8 类畸形导入、10 万流水开发基线。
 - [x] Android lint、Debug APK 与未签名 R8 Release 构建；Windows Release 免安装包启动。
 - [x] iOS 客户端与数据层 source-set 元数据及 arm64/simulator Kotlin klib 交叉编译；此项不代表 Xcode 链接、真机或签名通过。
-- [x] 真实 UI 走通新增流水→关闭→重启保留，以及五步导入→原子写入→整批撤销。
+- [x] 真实 UI 走通新增流水→关闭→重启保留、手工二手报价→即时重算→重启保留，以及五步导入→原子写入→整批撤销。
 - [ ] 应用层加密、平台密钥与三平台明文迁移均已实现；仍待 Android/Apple 设备验收、原子 key+bootstrap record、轮换与灾难恢复。
 - [ ] 签名、商店/公证、真实平台授权、账号验证与端到端加密同步。
 

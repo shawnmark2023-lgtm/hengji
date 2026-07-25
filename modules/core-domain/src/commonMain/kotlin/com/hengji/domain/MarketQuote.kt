@@ -93,7 +93,11 @@ data class MarketEstimate(
 )
 
 object MarketQuoteEstimator {
-    /** Uses an IQR fence when at least four samples exist, then reports robust quartiles and a conservative confidence. */
+    /**
+     * Uses an IQR fence when at least five samples exist, then reports robust quartiles and a
+     * conservative confidence. Four-point samples are too sparse for the discrete percentile
+     * method: applying a fence there can incorrectly discard both valid endpoints.
+     */
     fun estimate(assetId: AssetId, quotes: Iterable<MarketQuote>, asOf: LocalDate): MarketEstimate? {
         val candidates = quotes.filter { it.assetId == assetId && it.collectedOn <= asOf }
         if (candidates.isEmpty()) return null
@@ -102,7 +106,7 @@ object MarketQuoteEstimator {
 
         val sorted = candidates.sortedBy { it.landedPrice.minorUnits }
         val initialValues = sorted.map { it.landedPrice.minorUnits }
-        val accepted = if (sorted.size < 4) {
+        val accepted = if (sorted.size < 5) {
             sorted
         } else {
             val q1 = percentile(initialValues, 25)

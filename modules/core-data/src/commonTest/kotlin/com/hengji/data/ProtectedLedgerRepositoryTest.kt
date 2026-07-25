@@ -4,6 +4,8 @@ import com.hengji.domain.CategoryId
 import com.hengji.domain.CurrencyCode
 import com.hengji.domain.Merchant
 import com.hengji.domain.Money
+import com.hengji.domain.QuoteProvenance
+import com.hengji.domain.QuoteProviderId
 import com.hengji.domain.Transaction
 import com.hengji.domain.TransactionId
 import com.hengji.domain.TransactionKind
@@ -35,6 +37,32 @@ class ProtectedLedgerRepositoryTest {
         assertEquals(ProtectedLedgerOpenOutcome.OPENED_EXISTING, reopened.outcome)
         assertEquals(1, keys.provisionCount)
         assertEquals(listOf("persisted"), reopened.repository.snapshot().transactions.map { it.id.value })
+    }
+
+    @Test
+    fun manualMarketQuotePersistsAcrossEncryptedReopen() = runProtectedTest {
+        val store = MemoryProtectedLedgerStore()
+        val keys = TestProvisioningKeyProvider()
+        val repository = ProtectedLedgerRepository.open(store, "ledger-primary", keys).repository
+        val seed = DemoLedger.snapshot()
+        val baseQuote = seed.marketQuotes.first()
+        repository.replaceWith(seed)
+        repository.addMarketQuote(
+            baseQuote.copy(
+                id = "manual-encrypted-quote",
+                providerId = QuoteProviderId("manual-local"),
+                provenance = QuoteProvenance.MANUAL,
+                sourceUrl = null,
+                isLive = false,
+            ),
+        )
+
+        val reopened = ProtectedLedgerRepository.open(store, "ledger-primary", keys).repository
+        val quote = reopened.snapshot().marketQuotes.single { it.id == "manual-encrypted-quote" }
+
+        assertEquals(QuoteProvenance.MANUAL, quote.provenance)
+        assertFalse(quote.isLive)
+        assertEquals(null, quote.sourceUrl)
     }
 
     @Test

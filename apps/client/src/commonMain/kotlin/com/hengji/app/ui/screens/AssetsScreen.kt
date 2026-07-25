@@ -51,6 +51,7 @@ import com.hengji.app.ui.components.StatusPill
 fun AssetsScreen(
     assets: List<DemoAsset>,
     onRecordUsage: (String) -> Unit,
+    onAddManualQuote: (String) -> Unit,
     onAddAsset: () -> Unit = {},
 ) {
     var selectedAsset by remember { mutableStateOf<DemoAsset?>(null) }
@@ -121,6 +122,10 @@ fun AssetsScreen(
         AssetDetailDialog(
             asset = asset,
             onRecordUsage = { onRecordUsage(asset.id) },
+            onAddManualQuote = {
+                selectedAsset = null
+                onAddManualQuote(asset.id)
+            },
             onDismiss = { selectedAsset = null },
         )
     }
@@ -196,6 +201,7 @@ private fun AssetCard(
 private fun AssetDetailDialog(
     asset: DemoAsset,
     onRecordUsage: () -> Unit,
+    onAddManualQuote: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     var usageRecorded by remember(asset.id) { mutableStateOf(false) }
@@ -237,6 +243,23 @@ private fun AssetDetailDialog(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                Text(
+                    if (asset.marketMedianMinor == null) {
+                        "已有 ${asset.quoteCount} 条报价；样本或置信度不足，仅展示区间，不把单点当作市场价。"
+                    } else {
+                        "已有 ${asset.quoteCount} 条报价；可呈现中位数 ${formatMoney(asset.marketMedianMinor)}。"
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                FilledTonalButton(
+                    onClick = onAddManualQuote,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(Modifier.width(HengjiSpacing.xs))
+                    Text("添加手工二手报价")
+                }
                 Button(
                     onClick = {
                         onRecordUsage()

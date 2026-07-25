@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import com.hengji.app.application.AppLedgerGateway
 import com.hengji.app.application.InsightFeedbackReducer
 import com.hengji.app.application.LocalImportFlowPort
+import com.hengji.app.application.ManualMarketQuoteFactory
 import com.hengji.app.application.PersistentAppLedgerGateway
 import com.hengji.app.application.PreviewLedgerGateway
 import com.hengji.app.application.rememberImportFlowHost
@@ -69,6 +70,7 @@ import com.hengji.domain.AssetId
 import com.hengji.domain.Asset
 import com.hengji.domain.CategoryId
 import com.hengji.domain.CurrencyCode
+import com.hengji.domain.ItemCondition
 import com.hengji.domain.Merchant
 import com.hengji.domain.Money
 import com.hengji.domain.Transaction
@@ -125,6 +127,7 @@ fun HengjiApp(
     var reduceMotion by rememberSaveable { mutableStateOf(false) }
     var showAddTransaction by rememberSaveable { mutableStateOf(false) }
     var showAddAsset by rememberSaveable { mutableStateOf(false) }
+    var manualQuoteAssetId by rememberSaveable { mutableStateOf<String?>(null) }
     var showImportWizard by rememberSaveable { mutableStateOf(false) }
     var editingTransactionId by rememberSaveable { mutableStateOf<String?>(null) }
     var exportPreview by remember { mutableStateOf<Pair<String, String>?>(null) }
@@ -276,6 +279,7 @@ fun HengjiApp(
                     AppDestination.Assets -> AssetsScreen(
                         assets = assets,
                         onAddAsset = { showAddAsset = true },
+                        onAddManualQuote = { manualQuoteAssetId = it },
                         onRecordUsage = { assetId ->
                             mutate {
                                 gateway.addUsageEvent(
@@ -466,6 +470,37 @@ fun HengjiApp(
                     }
                 },
             )
+        }
+
+        manualQuoteAssetId?.let { assetIdValue ->
+            val assetName = currentSnapshot.assets
+                .firstOrNull { it.id.value == assetIdValue }
+                ?.name
+            if (assetName != null) {
+                AddManualQuoteDialog(
+                    assetName = assetName,
+                    onDismiss = { manualQuoteAssetId = null },
+                    onAdd = { specification, condition, priceMinor, shippingMinor ->
+                        mutate {
+                            val nextRevision = currentSnapshot.revision + 1
+                            gateway.addMarketQuote(
+                                ManualMarketQuoteFactory.create(
+                                    id = "manual-quote-$nextRevision",
+                                    assetId = AssetId(assetIdValue),
+                                    specification = specification,
+                                    condition = condition,
+                                    priceMinor = priceMinor,
+                                    shippingMinor = shippingMinor,
+                                    collectedOn = today,
+                                    asOf = today,
+                                ),
+                            )
+                            manualQuoteAssetId = null
+                            destination = AppDestination.Assets
+                        }
+                    },
+                )
+            }
         }
 
         exportPreview?.let { (title, content) ->
@@ -728,6 +763,127 @@ private fun AddAssetDialog(
                 onClick = { onAdd(name.trim(), category, purchaseMinor ?: 0L, estimatedMinor, recordExpense) },
                 enabled = valid,
             ) { Text("保存物品") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+    )
+}
+
+@Composable
+private fun AddManualQuoteDialog(
+    assetName: String,
+    onDismiss: () -> Unit,
+    onAdd: (specification: String, condition: ItemCondition, priceMinor: Long, shippingMinor: Long) -> Unit,
+) {
+    var specification by remember(assetName) { mutableStateOf(assetName) }
+    var condition by remember { mutableStateOf(ItemCondition.GOOD) }
+    var priceAmount by remember { mutableStateOf("") }
+    var shippingAmount by remember { mutableStateOf("") }
+    val priceMinor = parseMoneyToMinor(priceAmount)
+    val shippingMinor = if (shippingAmount.isBlank()) 0L else parseMoneyToMinor(shippingAmount)
+    val priceError = priceAmount.isNotEmpty() && (priceMinor == null || priceMinor <= 0)
+    val shippingError = shippingAmount.isNotEmpty() && (shippingMinor == null || shippingMinor < 0)
+    val valid = specification.isNotBlank() &&
+        specification.length <= 120 &&
+        priceMinor != null &&
+        priceMinor > 0 &&
+        shippingMinor != null &&
+        shippingMinor >= 0
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("添加手工二手报价") },
+        text = {
+            androidx.compose.foundation.layout.Column(
+                modifier = Modifier
+                    .heightIn(max = 560.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Text(
+                    "报价仅写入本机，用于更新区间、残值和相关建议；不会访问二手平台，也不会标记为实时行情。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = specification,
+                    onValueChange = { specification = it.take(120) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("规格说明（必填）") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                    supportingText = { Text("${specification.length}/120") },
+                )
+                Text("成色", style = MaterialTheme.typography.labelLarge)
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    listOf(
+                        ItemCondition.NEW to "全新",
+                        ItemCondition.LIKE_NEW to "近新",
+                        ItemCondition.GOOD to "良好",
+                        ItemCondition.FAIR to "一般",
+                        ItemCondition.POOR to "较差",
+                    ).forEach { (item, label) ->
+                        FilterChip(
+                            selected = condition == item,
+                            onClick = { condition = item },
+                            label = { Text(label) },
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = priceAmount,
+                    onValueChange = { priceAmount = it.filter { char -> char.isDigit() || char == '.' } },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("标价（必填）") },
+                    prefix = { Text("¥") },
+                    singleLine = true,
+                    isError = priceError,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Decimal,
+                        imeAction = ImeAction.Next,
+                    ),
+                    supportingText = {
+                        if (priceError) {
+                            Text(if (priceMinor == null) "请输入最多两位小数" else "标价必须大于 0")
+                        }
+                    },
+                )
+                OutlinedTextField(
+                    value = shippingAmount,
+                    onValueChange = { shippingAmount = it.filter { char -> char.isDigit() || char == '.' } },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("预计运费（可选）") },
+                    prefix = { Text("¥") },
+                    singleLine = true,
+                    isError = shippingError,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Decimal,
+                        imeAction = ImeAction.Done,
+                    ),
+                    supportingText = {
+                        if (shippingError) {
+                            Text(if (shippingMinor == null) "请输入最多两位小数" else "运费不能小于 0")
+                        } else {
+                            Text("估值使用标价与运费之和")
+                        }
+                    },
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onAdd(
+                        specification.trim(),
+                        condition,
+                        priceMinor ?: 0L,
+                        shippingMinor ?: 0L,
+                    )
+                },
+                enabled = valid,
+            ) { Text("保存报价") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
     )

@@ -5,6 +5,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import com.hengji.domain.QuoteProvenance
+import com.hengji.domain.QuoteProviderId
+import com.hengji.domain.Confidence
 import kotlinx.datetime.LocalDate
 import com.hengji.data.InsightPreferenceRecord
 import com.hengji.data.LedgerSnapshot
@@ -78,6 +80,61 @@ class DemoModelsTest {
 
         assertTrue("混合来源" in asset.quoteUpdatedLabel)
         assertTrue("非实时" in asset.quoteUpdatedLabel)
+    }
+
+    @Test
+    fun manualQuoteRefreshesIntervalAndKeepsMixedSourceDisclosure() {
+        val initial = DomainDemoData.initialSnapshot
+        val demo = initial.marketQuotes.first()
+        val projectedBefore = DomainDemoData.assets(initial, LocalDate(2026, 7, 25))
+            .first { it.id == demo.assetId.value }
+        val manual = demo.copy(
+            id = "manual-local-quote",
+            providerId = QuoteProviderId("manual-local"),
+            provenance = QuoteProvenance.MANUAL,
+            price = demo.price.copy(minorUnits = demo.price.minorUnits + 5_000),
+            collectedOn = LocalDate(2026, 7, 25),
+            sourceUrl = null,
+            confidence = Confidence(5_000),
+            isLive = false,
+        )
+        val projected = DomainDemoData.assets(
+            initial.copy(marketQuotes = initial.marketQuotes + manual),
+            LocalDate(2026, 7, 25),
+        ).first { it.id == demo.assetId.value }
+
+        assertEquals(projectedBefore.quoteCount + 1, projected.quoteCount)
+        assertTrue("含示例/手工" in projected.quoteUpdatedLabel)
+        assertTrue("非实时" in projected.quoteUpdatedLabel)
+        assertTrue("7 月 25 日" in projected.quoteUpdatedLabel)
+        assertTrue(projected.marketMedianMinor != null)
+    }
+
+    @Test
+    fun oneManualQuoteShowsIntervalButNotSinglePointMarketValue() {
+        val initial = DomainDemoData.initialSnapshot
+        val asset = initial.assets.first()
+        val manual = initial.marketQuotes.first().copy(
+            id = "single-manual",
+            assetId = asset.id,
+            providerId = QuoteProviderId("manual-local"),
+            provenance = QuoteProvenance.MANUAL,
+            sourceUrl = null,
+            confidence = Confidence(5_000),
+            isLive = false,
+        )
+
+        val projected = DomainDemoData.assets(
+            initial.copy(marketQuotes = listOf(manual)),
+            LocalDate(2026, 7, 25),
+        ).first { it.id == asset.id.value }
+
+        assertEquals(1, projected.quoteCount)
+        assertNull(projected.marketMedianMinor)
+        assertEquals(manual.landedPrice.minorUnits, projected.marketLowMinor)
+        assertEquals(manual.landedPrice.minorUnits, projected.marketHighMinor)
+        assertTrue("手工估值" in projected.quoteUpdatedLabel)
+        assertTrue("非实时" in projected.quoteUpdatedLabel)
     }
 
     @Test

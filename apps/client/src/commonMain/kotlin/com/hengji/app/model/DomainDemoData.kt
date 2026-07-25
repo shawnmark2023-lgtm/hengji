@@ -56,43 +56,57 @@ internal object DomainDemoData {
     fun assets(snapshot: LedgerSnapshot, asOf: LocalDate): List<DemoAsset> {
         val estimates = estimates(snapshot, asOf)
         return snapshot.assets.map { asset ->
-        val estimate = estimates[asset.id]
-        val metrics = AssetCostCalculator.calculate(
-            asset = asset,
-            maintenanceCosts = snapshot.maintenanceCosts.filter { it.assetId == asset.id },
-            usageEvents = snapshot.usageEvents.filter { it.assetId == asset.id },
-            asOf = asOf,
-            residualValue = estimate?.median ?: asset.currentEstimatedValue
-                ?: error("Demo asset must have a residual estimate"),
-        )
-        DemoAsset(
-            id = asset.id.value,
-            name = asset.name,
-            variant = when (asset.id.value) {
-                "asset-headphones" -> "无线 · 国行 · 良好"
-                "asset-chair" -> "黑色 · 良好"
-                else -> "规格待补充"
-            },
-            ownedDays = metrics.ownedDays,
-            usageCount = metrics.useQuantity.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
-            totalCostMinor = metrics.totalOwnershipCost.minorUnits,
-            currentValueMinor = metrics.residualValue.minorUnits,
-            marketLowMinor = estimate?.minimum?.minorUnits ?: metrics.residualValue.minorUnits,
-            marketHighMinor = estimate?.maximum?.minorUnits ?: metrics.residualValue.minorUnits,
-            marketConfidence = (estimate?.confidence?.basisPoints ?: 0) / 100,
-            quoteUpdatedLabel = when {
-                estimate?.includesDemoData == true && estimate.includesLiveData -> "混合来源 · 含示例 · 非实时 · ${asOf.month.ordinal + 1} 月 ${asOf.day} 日"
-                estimate?.includesManualData == true && estimate.includesLiveData -> "混合来源 · 含手工 · 非实时 · ${asOf.month.ordinal + 1} 月 ${asOf.day} 日"
-                estimate?.includesDemoData == true -> "示例行情 · 非实时 · ${asOf.month.ordinal + 1} 月 ${asOf.day} 日"
-                estimate?.includesManualData == true -> "手工估值 · 非实时"
-                estimate?.isEntirelyLiveData == true -> "授权实时行情 · ${asOf.month.ordinal + 1} 月 ${asOf.day} 日"
-                estimate?.includesLiveData == true -> "部分实时 / 历史来源 · 非实时"
-                else -> "手工估值 · 非实时"
-            },
-            dailyCostMinor = metrics.grossDailyOwnershipCost?.minorUnits ?: 0,
-            netDailyCostMinor = metrics.netDailyCost?.minorUnits ?: 0,
-            costPerUseMinor = metrics.netCostPerUse?.minorUnits ?: 0,
-        )
+            val estimate = estimates[asset.id]
+            val assetQuotes = snapshot.marketQuotes.filter { it.assetId == asset.id && it.collectedOn <= asOf }
+            val latestQuoteDate = assetQuotes.maxByOrNull { it.collectedOn }?.collectedOn
+            val latestQuoteDateLabel = latestQuoteDate?.let {
+                "${it.month.ordinal + 1} 月 ${it.day} 日"
+            }
+            val metrics = AssetCostCalculator.calculate(
+                asset = asset,
+                maintenanceCosts = snapshot.maintenanceCosts.filter { it.assetId == asset.id },
+                usageEvents = snapshot.usageEvents.filter { it.assetId == asset.id },
+                asOf = asOf,
+                residualValue = estimate?.median ?: asset.currentEstimatedValue
+                    ?: error("Demo asset must have a residual estimate"),
+            )
+            DemoAsset(
+                id = asset.id.value,
+                name = asset.name,
+                variant = when (asset.id.value) {
+                    "asset-headphones" -> "无线 · 国行 · 良好"
+                    "asset-chair" -> "黑色 · 良好"
+                    else -> "规格待补充"
+                },
+                ownedDays = metrics.ownedDays,
+                usageCount = metrics.useQuantity.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
+                totalCostMinor = metrics.totalOwnershipCost.minorUnits,
+                currentValueMinor = metrics.residualValue.minorUnits,
+                marketLowMinor = estimate?.minimum?.minorUnits ?: metrics.residualValue.minorUnits,
+                marketHighMinor = estimate?.maximum?.minorUnits ?: metrics.residualValue.minorUnits,
+                marketMedianMinor = estimate?.median?.minorUnits,
+                quoteCount = assetQuotes.size,
+                marketConfidence = (estimate?.confidence?.basisPoints ?: 0) / 100,
+                quoteUpdatedLabel = when {
+                    estimate?.includesDemoData == true && estimate.includesManualData ->
+                        "混合来源 · 含示例/手工 · 非实时${latestQuoteDateLabel?.let { " · $it" }.orEmpty()}"
+                    estimate?.includesDemoData == true && estimate.includesLiveData ->
+                        "混合来源 · 含示例 · 非实时${latestQuoteDateLabel?.let { " · $it" }.orEmpty()}"
+                    estimate?.includesManualData == true && estimate.includesLiveData ->
+                        "混合来源 · 含手工 · 非实时${latestQuoteDateLabel?.let { " · $it" }.orEmpty()}"
+                    estimate?.includesDemoData == true ->
+                        "示例行情 · 非实时${latestQuoteDateLabel?.let { " · $it" }.orEmpty()}"
+                    estimate?.includesManualData == true ->
+                        "手工估值 · 非实时${latestQuoteDateLabel?.let { " · $it" }.orEmpty()}"
+                    estimate?.isEntirelyLiveData == true ->
+                        "授权实时行情${latestQuoteDateLabel?.let { " · $it" }.orEmpty()}"
+                    estimate?.includesLiveData == true -> "部分实时 / 历史来源 · 非实时"
+                    else -> "手工估值 · 非实时"
+                },
+                dailyCostMinor = metrics.grossDailyOwnershipCost?.minorUnits ?: 0,
+                netDailyCostMinor = metrics.netDailyCost?.minorUnits ?: 0,
+                costPerUseMinor = metrics.netCostPerUse?.minorUnits ?: 0,
+            )
         }
     }
 

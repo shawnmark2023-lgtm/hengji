@@ -31,6 +31,8 @@ data class DemoAsset(
     val currentValueMinor: Long,
     val marketLowMinor: Long,
     val marketHighMinor: Long,
+    val marketMedianMinor: Long? = null,
+    val quoteCount: Int = 0,
     val marketConfidence: Int,
     val quoteUpdatedLabel: String,
     val dailyCostMinor: Long = totalCostMinor / ownedDays.coerceAtLeast(1),
@@ -40,6 +42,7 @@ data class DemoAsset(
     init {
         require(ownedDays >= 0)
         require(usageCount >= 0)
+        require(quoteCount >= 0)
         require(marketConfidence in 0..100)
     }
 }

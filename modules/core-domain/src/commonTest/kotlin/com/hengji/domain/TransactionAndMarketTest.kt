@@ -79,6 +79,32 @@ class TransactionAndMarketTest {
         assertFalse(estimate.includesLiveData)
     }
 
+    @Test
+    fun `four reasonable quotes keep their full interval`() {
+        val assetId = AssetId("four-quotes")
+        val quotes = listOf(17_600L, 18_100L, 18_200L, 18_800L).mapIndexed { index, price ->
+            MarketQuote(
+                id = "four-$index",
+                assetId = assetId,
+                providerId = QuoteProviderId("manual"),
+                provenance = QuoteProvenance.MANUAL,
+                specification = "same model",
+                condition = ItemCondition.GOOD,
+                price = Money(price, CurrencyCode.CNY),
+                collectedOn = LocalDate(2026, 7, 25),
+                confidence = Confidence(5_000),
+            )
+        }
+
+        val estimate = MarketQuoteEstimator.estimate(assetId, quotes, LocalDate(2026, 7, 25))!!
+
+        assertEquals(4, estimate.acceptedQuoteCount)
+        assertEquals(0, estimate.rejectedOutlierCount)
+        assertEquals(17_600, estimate.minimum.minorUnits)
+        assertEquals(18_800, estimate.maximum.minorUnits)
+        assertTrue(estimate.median != null)
+    }
+
     private fun transaction(id: String, kind: TransactionKind, amount: Long) = Transaction(
         id = TransactionId(id),
         kind = kind,

@@ -6,9 +6,12 @@ import com.hengji.data.CommitImportBatchRequest
 import com.hengji.data.ImportBatchCommitStatus
 import com.hengji.data.ImportBatchState
 import com.hengji.data.InsightPreferenceRecord
+import com.hengji.data.DemoLedger
 import com.hengji.domain.CategoryId
 import com.hengji.domain.CurrencyCode
 import com.hengji.domain.Money
+import com.hengji.domain.QuoteProvenance
+import com.hengji.domain.QuoteProviderId
 import com.hengji.domain.Transaction
 import com.hengji.domain.TransactionId
 import com.hengji.domain.TransactionKind
@@ -48,6 +51,33 @@ class RoomLedgerRepositoryTest {
             assertEquals(setOf("asset:adopted"), snapshot.insightPreferences.adoptedDeduplicationKeys)
             assertEquals(mapOf("asset:snoozed" to 999L), snapshot.insightPreferences.snoozedUntilEpochMillisByKey)
             assertEquals(99L, snapshot.insightPreferences.updatedAtEpochMillis)
+            repository.close()
+        }
+    }
+
+    @Test
+    fun manualMarketQuotePersistsAcrossRoomReopen() = runTest {
+        withDatabaseFile { path ->
+            var repository = open(path)
+            val seed = DemoLedger.snapshot()
+            val baseQuote = seed.marketQuotes.first()
+            repository.replaceWith(seed)
+            repository.addMarketQuote(
+                baseQuote.copy(
+                    id = "manual-room-quote",
+                    providerId = QuoteProviderId("manual-local"),
+                    provenance = QuoteProvenance.MANUAL,
+                    sourceUrl = null,
+                    isLive = false,
+                ),
+            )
+            repository.close()
+
+            repository = open(path)
+            val quote = repository.snapshot().marketQuotes.single { it.id == "manual-room-quote" }
+            assertEquals(QuoteProvenance.MANUAL, quote.provenance)
+            assertFalse(quote.isLive)
+            assertEquals(null, quote.sourceUrl)
             repository.close()
         }
     }

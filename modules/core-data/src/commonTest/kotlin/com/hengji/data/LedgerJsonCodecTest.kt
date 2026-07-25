@@ -65,6 +65,33 @@ class LedgerJsonCodecTest {
     }
 
     @Test
+    fun deletionTombstoneRoundTripsAndRestoredExportClearsIt() {
+        val deleted = importedTransaction("json-deleted", "hj1_json_deleted").copy(
+            deletedAtEpochMillis = 123,
+        )
+        val snapshot = LedgerSnapshot(
+            revision = 5,
+            transactions = listOf(deleted),
+            assets = emptyList(),
+            maintenanceCosts = emptyList(),
+            usageEvents = emptyList(),
+            marketQuotes = emptyList(),
+        )
+
+        val restored = LedgerJsonCodec.restore(LedgerJsonCodec.export(snapshot))
+        assertEquals(123, restored.transactions.single().deletedAtEpochMillis)
+
+        val repository = InMemoryLedgerRepository(restored)
+        assertTrue(repository.restoreTransaction(deleted.id, expectedDeletedAtEpochMillis = 123))
+        val restoredExport = LedgerJsonCodec.export(repository.snapshot(includeDeleted = true))
+        assertTrue("\"deletedAtEpochMillis\": null" in restoredExport)
+        assertEquals(
+            null,
+            LedgerJsonCodec.restore(restoredExport).transactions.single().deletedAtEpochMillis,
+        )
+    }
+
+    @Test
     fun migratesSchemaOnePreferencesToVersionTwoDefaults() {
         val legacy = """
             {

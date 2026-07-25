@@ -62,6 +62,43 @@ class DesktopProtectedLedgerFactoryTest {
         }
     }
 
+    @Test
+    fun windowsFactoryPersistsDeleteAndExactTokenRestoreAcrossReopen() {
+        if (!System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) return
+        withDirectory { directory ->
+            runTest {
+                val transaction = DemoLedger.snapshot().transactions.first()
+                val deletionToken = 123L
+                val first = openDesktopProtectedLedger(directory)
+                first.repository.replaceWith(DemoLedger.snapshot())
+                assertTrue(first.repository.softDeleteTransaction(transaction.id, deletionToken))
+
+                val deletedReopen = openDesktopProtectedLedger(directory)
+                assertFalse(deletedReopen.repository.snapshot().transactions.any { it.id == transaction.id })
+                assertEquals(
+                    deletionToken,
+                    deletedReopen.repository
+                        .snapshot(includeDeleted = true)
+                        .transactions
+                        .single { it.id == transaction.id }
+                        .deletedAtEpochMillis,
+                )
+                assertTrue(deletedReopen.repository.restoreTransaction(transaction.id, deletionToken))
+
+                val restoredReopen = openDesktopProtectedLedger(directory)
+                assertTrue(restoredReopen.repository.snapshot().transactions.any { it.id == transaction.id })
+                assertEquals(
+                    null,
+                    restoredReopen.repository
+                        .snapshot(includeDeleted = true)
+                        .transactions
+                        .single { it.id == transaction.id }
+                        .deletedAtEpochMillis,
+                )
+            }
+        }
+    }
+
     private fun withDirectory(block: (Path) -> Unit) {
         val directory = Files.createTempDirectory("hengji-protected-factory-")
         try {

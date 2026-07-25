@@ -15,21 +15,32 @@ All repositories implement `PersistentLedgerRepository`. The Room factories rema
 sources. The protected factories use an authenticated encrypted envelope and the platform key providers; Android and
 iOS refuse to create an unrelated empty ledger when legacy Room artifacts exist without an explicit migration source.
 
-Schema v2 persists ledger revision, transactions, assets, maintenance costs, usage events, market quotes, insight
+Schema v3 persists ledger revision, transactions, assets, maintenance costs, usage events, market quotes, insight
 preferences, and reversible import batches. Monetary values use signed 64-bit minor units; domain validation remains
 the source of truth for whether a particular value is allowed.
 
 ## Import guarantees
 
 `commitImportBatch` requires a stable fingerprint for every transaction. A repeated batch is idempotent, and existing
-fingerprints are skipped. `rollbackImportBatch` removes only transactions recorded as inserted by that batch and marks
-the batch rolled back in the same database transaction. A batch identifier cannot be reused after rollback.
+fingerprints are skipped, including fingerprints held by soft-deleted tombstones. `rollbackImportBatch` removes only
+transactions recorded as inserted by that batch and marks the batch rolled back in the same database transaction. It
+refuses a rollback that would orphan an active refund outside the batch. A batch identifier cannot be reused after
+rollback.
+
+## Transaction lifecycle
+
+Normal snapshots hide soft-deleted transactions; full snapshots and JSON/CSV exports retain their tombstones for
+audit and recovery. Restore is compare-and-set: callers must present the exact non-negative deletion timestamp, and a
+stale token cannot revive a transaction deleted again later. An active refund prevents deletion of its original
+transaction, and a refund cannot be restored while its original is absent or deleted. Deleting an asset-linked
+purchase transaction does not cascade to the asset, maintenance history, usage history, or market quotes.
 
 ## Backup and restore
 
-`LedgerJsonCodec` exports the full aggregate as schema-versioned JSON and restores schema v0/v1 payloads. It rejects
+`LedgerJsonCodec` exports the full aggregate as schema-versioned JSON and restores schema v0/v1/v2 payloads. It rejects
 future schemas and payloads larger than 25 MiB. Repository `replaceWith` validates referential integrity and replaces
-the aggregate atomically.
+the aggregate atomically. Replacement revision is `max(current, imported) + 1`, so restore cannot move the local
+revision backward.
 
 ## Security status
 
@@ -73,12 +84,12 @@ missing while a key still exists, opening fails closed instead of creating an em
 trigger demo reseeding. A crash after first key provisioning but before the initial envelope commit also requires an
 explicit recovery/reset path; a durable initialization journal remains a pre-Beta recovery improvement.
 
-The Desktop and iOS application composition roots now select their protected factories and fail closed when a platform
+The Desktop, Android, and iOS application composition roots select their protected factories and fail closed when a platform
 key, authenticated envelope, or legacy migration cannot be opened. The iOS factory automatically detects the legacy
 Room database, snapshots it twice, and uses a retirement marker before removing SQLite sidecars. Its encrypted file is
 set to `NSFileProtectionComplete` and excluded from system backup after every atomic replacement so a device-only
-Keychain item is not separated from a restored envelope. Android still selects the plaintext Room development factory.
-Android retirement, encrypted-store performance on representative devices, Android host/device execution, and Apple
+Keychain item is not separated from a restored envelope. Android retirement, encrypted-store performance on
+representative devices, Android device execution, and Apple
 Keychain/file-coordination runtime validation remain required. The Apple implementations currently have cross-
 compilation and release-shrinking evidence, not a Keychain round trip or migration run on signed Apple hosts.
 

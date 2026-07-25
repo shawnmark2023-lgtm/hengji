@@ -58,6 +58,14 @@ CSV 第一条记录是唯一、非空表头，支持 RFC 4180 风格双引号、
 
 任一步失败则零写入。`rollbackBatch(batchId)` 也必须原子；重复撤销返回 `alreadyRolledBack=true`，不可误删其他批次或手工记录。持久化层应使用不可变记录 ID 处理用户在导入后编辑的场景。
 
+软删除流水仍保留其导入指纹并在预览中判定为 `DUPLICATE`，不能因日常快照隐藏墓碑而重新导入。若回滚将删除某笔交易，而批次外仍有活跃退款引用它，整个回滚必须拒绝且零写入；同批次内的原交易与退款可一起回滚。
+
+### 3.4 流水删除与撤销
+
+`softDeleteTransaction(id, deletedAtEpochMillis)` 只接受非负 token，并在记录活跃且不存在活跃退款引用时原子写入墓碑。普通快照隐藏墓碑，完整快照与 JSON/CSV 导出保留 `deletedAtEpochMillis`。删除资产购买流水不得级联删除资产、维护、使用或报价记录。
+
+`restoreTransaction(id, expectedDeletedAtEpochMillis)` 是 compare-and-set：只有 token 与当前墓碑精确相等才恢复并推进 revision；缺失、已恢复、token 错误或退款原交易不活跃均返回失败且不改 revision。应用层在同一进程内为每次删除生成严格单调 token，只在 8 秒内展示撤销入口；该入口不跨应用进程恢复。删除状态与成功恢复后的状态都必须跨账本重开持久化。
+
 ## 4. Connector Gateway
 
 OpenAPI 文件：[connector-gateway/openapi.yaml](../services/connector-gateway/openapi.yaml)。

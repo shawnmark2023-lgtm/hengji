@@ -27,7 +27,7 @@
 
 - [x] `UX-001` P0 自适应应用壳：移动底栏、桌面侧栏、窗口尺寸断点。
 - [x] `UX-002` P0 概览：首页总览、分类占比、预算进度、洞察列表。
-- [x] `UX-003` P0 流水列表、搜索筛选和新增/编辑表单。
+- [x] `UX-003` P0 流水列表、搜索筛选、新增/编辑，以及二次确认软删除与 8 秒精确 token 撤销；删除/恢复即时重投影总览与洞察。
 - [x] `UX-004` P0 物品库、物品详情、使用打卡、成本指标和价格历史。
 - [x] `UX-005` P0 二手比价界面与资产详情手工报价入口；保存后即时重算区间、残值和成本指标，严格区分示例/手工/实时来源。
 - [ ] `UX-006` P0 Desktop/Android 已有来源 → 映射 → 预览去重 → 确认 → 可撤销结果；iOS 系统文件选择适配器已实现并交叉编译，待 macOS 模拟器/真机验收。
@@ -78,7 +78,7 @@
 
 - [x] `QA-001` P0 领域单元测试：金额精度、跨月、退款、零使用、残值高于成本等边界。
 - [x] `QA-002` P0 重复、公式注入、文件上限、BOM/Unicode、错列、空值、嵌套 JSON 和回滚矩阵通过。
-- [ ] `QA-003` P0 记一笔、跨重启持久化、完整导入与整批撤销、洞察采纳/忽略/稍后与恢复确认已真实 UI 实跑；清除后不重播种及 Windows 受保护入口跨重启为空已有自动化契约，其余真实 UI 流程与跨平台自动化套件仍待补齐。
+- [ ] `QA-003` P0 记一笔、跨重启持久化、完整导入与整批撤销、洞察采纳/忽略/稍后与恢复确认已真实 UI 实跑；流水删除/8 秒撤销、删除与恢复跨 Windows 受保护重开、清除后不重播种及清除后跨重启为空已有自动化契约；删除确认框/Snackbar 与其余真实 UI 流程、跨平台自动化套件仍待补齐。
 - [x] `QA-004` P0 Desktop 编译/运行与 Android APK 通过；iOS/macOS 目标交由 macOS CI 验证。
 - [ ] `QA-005` P0 代码级语义、响应式重排与减少动态效果已完成；无障碍与键盘验收、200% 字体/缩放、深浅色及窄/宽窗口矩阵仍待执行。
 - [ ] `QA-006` P1 10 万流水开发/CI 基线已通过；代表性低端设备、加密持久层与完整 UI 性能仍待验证。
@@ -109,7 +109,7 @@
 | SEC-005 | TODO | account backend、Passkey/SIWA | 注册/验证/恢复/2FA/会话撤销/设备丢失演练通过，且不破坏无账号本地模式 |
 | SEC-006 | TODO | E2EE protocol、sync engine | 双设备离线冲突、密钥轮换、恢复短语、灾难恢复和服务端不可读性测试通过 |
 | REL-001 | TODO | Apple/Google/Microsoft signing accounts | 四平台生产签名、隐私声明、公证/商店审查、分阶段发布和一键回滚演练通过 |
-| QA-003 | PARTIAL | UI automation harness、platform runners | Desktop 已真实走通三条非示例报价→目标价等待/达到→洞察证据→重启保留，以及既有记账/物品/洞察/导入路径；清除全字段、Windows 受保护重开为空和防示例重播种已有自动化证明；仍需导出/恢复/清除的真实 UI 操作及全部流程在每个平台自动化通过，失败保留截图与隔离数据目录 |
+| QA-003 | PARTIAL | UI automation harness、platform runners | Desktop 已真实走通三条非示例报价→目标价等待/达到→洞察证据→重启保留，以及既有记账/物品/洞察/导入路径；删除/精确撤销与 Windows 受保护重开、清除全字段/重开为空和防示例重播种已有自动化证明；仍需删除确认/Snackbar、导出/恢复/清除的真实 UI 操作及全部流程在每个平台自动化通过，失败保留截图与隔离数据目录 |
 | QA-005 | PARTIAL | accessibility tooling、device matrix | UX-008 全矩阵通过且无 P0/P1 可访问性缺陷 |
 | QA-006 | PARTIAL | encrypted DB、representative low-end devices | 10 万流水首次载入/筛选/导入峰值分别低于预算，内存不超阈值，三次运行取中位数 |
 | QA-007 | TODO | external security review、store dry run | 高危漏洞为 0；加密备份恢复成功；四平台审核材料与回滚桌面演练签字完成 |
@@ -145,5 +145,5 @@
 | QA-001 | domain tests | 金额、退款、零使用、残值、跨期、溢出和低置信度边界通过 |
 | QA-004 | Gradle / Android SDK | Desktop 编译运行；Android lint、Debug APK 与未签名 R8 Release 构建通过，Debug APK 已保留；iOS arm64/simulator arm64 Kotlin klib 通过；Apple 原生仍仅配置 CI、未声称通过 |
 | FND-002 | quality gates | 自动依赖方向与禁止依赖扫描通过，机器可读证据写入 `quality/evidence` |
-| UX-003 | application gateway | 流水写入后首页与列表更新，重启后记录和总额仍存在 |
+| UX-003 | application gateway | 流水写入、确认删除和 8 秒撤销会同步刷新首页、列表与洞察；墓碑与成功恢复状态均跨重启持久化，旧 token 不能复活再次删除的记录 |
 | QA-002 | export/import guards | 完整导出/恢复、公式中和及 8 类畸形输入契约通过 |

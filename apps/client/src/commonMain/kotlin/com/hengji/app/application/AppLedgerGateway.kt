@@ -16,6 +16,7 @@ import com.hengji.domain.Asset
 import com.hengji.domain.MarketQuote
 import com.hengji.domain.Transaction
 import com.hengji.domain.TransactionId
+import com.hengji.domain.TransactionKind
 import com.hengji.domain.UsageEvent
 
 /** Application-facing coroutine boundary. Compose never calls SQLite or blocking filesystem APIs directly. */
@@ -23,6 +24,7 @@ interface AppLedgerGateway {
     suspend fun snapshot(includeDeleted: Boolean = false): LedgerSnapshot
     suspend fun upsertTransaction(transaction: Transaction): UpsertTransactionResult
     suspend fun softDeleteTransaction(id: TransactionId, deletedAtEpochMillis: Long): Boolean
+    suspend fun restoreTransaction(id: TransactionId, expectedDeletedAtEpochMillis: Long): Boolean
     suspend fun upsertAsset(asset: Asset)
     suspend fun addUsageEvent(event: UsageEvent)
     suspend fun addMarketQuote(quote: MarketQuote)
@@ -43,6 +45,9 @@ class PreviewLedgerGateway(
 
     override suspend fun softDeleteTransaction(id: TransactionId, deletedAtEpochMillis: Long): Boolean =
         repository.softDeleteTransaction(id, deletedAtEpochMillis)
+
+    override suspend fun restoreTransaction(id: TransactionId, expectedDeletedAtEpochMillis: Long): Boolean =
+        repository.restoreTransaction(id, expectedDeletedAtEpochMillis)
 
     override suspend fun upsertAsset(asset: Asset) = repository.upsertAsset(asset)
     override suspend fun addUsageEvent(event: UsageEvent) = repository.addUsageEvent(event)
@@ -101,6 +106,15 @@ class PreviewLedgerGateway(
             return RollbackImportBatchResult(true, emptyList(), current.revision)
         }
         val ids = batch.items.mapTo(mutableSetOf()) { it.transactionId }
+        val hasActiveExternalRefund = current.transactions.any { transaction ->
+            transaction.kind == TransactionKind.REFUND &&
+                !transaction.isDeleted &&
+                transaction.id.value !in ids &&
+                transaction.originalTransactionId?.value in ids
+        }
+        require(!hasActiveExternalRefund) {
+            "Cannot roll back a batch while an active refund outside the batch references one of its transactions"
+        }
         val rolledBack = batch.copy(
             state = ImportBatchState.ROLLED_BACK,
             rolledBackAtEpochMillis = rolledBackAtEpochMillis,
@@ -125,6 +139,8 @@ class PersistentAppLedgerGateway(
     override suspend fun upsertTransaction(transaction: Transaction): UpsertTransactionResult = repository.upsertTransaction(transaction)
     override suspend fun softDeleteTransaction(id: TransactionId, deletedAtEpochMillis: Long): Boolean =
         repository.softDeleteTransaction(id, deletedAtEpochMillis)
+    override suspend fun restoreTransaction(id: TransactionId, expectedDeletedAtEpochMillis: Long): Boolean =
+        repository.restoreTransaction(id, expectedDeletedAtEpochMillis)
     override suspend fun upsertAsset(asset: Asset) = repository.upsertAsset(asset)
     override suspend fun addUsageEvent(event: UsageEvent) = repository.addUsageEvent(event)
     override suspend fun addMarketQuote(quote: MarketQuote) = repository.addMarketQuote(quote)

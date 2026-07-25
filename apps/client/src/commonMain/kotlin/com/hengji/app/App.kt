@@ -18,6 +18,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -31,7 +32,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -42,7 +47,10 @@ import com.hengji.app.application.InsightFeedbackReducer
 import com.hengji.app.application.LocalImportFlowPort
 import com.hengji.app.application.ManualMarketQuoteFactory
 import com.hengji.app.application.PersistentAppLedgerGateway
+import com.hengji.app.application.PendingTransactionUndo
 import com.hengji.app.application.PreviewLedgerGateway
+import com.hengji.app.application.TransactionDeletionCoordinator
+import com.hengji.app.application.TransactionDeletionResult
 import com.hengji.app.application.rememberImportFlowHost
 import com.hengji.app.application.UnavailableUserImportDocumentPicker
 import com.hengji.app.application.UserDocumentPurpose
@@ -56,6 +64,7 @@ import com.hengji.app.model.currencyDisplayPrefix
 import com.hengji.app.model.parseMoneyToMinor
 import com.hengji.app.navigation.AppDestination
 import com.hengji.app.theme.HengjiTheme
+import com.hengji.app.theme.HengjiSpacing
 import com.hengji.app.ui.AdaptiveAppShell
 import com.hengji.app.ui.screens.AssetsScreen
 import com.hengji.app.ui.screens.InsightsScreen
@@ -88,6 +97,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlin.time.Clock
 
 @Composable
@@ -133,6 +143,8 @@ fun HengjiApp(
     var manualQuoteAssetId by rememberSaveable { mutableStateOf<String?>(null) }
     var showImportWizard by rememberSaveable { mutableStateOf(false) }
     var editingTransactionId by rememberSaveable { mutableStateOf<String?>(null) }
+    var transactionPendingDeletionId by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingTransactionUndo by remember { mutableStateOf<PendingTransactionUndo?>(null) }
     var exportPreview by remember { mutableStateOf<Pair<String, String>?>(null) }
     var confirmClear by remember { mutableStateOf(false) }
     var dataActionStatus by remember { mutableStateOf<String?>(null) }
@@ -143,6 +155,7 @@ fun HengjiApp(
     var insightFeedbackResetting by remember { mutableStateOf(false) }
     var insightFeedbackStatus by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val transactionDeletionCoordinator = remember(gateway) { TransactionDeletionCoordinator(gateway) }
     val importPort = remember(gateway, userImportDocumentPicker) {
         LocalImportFlowPort(gateway, userImportDocumentPicker)
     }
@@ -170,6 +183,16 @@ fun HengjiApp(
         }
     }
 
+    LaunchedEffect(pendingTransactionUndo) {
+        val pending = pendingTransactionUndo ?: return@LaunchedEffect
+        val remainingMillis =
+            (pending.expiresAtEpochMillis - Clock.System.now().toEpochMilliseconds()).coerceAtLeast(0)
+        delay(remainingMillis)
+        if (pendingTransactionUndo == pending) {
+            pendingTransactionUndo = null
+        }
+    }
+
     fun mutate(block: suspend () -> Unit) {
         if (storageBusy) return
         scope.launch {
@@ -182,6 +205,67 @@ fun HengjiApp(
                 throw error
             } catch (error: Throwable) {
                 storageError = error.message ?: "本机账本操作未完成"
+            } finally {
+                storageBusy = false
+            }
+        }
+    }
+
+    fun deleteTransaction(transactionId: String) {
+        if (storageBusy) return
+        scope.launch {
+            storageBusy = true
+            storageError = null
+            val deletedAtEpochMillis = Clock.System.now().toEpochMilliseconds()
+            try {
+                when (
+                    val result = transactionDeletionCoordinator.delete(
+                        transactionId = TransactionId(transactionId),
+                        nowEpochMillis = deletedAtEpochMillis,
+                    )
+                ) {
+                    is TransactionDeletionResult.Deleted -> {
+                        snapshot = gateway.snapshot()
+                        transactionPendingDeletionId = null
+                        pendingTransactionUndo = result.pendingUndo
+                    }
+                    TransactionDeletionResult.Rejected -> {
+                        transactionPendingDeletionId = null
+                        storageError = "删除未完成：记录已变化或存在关联退款。请刷新后再试。"
+                    }
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                transactionPendingDeletionId = null
+                storageError = error.message ?: "删除未完成：记录已变化或存在关联退款。"
+            } finally {
+                storageBusy = false
+            }
+        }
+    }
+
+    fun undoTransactionDeletion(pending: PendingTransactionUndo) {
+        if (storageBusy) return
+        scope.launch {
+            storageBusy = true
+            storageError = null
+            try {
+                val restored = transactionDeletionCoordinator.undo(
+                    pending = pending,
+                    nowEpochMillis = Clock.System.now().toEpochMilliseconds(),
+                )
+                pendingTransactionUndo = null
+                if (restored) {
+                    snapshot = gateway.snapshot()
+                } else {
+                    storageError = "撤销失败：流水已再次变化或撤销窗口已过期。"
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                pendingTransactionUndo = null
+                storageError = error.message ?: "撤销失败：流水已再次变化或撤销窗口已过期。"
             } finally {
                 storageBusy = false
             }
@@ -249,22 +333,23 @@ fun HengjiApp(
 
     HengjiTheme(darkTheme = darkTheme) {
         Surface(color = MaterialTheme.colorScheme.background) {
-            AdaptiveAppShell(
-                destination = destination,
-                paneTitle = if (showImportWizard) "导入中心" else destination.label,
-                onDestinationChange = {
-                    showImportWizard = false
-                    destination = it
-                },
-                onAddTransaction = { showAddTransaction = true },
-            ) {
-                if (showImportWizard) {
-                    ImportWizard(
-                        state = importHost.state,
-                        onEvent = importHost.dispatch,
-                        reduceMotion = reduceMotion,
-                    )
-                } else when (destination) {
+            Box(Modifier.fillMaxSize()) {
+                AdaptiveAppShell(
+                    destination = destination,
+                    paneTitle = if (showImportWizard) "导入中心" else destination.label,
+                    onDestinationChange = {
+                        showImportWizard = false
+                        destination = it
+                    },
+                    onAddTransaction = { showAddTransaction = true },
+                ) {
+                    if (showImportWizard) {
+                        ImportWizard(
+                            state = importHost.state,
+                            onEvent = importHost.dispatch,
+                            reduceMotion = reduceMotion,
+                        )
+                    } else when (destination) {
                     AppDestination.Overview -> OverviewScreen(
                         transactions = transactions,
                         assets = assets,
@@ -277,6 +362,7 @@ fun HengjiApp(
                         transactions = transactions,
                         onAddTransaction = { showAddTransaction = true },
                         onEditTransaction = { editingTransactionId = it },
+                        onDeleteTransaction = { transactionPendingDeletionId = it },
                     )
                     AppDestination.Assets -> AssetsScreen(
                         assets = assets,
@@ -391,6 +477,8 @@ fun HengjiApp(
                                 if (picked != null) {
                                     val restored = LedgerJsonExporter.restore(picked.content)
                                     gateway.replaceWith(restored)
+                                    pendingTransactionUndo = null
+                                    transactionPendingDeletionId = null
                                     dataActionStatus = "已从 ${picked.displayName} 恢复本机账本"
                                 }
                             }
@@ -403,6 +491,26 @@ fun HengjiApp(
                             "内存预览 · 关闭后不保留"
                         },
                     )
+                    }
+                }
+                pendingTransactionUndo?.let { pending ->
+                    Snackbar(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(
+                                start = HengjiSpacing.lg,
+                                end = HengjiSpacing.lg,
+                                bottom = 96.dp,
+                            )
+                            .semantics { liveRegion = LiveRegionMode.Assertive },
+                        action = {
+                            TextButton(onClick = { undoTransactionDeletion(pending) }) {
+                                Text("撤销")
+                            }
+                        },
+                    ) {
+                        Text("流水已删除；8 秒内可撤销")
+                    }
                 }
             }
         }
@@ -439,6 +547,35 @@ fun HengjiApp(
                         showAddTransaction = false
                         editingTransactionId = null
                         destination = AppDestination.Ledger
+                    }
+                },
+            )
+        }
+
+        val transactionPendingDeletion = transactionPendingDeletionId?.let { id ->
+            currentSnapshot.transactions.firstOrNull { it.id.value == id && !it.isDeleted }
+        }
+        transactionPendingDeletion?.let { transaction ->
+            AlertDialog(
+                onDismissRequest = { transactionPendingDeletionId = null },
+                title = { Text("删除这笔流水？") },
+                text = {
+                    Text(
+                        "“${transaction.merchant?.displayName ?: "未命名交易"}”将从流水、总览和智能分析中移除。" +
+                            "删除成功后可在 8 秒内撤销；如记录已变化或存在关联退款，系统会拒绝删除。",
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = !storageBusy,
+                        onClick = { deleteTransaction(transaction.id.value) },
+                    ) {
+                        Text("确认删除")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { transactionPendingDeletionId = null }) {
+                        Text("取消")
                     }
                 },
             )
@@ -528,9 +665,9 @@ fun HengjiApp(
                     ) {
                         Text(
                             if (title.startsWith("CSV")) {
-                                "这是交易流水表格内容；金额使用整数最小单位，避免小数精度丢失。"
+                                "这是交易流水表格内容；金额使用整数最小单位。为审计与恢复，软删除记录及删除时间也会导出，日常界面仍会隐藏这些记录。"
                             } else {
-                                "这是完整的本机账本备份内容，可用于恢复当前数据。"
+                                "这是完整的本机账本备份内容，可用于恢复当前数据；其中包含用于审计与恢复的软删除记录。"
                             },
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -558,6 +695,8 @@ fun HengjiApp(
                         onClick = {
                             mutate {
                                 gateway.clear()
+                                pendingTransactionUndo = null
+                                transactionPendingDeletionId = null
                                 confirmClear = false
                                 dataActionStatus = "本机账本已清除"
                             }

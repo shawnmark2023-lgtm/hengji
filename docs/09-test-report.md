@@ -7,17 +7,17 @@
 | 门禁 | 结果 | 证据 |
 | --- | --- | --- |
 | Gradle 依赖完整性 | 主构建与 quality harness 的 strict 全配置解析通过；Desktop Release 与 Android lint/Debug/R8 Release 严格解析并构建通过 | 14 个 lockfile、2 份 SHA-256 verification metadata；本轮新增的 18 个 Android lint JAR/POM 均从 Google Maven 或 Maven Central 官方仓库独立下载并复算 SHA-256 一致；远端 Linux/macOS CI 尚未产生通过记录 |
-| Kotlin Desktop | 147/147 通过，0 failure/error/skip | client 41、core-domain 17、core-data 58、core-insights 23、connectors 8 |
-| Room 持久层 | core-data 58/58；其中 Room Desktop 9/9 | 9 表 schema v3、事务写入、显式 1→2→3 迁移、出售目标/洞察偏好/手工报价跨重启、清除后高 revision 空账本、报价币种不变量、25 MiB 上限、production fail-closed |
+| Kotlin Desktop | 172/172 通过，0 failure/error/skip | client 47、core-domain 17、core-data 77、core-insights 23、connectors 8 |
+| Room 持久层 | core-data 77/77；其中 Room Desktop 14/14 | 9 表 schema v3、事务写入、显式 1→2→3 迁移、出售目标/洞察偏好/手工报价跨重启、删除/精确 token 恢复、墓碑指纹保留、退款引用保护、单调 revision、清除后高 revision 空账本、报价币种不变量、25 MiB 上限、production fail-closed |
 | Android | lint 0 issue；Debug APK 与 R8 Release APK 构建通过 | `lintDebug`、`assembleDebug`、`assembleRelease`；Release APK 未签名，仅作为混淆/构建证据 |
 | Android 签名 | Debug APK v2 验证通过，1 个 signer | `C=US, O=Android, CN=Android Debug`；证书 SHA-256 `d740d66c573b4954e0a78e3a97034a45fd50e69310a0b289c4f9135f0ff4542b`；不是生产发布签名，未做设备安装/启动 |
 | iOS 交叉编译 | 元数据、arm64 与 simulator arm64 Kotlin klib 编译通过 | 覆盖系统文件选择、协调有界读取与临时导出；不是 Xcode 链接、模拟器/真机或签名证据 |
-| 受保护账本 | Desktop 30/30 通过 | 6 个密码边界、15 个 copy-on-write/CAS/迁移/初始化 journal/孤立密钥/目标价/报价/清除跨重启用例、4 个 JVM 原子文件用例、3 个 Desktop Room 退役恢复用例、2 个 Desktop 工厂真实 DPAPI 跨实例往返与清除重开用例；清除会移除全部快照字段、revision 精确 +1，迁移标记不能变成空账本，就绪但信封缺失 fail-closed |
+| 受保护账本 | Desktop 36/36 通过 | 6 个密码边界、20 个 copy-on-write/CAS/迁移/初始化 journal/孤立密钥/删除恢复/目标价/报价/清除跨重启用例、4 个 JVM 原子文件用例、3 个 Desktop Room 退役恢复用例、3 个 Desktop 工厂真实 DPAPI 跨实例往返、删除恢复与清除重开用例；删除和成功恢复均跨真实重开持久化，清除会移除全部快照字段、revision 精确 +1，迁移标记不能变成空账本，就绪但信封缺失 fail-closed |
 | Windows 密钥保护 | DPAPI 4/4 通过；Desktop 工厂与混淆后发布 JAR 真实往返通过 | 当前用户绑定、并发首次创建收敛、跨实例重载、别名/格式 entropy 绑定、保护物交换拒绝、磁盘无原始密钥、损坏不覆盖、非法别名拒绝；删除密文但保留 DPAPI 保护物后重开会 fail-closed 且不创建空账本 |
-| Android 受保护存储 | Android host 47/47，0 failure/error/skip | 原子密文文件 3、Keystore 保护物 4、Room 明文迁移 5、公共仓储/密码边界 35；覆盖双快照、文件锁、硬链接退役、中断恢复、sidecar/来源冲突、目标价/手工报价持久化、报价币种不变量和迁移标记 fail-closed；真实 AndroidKeyStore、Room 升级与文件系统语义仍须设备验证 |
+| Android 受保护存储 | Android host 61/61，0 failure/error/skip | 原子密文文件 3、Keystore 保护物 4、Room 明文迁移 5、公共仓储/密码边界 49；覆盖双快照、文件锁、硬链接退役、中断恢复、sidecar/来源冲突、墓碑/恢复/refund 约束、目标价/手工报价持久化、报价币种不变量和迁移标记 fail-closed；真实 AndroidKeyStore、Room 升级与文件系统语义仍须设备验证 |
 | Apple 密钥保护 | iOS arm64/simulator arm64 与 macOS JVM 源码编译通过；macOS 混淆产物符号/非宿主保护检查通过 | iOS/macOS 使用不同步、`WhenUnlockedThisDeviceOnly` Generic Password；iOS 入口、原子协调密文文件、双快照 Room 迁移、Complete File Protection、备份排除与安全重试 UI 已交叉编译；Windows 未执行真实 `SecItem*`、文件协调/保护、迁移、签名身份、锁屏或卸载验证 |
 | 代码级无障碍 | Desktop/Android/iOS 公共 UI 编译通过 | 导航/表单/开关/导入/状态语义、大字体重排与 Reduce Motion；不是 VoiceOver/TalkBack/Narrator 或仅键盘实机证据 |
-| 架构与发布守卫 | 34/34、234/234 通过 | 在不含构建产物与分发 artifact 的 ASCII 源码镜像运行；依赖方向、secret、沙箱/production 标签与禁止行为扫描通过 |
+| 架构与发布守卫 | 35/35、237/237 通过 | 在不含构建产物与分发 artifact 的 ASCII 源码镜像运行；依赖方向、secret、沙箱/production 标签与禁止行为扫描通过 |
 | 畸形导入 | 8/8 通过 | 引号未闭合、错列、重复表头、嵌套 JSON、行/文件上限、空必填、BOM/Unicode |
 | 10 万流水开发基线 | 4/4 通过 | 100,000 行，101 ms，内存增量 43.58 MiB；不是代表性设备或加密持久仓储证据 |
 | Connector gateway | 4/4 通过；`npm audit` 0 vulnerability | state 一次性/过期、沙箱非实时、production fail-closed |
@@ -42,7 +42,7 @@ Push-Location services\price-intelligence; python -m pytest -q; Pop-Location
 
 依赖锁由 Gradle 内建 dependency locking 生成并以 `STRICT` 模式执行；verification metadata 校验依赖和插件工件的 SHA-256。`apps/client` 的发行桌面依赖按 `windows-x64`、`linux-x64`、`linux-arm64`、`macos-x64`、`macos-arm64` 分档，避免 `desktop-jvm-*` 与 Skiko 原生运行时在不同宿主间互相污染锁状态。Compose Hot Reload 自动创建的宿主开发配置不参与版本锁，但下载工件仍受 verification metadata 约束；它们不是发行或测试运行时。校验元数据证明内容完整性，不证明发布者身份，也不替代 SBOM、许可证或漏洞审查。当前只在 Windows 完成严格解析及实际 Desktop/Android/iOS 交叉编译；仓库已配置 Linux/macOS CI，但尚无本轮远端通过记录，因此 `FND-003` 仍保持 `PARTIAL`。
 
-本工作树路径包含中文字符，Android Gradle Plugin 9.1.1 会在 Windows 配置阶段直接拒绝该项目路径；因此本轮所有 Gradle 构建、测试与 quality harness 均在同一源码状态的 ASCII 隔离副本中执行。ASCII 副本完成了 finance-app validator（232 个源码文件，0 error/0 warning）、架构/发布守卫、畸形导入、10 万流水与 `git diff --check`；原工作树也直接通过不依赖 Gradle 的 validator、架构/发布守卫和 diff 检查。这条宿主路径限制不应通过关闭 AGP 检查来掩盖。
+本工作树路径包含中文字符，Android Gradle Plugin 9.1.1 会在 Windows 配置阶段直接拒绝该项目路径；因此本轮 Gradle 构建通过映射到同一工作树的 ASCII 盘符执行，quality harness 在同一源码状态的 ASCII 隔离副本执行。原工作树 finance-app validator 检查 253 个源码/文档文件，0 error/0 warning；隔离副本通过架构/发布守卫、畸形导入、10 万流水与 `git diff --check`。这条宿主路径限制不应通过关闭 AGP 检查来掩盖。
 
 当前 Windows Release 由提交 `324f8434b247` 的严格校验构建生成。ProGuard Release uber JAR 为 30,358,813 bytes，SHA-256 `C64A695BA435B65576057079C2993886E64CF58CB6D05A18853C7DDC20C0ABBF`；JDK 21 `jpackage` app-image 为 184,072,805 bytes，其中 `Hengji.exe` SHA-256 `0224147E6EC74BA7A1A2D9F593DEE833D04849C9554737999803A84351F21585`，Authenticode 状态为 `NotSigned`。
 
@@ -74,6 +74,8 @@ Push-Location services\price-intelligence; python -m pytest -q; Pop-Location
 16. 设置出售目标 ¥1,860.00 后详情显示“等待达到”；修改为 ¥1,850.00 后即时显示“已达到”。详情同时明确“仅在打开衡记时更新；不会发送系统通知，也不会在后台联网”。
 17. 洞察页生成“出售目标价已达到”，证据显示可信报价中位数 ¥1,850.00、有效报价数 3、最新报价距今 0 天、来源为本机手工报价；示例报价没有参与触发。
 18. 关闭并以同一隔离目录重启，概览仍为 ¥3,900.00，资产详情仍显示 6 条历史报价、可呈现中位数 ¥1,850.00、目标 ¥1,850.00 与“已达到”，证明目标价、报价历史和投影跨重启保留。
+
+本轮新增的流水删除尚未执行真实 UI 点击验收：自动化已覆盖二次删除所需的严格单调 token、8 秒边界、过期/错误 token 拒绝、退款引用约束、墓碑导出/去重、删除资产购买流水不级联，以及真实 Windows DPAPI 账本“删除→重开→恢复→再重开”。因此不能把确认框、Snackbar 焦点或屏幕阅读器播报宣称为实机通过。
 
 这轮 Release 冒烟先后捕获并修复：Room 生成数据库类被移除、SQLite JNI 方法被改名、领域枚举被优化失去枚举形态。最终规则保留 `com.hengji.**` ABI 和 `androidx.sqlite.driver.bundled.**` native 符号，证明“编译成功”不能替代发行二进制启动测试。
 

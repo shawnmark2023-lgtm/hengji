@@ -43,6 +43,14 @@ class RoomLedgerRepository(
         return dao.atomicSoftDeleteTransaction(id.value, deletedAtEpochMillis).first
     }
 
+    override suspend fun restoreTransaction(
+        id: TransactionId,
+        expectedDeletedAtEpochMillis: Long,
+    ): Boolean {
+        require(expectedDeletedAtEpochMillis >= 0) { "Expected deletion time cannot be negative" }
+        return dao.atomicRestoreTransaction(id.value, expectedDeletedAtEpochMillis).first
+    }
+
     override suspend fun upsertAsset(asset: Asset) {
         dao.atomicUpsertAsset(asset.toRoomEntity())
     }
@@ -106,7 +114,7 @@ class RoomLedgerRepository(
 
     override suspend fun replaceWith(snapshot: LedgerSnapshot) {
         validateLedgerSnapshot(snapshot)
-        dao.atomicReplace(snapshot.toRoomRows(checkedNext(snapshot.revision)))
+        dao.atomicReplace(snapshot.toRoomRows(snapshot.revision))
     }
 
     override suspend fun clear() {
@@ -116,9 +124,4 @@ class RoomLedgerRepository(
     fun close() {
         database.close()
     }
-}
-
-private fun checkedNext(value: Long): Long {
-    if (value == Long.MAX_VALUE) throw ArithmeticException("Ledger revision overflow")
-    return value + 1
 }

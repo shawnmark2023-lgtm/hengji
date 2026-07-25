@@ -91,4 +91,34 @@ class LocalImportFlowPortTest {
         assertEquals(3, secondPreview.duplicateCount)
         assertEquals(0, secondPreview.readyCount)
     }
+
+    @Test
+    fun softDeletedImportIsDuplicateBeforeCommitAndOffersNoRowsToInsert() = runTest {
+        val repository = InMemoryLedgerRepository()
+        val gateway = PreviewLedgerGateway(repository)
+        val port = LocalImportFlowPort(gateway)
+        val mapping = ImportFieldMapping(
+            occurredAt = "date",
+            amount = "amount",
+            merchant = "merchant",
+            category = "category",
+            direction = "direction",
+            currency = "currency",
+            externalId = "orderId",
+        )
+        val firstDocument = requireNotNull(port.openSource(ImportSource.CsvSandboxSample))
+        val firstPreview = port.preview(firstDocument, mapping)
+        val accepted = firstPreview.candidates.mapNotNullTo(mutableSetOf()) { it.transaction?.fingerprint }
+        port.commitAtomically(ImportCommitSelection(firstDocument, firstPreview, accepted))
+        val deletedId = repository.snapshot().transactions.first().id
+        assertTrue(gateway.softDeleteTransaction(deletedId, deletedAtEpochMillis = 10))
+
+        val secondDocument = requireNotNull(port.openSource(ImportSource.CsvSandboxSample))
+        val secondPreview = port.preview(secondDocument, mapping)
+
+        assertEquals(3, secondPreview.duplicateCount)
+        assertEquals(0, secondPreview.readyCount)
+        assertEquals(2, repository.snapshot().transactions.size)
+        assertEquals(3, repository.snapshot(includeDeleted = true).transactions.size)
+    }
 }

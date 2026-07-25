@@ -140,7 +140,7 @@ class LocalImportFlowPort(
             ImportDocumentFormat.Json -> importer.previewJson(content, mapping, sourceId)
         }
         val candidateFingerprints = initial.candidates.mapNotNullTo(mutableSetOf()) { it.transaction?.fingerprint }
-        val existing = ledger.snapshot(includeDeleted = false).transactions
+        val existing = ledger.snapshot(includeDeleted = true).transactions
             .mapNotNullTo(mutableSetOf()) { it.importFingerprint }
             .intersect(candidateFingerprints)
         return when (document.format) {

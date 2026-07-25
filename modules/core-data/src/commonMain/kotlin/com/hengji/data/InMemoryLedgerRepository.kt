@@ -49,7 +49,7 @@ class InMemoryLedgerRepository(
     override fun upsertTransaction(transaction: Transaction): UpsertTransactionResult {
         val duplicate = transaction.importFingerprint?.let { fingerprint ->
             transactions.values.firstOrNull {
-                it.id != transaction.id && it.importFingerprint == fingerprint && !it.isDeleted
+                it.id != transaction.id && it.importFingerprint == fingerprint
             }
         }
         if (duplicate != null) return UpsertTransactionResult.DUPLICATE_IMPORT_SKIPPED
@@ -68,7 +68,29 @@ class InMemoryLedgerRepository(
         require(deletedAtEpochMillis >= 0) { "Deletion time cannot be negative" }
         val current = transactions[id] ?: return false
         if (current.isDeleted) return false
+        if (transactions.values.any { !it.isDeleted && it.originalTransactionId == id }) return false
         transactions[id] = current.copy(deletedAtEpochMillis = deletedAtEpochMillis)
+        bumpRevision()
+        return true
+    }
+
+    override fun restoreTransaction(
+        id: TransactionId,
+        expectedDeletedAtEpochMillis: Long,
+    ): Boolean {
+        require(expectedDeletedAtEpochMillis >= 0) { "Expected deletion time cannot be negative" }
+        val current = transactions[id] ?: return false
+        if (current.deletedAtEpochMillis != expectedDeletedAtEpochMillis) return false
+        val fingerprintConflict = current.importFingerprint?.let { fingerprint ->
+            transactions.values.any {
+                it.id != id && !it.isDeleted && it.importFingerprint == fingerprint
+            }
+        } ?: false
+        val originalUnavailable = current.originalTransactionId?.let { originalId ->
+            transactions[originalId]?.isDeleted != false
+        } ?: false
+        if (fingerprintConflict || originalUnavailable) return false
+        transactions[id] = current.copy(deletedAtEpochMillis = null)
         bumpRevision()
         return true
     }
@@ -110,7 +132,8 @@ class InMemoryLedgerRepository(
     }
 
     override fun replaceWith(snapshot: LedgerSnapshot) {
-        load(snapshot, preserveRevision = false)
+        val nextRevision = checkedIncrement(maxOf(revision, snapshot.revision))
+        load(snapshot.copy(revision = nextRevision), preserveRevision = true)
     }
 
     override fun clear() {
@@ -149,7 +172,7 @@ class InMemoryLedgerRepository(
         require(snapshot.transactions.distinctBy { it.id }.size == snapshot.transactions.size) { "Duplicate transaction ids" }
         require(snapshot.transactions.mapNotNull { it.importFingerprint }.distinct().size ==
             snapshot.transactions.mapNotNull { it.importFingerprint }.size
-        ) { "Duplicate active import fingerprints" }
+        ) { "Duplicate import fingerprints" }
         require(snapshot.maintenanceCosts.all { it.assetId in assetIds }) { "Maintenance references an unknown asset" }
         require(snapshot.usageEvents.all { it.assetId in assetIds }) { "Usage references an unknown asset" }
         require(snapshot.marketQuotes.all { it.assetId in assetIds }) { "Quote references an unknown asset" }

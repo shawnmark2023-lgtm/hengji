@@ -209,6 +209,18 @@ class DemoModelsTest {
     }
 
     @Test
+    fun transactionProjectionDefensivelyExcludesTombstones() {
+        val transaction = DomainDemoData.initialSnapshot.transactions.first()
+        val snapshotWithTombstone = DomainDemoData.initialSnapshot.copy(
+            transactions = listOf(transaction.copy(deletedAtEpochMillis = 1)),
+        )
+
+        assertTrue(
+            DomainDemoData.transactions(snapshotWithTombstone, LocalDate(2026, 7, 15)).isEmpty(),
+        )
+    }
+
+    @Test
     fun emptyLedgerProducesAnEmptySafeUiProjection() {
         val empty = LedgerSnapshot(0, emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
         val asOf = LocalDate(2026, 7, 15)

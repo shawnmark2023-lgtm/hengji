@@ -135,6 +135,8 @@ interface LedgerRepository {
 
     fun softDeleteTransaction(id: TransactionId, deletedAtEpochMillis: Long): Boolean
 
+    fun restoreTransaction(id: TransactionId, expectedDeletedAtEpochMillis: Long): Boolean
+
     fun upsertAsset(asset: Asset)
 
     fun findAsset(id: AssetId): Asset?
@@ -160,6 +162,7 @@ interface PersistentLedgerRepository {
     suspend fun snapshot(includeDeleted: Boolean = false): LedgerSnapshot
     suspend fun upsertTransaction(transaction: Transaction): UpsertTransactionResult
     suspend fun softDeleteTransaction(id: TransactionId, deletedAtEpochMillis: Long): Boolean
+    suspend fun restoreTransaction(id: TransactionId, expectedDeletedAtEpochMillis: Long): Boolean
     suspend fun upsertAsset(asset: Asset)
     suspend fun findAsset(id: AssetId): Asset?
     suspend fun addMaintenanceCost(cost: MaintenanceCost)

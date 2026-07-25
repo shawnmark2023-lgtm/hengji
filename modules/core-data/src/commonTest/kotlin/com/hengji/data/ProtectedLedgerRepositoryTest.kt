@@ -40,6 +40,114 @@ class ProtectedLedgerRepositoryTest {
     }
 
     @Test
+    fun exactTokenRestorePersistsAcrossEncryptedReopen() = runProtectedTest {
+        val store = MemoryProtectedLedgerStore()
+        val keys = TestProvisioningKeyProvider()
+        var repository = ProtectedLedgerRepository.open(store, "ledger-primary", keys).repository
+        val transaction = transaction("restore-encrypted", "fingerprint-restore-encrypted")
+        repository.upsertTransaction(transaction)
+        assertTrue(repository.softDeleteTransaction(transaction.id, deletedAtEpochMillis = 123))
+        val deletedRevision = repository.snapshot().revision
+
+        assertFalse(repository.restoreTransaction(transaction.id, expectedDeletedAtEpochMillis = 122))
+        assertFalse(repository.restoreTransaction(TransactionId("unknown"), expectedDeletedAtEpochMillis = 123))
+        assertEquals(deletedRevision, repository.snapshot().revision)
+        assertTrue(repository.snapshot().transactions.isEmpty())
+        assertEquals(123, repository.snapshot(includeDeleted = true).transactions.single().deletedAtEpochMillis)
+
+        assertTrue(repository.restoreTransaction(transaction.id, expectedDeletedAtEpochMillis = 123))
+        assertEquals(deletedRevision + 1, repository.snapshot().revision)
+        assertFalse(repository.restoreTransaction(transaction.id, expectedDeletedAtEpochMillis = 123))
+        assertEquals(deletedRevision + 1, repository.snapshot().revision)
+
+        repository = ProtectedLedgerRepository.open(store, "ledger-primary", keys).repository
+        val reopened = repository.snapshot(includeDeleted = true)
+        assertEquals(deletedRevision + 1, reopened.revision)
+        assertEquals(null, reopened.transactions.single().deletedAtEpochMillis)
+    }
+
+    @Test
+    fun deletedFingerprintStaysReservedAndActiveRefundProtectsOriginal() = runProtectedTest {
+        val repository = ProtectedLedgerRepository.open(
+            MemoryProtectedLedgerStore(),
+            "ledger-primary",
+            TestProvisioningKeyProvider(),
+        ).repository
+        val deleted = transaction("deleted-import", "reserved-fingerprint")
+        repository.upsertTransaction(deleted)
+        assertTrue(repository.softDeleteTransaction(deleted.id, deletedAtEpochMillis = 123))
+        val deletedRevision = repository.snapshot().revision
+        assertEquals(
+            UpsertTransactionResult.DUPLICATE_IMPORT_SKIPPED,
+            repository.upsertTransaction(transaction("duplicate-import", "reserved-fingerprint")),
+        )
+        assertEquals(deletedRevision, repository.snapshot().revision)
+
+        val expense = transaction("expense-with-refund", "fingerprint-expense")
+        val refund = expense.copy(
+            id = TransactionId("active-refund"),
+            kind = TransactionKind.REFUND,
+            originalTransactionId = expense.id,
+            importFingerprint = "fingerprint-refund",
+        )
+        repository.upsertTransaction(expense)
+        repository.upsertTransaction(refund)
+        val beforeRejectedDelete = repository.snapshot().revision
+        assertFalse(repository.softDeleteTransaction(expense.id, deletedAtEpochMillis = 456))
+        assertEquals(beforeRejectedDelete, repository.snapshot().revision)
+        assertTrue(repository.snapshot().transactions.any { it.id == expense.id })
+    }
+
+    @Test
+    fun refundRestoreRequiresAnActiveOriginal() = runProtectedTest {
+        val repository = ProtectedLedgerRepository.open(
+            MemoryProtectedLedgerStore(),
+            "ledger-primary",
+            TestProvisioningKeyProvider(),
+        ).repository
+        val expense = transaction("refund-original", "fingerprint-refund-original")
+        val refund = expense.copy(
+            id = TransactionId("refund-to-restore"),
+            kind = TransactionKind.REFUND,
+            originalTransactionId = expense.id,
+            importFingerprint = "fingerprint-refund-to-restore",
+        )
+        repository.upsertTransaction(expense)
+        repository.upsertTransaction(refund)
+        assertTrue(repository.softDeleteTransaction(refund.id, deletedAtEpochMillis = 100))
+        assertTrue(repository.softDeleteTransaction(expense.id, deletedAtEpochMillis = 200))
+        val before = repository.snapshot().revision
+
+        assertFalse(repository.restoreTransaction(refund.id, expectedDeletedAtEpochMillis = 100))
+        assertEquals(before, repository.snapshot().revision)
+        assertEquals(
+            100,
+            repository.snapshot(includeDeleted = true).transactions
+                .single { it.id == refund.id }
+                .deletedAtEpochMillis,
+        )
+    }
+
+    @Test
+    fun replacementRevisionNeverMovesBackwardAcrossEncryptedReopen() = runProtectedTest {
+        val store = MemoryProtectedLedgerStore()
+        val keys = TestProvisioningKeyProvider()
+        var repository = ProtectedLedgerRepository.open(store, "ledger-primary", keys).repository
+
+        repository.replaceWith(emptySnapshot(revision = 10))
+        assertEquals(11, repository.snapshot().revision)
+        repository.replaceWith(emptySnapshot(revision = 2))
+        assertEquals(12, repository.snapshot().revision)
+        assertFailsWith<ArithmeticException> {
+            runProtectedTest { repository.replaceWith(emptySnapshot(revision = Long.MAX_VALUE)) }
+        }
+        assertEquals(12, repository.snapshot().revision)
+
+        repository = ProtectedLedgerRepository.open(store, "ledger-primary", keys).repository
+        assertEquals(12, repository.snapshot().revision)
+    }
+
+    @Test
     fun clearRemovesEverySnapshotFieldAndReopensAsExistingEmptyLedger() = runProtectedTest {
         val store = MemoryProtectedLedgerStore()
         val keys = TestProvisioningKeyProvider()
@@ -416,6 +524,63 @@ class ProtectedLedgerRepositoryTest {
         assertEquals(listOf("existing"), repository.snapshot().transactions.map { it.id.value })
         assertEquals(ImportBatchState.ROLLED_BACK, repository.snapshot().importBatches.single().state)
     }
+
+    @Test
+    fun importRollbackRejectsExternalRefundButAllowsRefundRemovedWithItsOriginal() = runProtectedTest {
+        val repository = ProtectedLedgerRepository.open(
+            MemoryProtectedLedgerStore(),
+            "ledger-primary",
+            TestProvisioningKeyProvider(),
+        ).repository
+        val original = transaction("batch-original", "fingerprint-batch-original")
+        repository.commitImportBatch(
+            CommitImportBatchRequest(
+                batchId = "batch_refund_guard_001",
+                sourceConnectorId = "local-test",
+                sourceDigest = "digest-refund-guard",
+                createdAtEpochMillis = 10,
+                committedAtEpochMillis = 20,
+                transactions = listOf(original),
+            ),
+        )
+        repository.upsertTransaction(
+            original.copy(
+                id = TransactionId("external-refund"),
+                kind = TransactionKind.REFUND,
+                originalTransactionId = original.id,
+                importFingerprint = "fingerprint-external-refund",
+            ),
+        )
+        val beforeRejectedRollback = repository.snapshot().revision
+
+        assertFailsWith<IllegalArgumentException> {
+            runProtectedTest {
+                repository.rollbackImportBatch("batch_refund_guard_001", 30)
+            }
+        }
+        assertEquals(beforeRejectedRollback, repository.snapshot().revision)
+        assertEquals(ImportBatchState.COMMITTED, repository.snapshot().importBatches.single().state)
+
+        val pairedOriginal = transaction("paired-original", "fingerprint-paired-original")
+        val pairedRefund = pairedOriginal.copy(
+            id = TransactionId("paired-refund"),
+            kind = TransactionKind.REFUND,
+            originalTransactionId = pairedOriginal.id,
+            importFingerprint = "fingerprint-paired-refund",
+        )
+        repository.commitImportBatch(
+            CommitImportBatchRequest(
+                batchId = "batch_refund_pair_001",
+                sourceConnectorId = "local-test",
+                sourceDigest = "digest-refund-pair",
+                createdAtEpochMillis = 40,
+                committedAtEpochMillis = 50,
+                transactions = listOf(pairedOriginal, pairedRefund),
+            ),
+        )
+        val rolledBack = repository.rollbackImportBatch("batch_refund_pair_001", 60)
+        assertEquals(setOf("paired-original", "paired-refund"), rolledBack.removedTransactionIds.toSet())
+    }
 }
 
 private class FailingReadyInitializationJournal(
@@ -497,6 +662,15 @@ private fun transaction(id: String, fingerprint: String) = Transaction(
     merchant = Merchant("Test Merchant"),
     source = TransactionSource.FILE_IMPORT,
     importFingerprint = fingerprint,
+)
+
+private fun emptySnapshot(revision: Long) = LedgerSnapshot(
+    revision = revision,
+    transactions = emptyList(),
+    assets = emptyList(),
+    maintenanceCosts = emptyList(),
+    usageEvents = emptyList(),
+    marketQuotes = emptyList(),
 )
 
 private fun runProtectedTest(block: suspend () -> Unit) {

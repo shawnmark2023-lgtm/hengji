@@ -56,6 +56,115 @@ class RoomLedgerRepositoryTest {
     }
 
     @Test
+    fun exactTokenRestorePersistsAcrossRoomReopen() = runTest {
+        withDatabaseFile { path ->
+            var repository = open(path)
+            val transaction = importedTransaction("restore-room", "hj1_restore_room", 123)
+            repository.upsertTransaction(transaction)
+            assertTrue(repository.softDeleteTransaction(transaction.id, deletedAtEpochMillis = 123))
+            val deletedRevision = repository.snapshot().revision
+
+            assertFalse(repository.restoreTransaction(transaction.id, expectedDeletedAtEpochMillis = 122))
+            assertFalse(repository.restoreTransaction(TransactionId("unknown"), expectedDeletedAtEpochMillis = 123))
+            assertEquals(deletedRevision, repository.snapshot().revision)
+            assertTrue(repository.snapshot().transactions.isEmpty())
+            assertEquals(123, repository.snapshot(includeDeleted = true).transactions.single().deletedAtEpochMillis)
+
+            assertTrue(repository.restoreTransaction(transaction.id, expectedDeletedAtEpochMillis = 123))
+            assertEquals(deletedRevision + 1, repository.snapshot().revision)
+            assertFalse(repository.restoreTransaction(transaction.id, expectedDeletedAtEpochMillis = 123))
+            assertEquals(deletedRevision + 1, repository.snapshot().revision)
+            repository.close()
+
+            repository = open(path)
+            val reopened = repository.snapshot(includeDeleted = true)
+            assertEquals(deletedRevision + 1, reopened.revision)
+            assertEquals(null, reopened.transactions.single().deletedAtEpochMillis)
+            repository.close()
+        }
+    }
+
+    @Test
+    fun deletedFingerprintStaysReservedAndActiveRefundProtectsOriginalInRoom() = runTest {
+        withDatabaseFile { path ->
+            val repository = open(path)
+            val deleted = importedTransaction("deleted-room", "hj1_reserved_room", 100)
+            repository.upsertTransaction(deleted)
+            assertTrue(repository.softDeleteTransaction(deleted.id, deletedAtEpochMillis = 123))
+            val deletedRevision = repository.snapshot().revision
+            assertEquals(
+                com.hengji.data.UpsertTransactionResult.DUPLICATE_IMPORT_SKIPPED,
+                repository.upsertTransaction(importedTransaction("duplicate-room", "hj1_reserved_room", 100)),
+            )
+            assertEquals(deletedRevision, repository.snapshot().revision)
+
+            val expense = importedTransaction("expense-room", "hj1_expense_room", 200)
+            val refund = expense.copy(
+                id = TransactionId("refund-room"),
+                kind = TransactionKind.REFUND,
+                originalTransactionId = expense.id,
+                importFingerprint = "hj1_refund_room",
+            )
+            repository.upsertTransaction(expense)
+            repository.upsertTransaction(refund)
+            val beforeRejectedDelete = repository.snapshot().revision
+            assertFalse(repository.softDeleteTransaction(expense.id, deletedAtEpochMillis = 456))
+            assertEquals(beforeRejectedDelete, repository.snapshot().revision)
+            assertTrue(repository.snapshot().transactions.any { it.id == expense.id })
+            repository.close()
+        }
+    }
+
+    @Test
+    fun refundRestoreRequiresAnActiveOriginalInRoom() = runTest {
+        withDatabaseFile { path ->
+            val repository = open(path)
+            val expense = importedTransaction("refund-original-room", "hj1_refund_original_room", 200)
+            val refund = expense.copy(
+                id = TransactionId("refund-to-restore-room"),
+                kind = TransactionKind.REFUND,
+                originalTransactionId = expense.id,
+                importFingerprint = "hj1_refund_to_restore_room",
+            )
+            repository.upsertTransaction(expense)
+            repository.upsertTransaction(refund)
+            assertTrue(repository.softDeleteTransaction(refund.id, deletedAtEpochMillis = 100))
+            assertTrue(repository.softDeleteTransaction(expense.id, deletedAtEpochMillis = 200))
+            val before = repository.snapshot().revision
+
+            assertFalse(repository.restoreTransaction(refund.id, expectedDeletedAtEpochMillis = 100))
+            assertEquals(before, repository.snapshot().revision)
+            assertEquals(
+                100,
+                repository.snapshot(includeDeleted = true).transactions
+                    .single { it.id == refund.id }
+                    .deletedAtEpochMillis,
+            )
+            repository.close()
+        }
+    }
+
+    @Test
+    fun replacementRevisionNeverMovesBackwardAcrossRoomReopen() = runTest {
+        withDatabaseFile { path ->
+            var repository = open(path)
+            repository.replaceWith(emptySnapshot(revision = 10))
+            assertEquals(11, repository.snapshot().revision)
+            repository.replaceWith(emptySnapshot(revision = 2))
+            assertEquals(12, repository.snapshot().revision)
+            assertFailsWith<ArithmeticException> {
+                repository.replaceWith(emptySnapshot(revision = Long.MAX_VALUE))
+            }
+            assertEquals(12, repository.snapshot().revision)
+            repository.close()
+
+            repository = open(path)
+            assertEquals(12, repository.snapshot().revision)
+            repository.close()
+        }
+    }
+
+    @Test
     fun manualMarketQuotePersistsAcrossRoomReopen() = runTest {
         withDatabaseFile { path ->
             var repository = open(path)
@@ -268,6 +377,63 @@ class RoomLedgerRepositoryTest {
     }
 
     @Test
+    fun importRollbackRejectsExternalRefundButAllowsRefundRemovedWithItsOriginalInRoom() = runTest {
+        withDatabaseFile { path ->
+            val repository = open(path)
+            val original = importedTransaction("batch-original-room", "hj1_batch_original_room", 100)
+            repository.commitImportBatch(
+                CommitImportBatchRequest(
+                    batchId = "batch_refund_guard_room_001",
+                    sourceConnectorId = "csv-local",
+                    sourceDigest = "sha256:refund-guard",
+                    createdAtEpochMillis = 10,
+                    committedAtEpochMillis = 20,
+                    transactions = listOf(original),
+                ),
+            )
+            repository.upsertTransaction(
+                original.copy(
+                    id = TransactionId("external-refund-room"),
+                    kind = TransactionKind.REFUND,
+                    originalTransactionId = original.id,
+                    importFingerprint = "hj1_external_refund_room",
+                ),
+            )
+            val beforeRejectedRollback = repository.snapshot().revision
+
+            assertFailsWith<IllegalArgumentException> {
+                repository.rollbackImportBatch("batch_refund_guard_room_001", 30)
+            }
+            assertEquals(beforeRejectedRollback, repository.snapshot().revision)
+            assertEquals(ImportBatchState.COMMITTED, repository.snapshot().importBatches.single().state)
+
+            val pairedOriginal = importedTransaction("paired-original-room", "hj1_paired_original_room", 300)
+            val pairedRefund = pairedOriginal.copy(
+                id = TransactionId("paired-refund-room"),
+                kind = TransactionKind.REFUND,
+                originalTransactionId = pairedOriginal.id,
+                importFingerprint = "hj1_paired_refund_room",
+            )
+            repository.commitImportBatch(
+                CommitImportBatchRequest(
+                    batchId = "batch_refund_pair_room_001",
+                    sourceConnectorId = "csv-local",
+                    sourceDigest = "sha256:refund-pair",
+                    createdAtEpochMillis = 40,
+                    committedAtEpochMillis = 50,
+                    transactions = listOf(pairedOriginal, pairedRefund),
+                ),
+            )
+            val rolledBack = repository.rollbackImportBatch("batch_refund_pair_room_001", 60)
+            assertEquals(
+                setOf("paired-original-room", "paired-refund-room"),
+                rolledBack.removedTransactionIds.toSet(),
+            )
+            repository.close()
+        }
+    }
+
+    @Test
     fun clearRemainsEmptyAndNonPristineAcrossReopen() = runTest {
         withDatabaseFile { path ->
             var repository = open(path)
@@ -309,6 +475,15 @@ class RoomLedgerRepositoryTest {
         categoryId = CategoryId("test"),
         source = TransactionSource.FILE_IMPORT,
         importFingerprint = fingerprint,
+    )
+
+    private fun emptySnapshot(revision: Long) = com.hengji.data.LedgerSnapshot(
+        revision = revision,
+        transactions = emptyList(),
+        assets = emptyList(),
+        maintenanceCosts = emptyList(),
+        usageEvents = emptyList(),
+        marketQuotes = emptyList(),
     )
 
     private suspend fun withDatabaseFile(block: suspend (String) -> Unit) {

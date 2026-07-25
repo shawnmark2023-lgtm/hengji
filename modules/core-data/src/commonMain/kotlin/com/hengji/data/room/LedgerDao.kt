@@ -61,6 +61,29 @@ interface LedgerDao {
     @Query("UPDATE transactions SET deletedAtEpochMillis = :deletedAt WHERE id = :id AND deletedAtEpochMillis IS NULL")
     suspend fun softDeleteTransaction(id: String, deletedAt: Long): Int
 
+    @Query("UPDATE transactions SET deletedAtEpochMillis = NULL WHERE id = :id AND deletedAtEpochMillis = :expectedDeletedAt")
+    suspend fun restoreTransaction(id: String, expectedDeletedAt: Long): Int
+
+    @Query(
+        """
+        SELECT COUNT(*) FROM transactions
+        WHERE originalTransactionId = :originalId
+          AND kind = 'REFUND'
+          AND deletedAtEpochMillis IS NULL
+        """,
+    )
+    suspend fun activeRefundCount(originalId: String): Int
+
+    @Query(
+        """
+        SELECT * FROM transactions
+        WHERE kind = 'REFUND'
+          AND deletedAtEpochMillis IS NULL
+          AND originalTransactionId IN (:originalIds)
+        """,
+    )
+    suspend fun activeRefundsForOriginals(originalIds: List<String>): List<TransactionEntity>
+
     @Query("DELETE FROM transactions WHERE id IN (:ids)")
     suspend fun deleteTransactions(ids: List<String>): Int
 
@@ -208,7 +231,32 @@ interface LedgerDao {
     @Transaction
     suspend fun atomicSoftDeleteTransaction(id: String, deletedAt: Long): Pair<Boolean, Long> {
         ensureInitialized()
+        if (activeRefundCount(id) > 0) {
+            return false to requireNotNull(metadata()).revision
+        }
         val changed = softDeleteTransaction(id, deletedAt) == 1
+        return changed to if (changed) bumpRevision() else requireNotNull(metadata()).revision
+    }
+
+    @Transaction
+    suspend fun atomicRestoreTransaction(id: String, expectedDeletedAt: Long): Pair<Boolean, Long> {
+        ensureInitialized()
+        val existing = transaction(id)
+        if (existing?.deletedAtEpochMillis != expectedDeletedAt) {
+            return false to requireNotNull(metadata()).revision
+        }
+        val fingerprintConflict = existing.importFingerprint?.let { fingerprint ->
+            transactionsByFingerprints(listOf(fingerprint)).any {
+                it.id != id && it.deletedAtEpochMillis == null
+            }
+        } ?: false
+        val originalUnavailable = existing.originalTransactionId?.let { originalId ->
+            transaction(originalId)?.let { it.deletedAtEpochMillis != null } ?: true
+        } ?: false
+        if (fingerprintConflict || originalUnavailable) {
+            return false to requireNotNull(metadata()).revision
+        }
+        val changed = restoreTransaction(id, expectedDeletedAt) == 1
         return changed to if (changed) bumpRevision() else requireNotNull(metadata()).revision
     }
 
@@ -299,6 +347,12 @@ interface LedgerDao {
         require(batch.state == "COMMITTED") { "Import batch is not committed" }
         require(rolledBackAt >= batch.committedAtEpochMillis) { "Rollback cannot precede commit" }
         val transactionIds = importBatchItems(batchId).map { it.transactionId }
+        val transactionIdSet = transactionIds.toSet()
+        if (transactionIds.isNotEmpty()) {
+            require(
+                activeRefundsForOriginals(transactionIds).none { it.id !in transactionIdSet },
+            ) { "Import rollback would orphan an active refund" }
+        }
         if (transactionIds.isNotEmpty()) deleteTransactions(transactionIds)
         check(markImportBatchRolledBack(batchId, rolledBackAt) == 1)
         return RoomRollbackImportResult(false, transactionIds, bumpRevision())
@@ -306,6 +360,11 @@ interface LedgerDao {
 
     @Transaction
     suspend fun atomicReplace(rows: RoomSnapshotRows) {
+        ensureInitialized()
+        val currentRevision = requireNotNull(metadata()).revision
+        val baseRevision = maxOf(currentRevision, rows.revision)
+        if (baseRevision == Long.MAX_VALUE) throw ArithmeticException("Ledger revision overflow")
+        val replacementRevision = baseRevision + 1
         deleteAllImportBatchItems()
         deleteAllImportBatches()
         deleteAllMarketQuotes()
@@ -322,8 +381,7 @@ interface LedgerDao {
         rows.insightPreferences?.let { upsertInsightPreferences(it) }
         if (rows.importBatches.isNotEmpty()) insertImportBatches(rows.importBatches)
         if (rows.importItems.isNotEmpty()) restoreImportBatchItems(rows.importItems)
-        initializeMetadata(LedgerMetadataEntity(revision = rows.revision))
-        setRevision(rows.revision)
+        setRevision(replacementRevision)
     }
 
     @Transaction

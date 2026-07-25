@@ -31,28 +31,31 @@ internal object DomainDemoData {
     fun transactions(snapshot: LedgerSnapshot, asOf: LocalDate): List<DemoTransaction> {
         val currentPeriodStart = startOfMonth(asOf)
         return snapshot.transactions
-        .sortedByDescending { it.bookedOn }
-        .map { transaction ->
-            val signedAmount = if (transaction.kind == TransactionKind.REFUND) {
-                -transaction.amount.minorUnits
-            } else {
-                transaction.amount.minorUnits
+            .asSequence()
+            .filterNot { it.isDeleted }
+            .sortedByDescending { it.bookedOn }
+            .map { transaction ->
+                val signedAmount = if (transaction.kind == TransactionKind.REFUND) {
+                    -transaction.amount.minorUnits
+                } else {
+                    transaction.amount.minorUnits
+                }
+                DemoTransaction(
+                    id = transaction.id.value,
+                    merchant = transaction.merchant?.displayName ?: "未命名交易",
+                    category = categoryLabel(transaction.categoryId.value),
+                    amountMinor = signedAmount,
+                    dateLabel = "${transaction.bookedOn.month.ordinal + 1} 月 ${transaction.bookedOn.day} 日",
+                    sourceLabel = sourceLabel(transaction.source),
+                    kind = when (transaction.kind) {
+                        TransactionKind.EXPENSE -> EntryKind.Expense
+                        TransactionKind.INCOME -> EntryKind.Income
+                        TransactionKind.REFUND -> EntryKind.Refund
+                    },
+                    inCurrentPeriod = transaction.bookedOn >= currentPeriodStart && transaction.bookedOn <= asOf,
+                )
             }
-            DemoTransaction(
-                id = transaction.id.value,
-                merchant = transaction.merchant?.displayName ?: "未命名交易",
-                category = categoryLabel(transaction.categoryId.value),
-                amountMinor = signedAmount,
-                dateLabel = "${transaction.bookedOn.month.ordinal + 1} 月 ${transaction.bookedOn.day} 日",
-                sourceLabel = sourceLabel(transaction.source),
-                kind = when (transaction.kind) {
-                    TransactionKind.EXPENSE -> EntryKind.Expense
-                    TransactionKind.INCOME -> EntryKind.Income
-                    TransactionKind.REFUND -> EntryKind.Refund
-                },
-                inCurrentPeriod = transaction.bookedOn >= currentPeriodStart && transaction.bookedOn <= asOf,
-            )
-        }
+            .toList()
     }
 
     fun assets(snapshot: LedgerSnapshot, asOf: LocalDate): List<DemoAsset> {

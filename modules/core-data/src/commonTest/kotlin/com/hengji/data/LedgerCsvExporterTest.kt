@@ -9,6 +9,7 @@ import com.hengji.domain.TransactionId
 import com.hengji.domain.TransactionKind
 import kotlinx.datetime.LocalDate
 import kotlin.test.Test
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class LedgerCsvExporterTest {
@@ -28,5 +29,26 @@ class LedgerCsvExporterTest {
 
         assertTrue("\"12345\"" in csv)
         assertTrue("\"'=HYPERLINK(\"\"https://invalid.example\"\")\"" in csv)
+    }
+
+    @Test
+    fun exportsDeletionTombstoneAndClearsItAfterRestore() {
+        val transaction = Transaction(
+            id = TransactionId("csv-deleted"),
+            kind = TransactionKind.EXPENSE,
+            amount = Money(123, CurrencyCode.CNY),
+            bookedOn = LocalDate(2026, 7, 25),
+            categoryId = CategoryId("other"),
+            deletedAtEpochMillis = 456,
+        )
+        val repository = InMemoryLedgerRepository(
+            LedgerSnapshot(1, listOf(transaction), emptyList(), emptyList(), emptyList(), emptyList()),
+        )
+
+        assertTrue("\"456\"" in LedgerCsvExporter.export(repository.snapshot(includeDeleted = true)))
+        assertTrue(repository.restoreTransaction(transaction.id, 456))
+        val restoredCsv = LedgerCsvExporter.export(repository.snapshot(includeDeleted = true))
+        assertFalse("\"456\"" in restoredCsv)
+        assertTrue("\"csv-deleted\"" in restoredCsv)
     }
 }

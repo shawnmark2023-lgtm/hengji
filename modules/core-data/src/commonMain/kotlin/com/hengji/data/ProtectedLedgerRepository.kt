@@ -115,13 +115,48 @@ class ProtectedLedgerRepository private constructor(
         require(deletedAtEpochMillis >= 0) { "Deletion time cannot be negative" }
         return mutate { current ->
             val existing = current.transactions.firstOrNull { it.id == id }
-            if (existing == null || existing.isDeleted) {
+            val hasActiveRefund = current.transactions.any {
+                !it.isDeleted && it.originalTransactionId == id
+            }
+            if (existing == null || existing.isDeleted || hasActiveRefund) {
                 current to false
             } else {
                 current.copy(
                     revision = checkedNextRevision(current.revision),
                     transactions = current.transactions.map {
                         if (it.id == id) it.copy(deletedAtEpochMillis = deletedAtEpochMillis) else it
+                    },
+                ) to true
+            }
+        }
+    }
+
+    override suspend fun restoreTransaction(
+        id: TransactionId,
+        expectedDeletedAtEpochMillis: Long,
+    ): Boolean {
+        require(expectedDeletedAtEpochMillis >= 0) { "Expected deletion time cannot be negative" }
+        return mutate { current ->
+            val existing = current.transactions.firstOrNull { it.id == id }
+            val fingerprintConflict = existing?.importFingerprint?.let { fingerprint ->
+                current.transactions.any {
+                    it.id != id && !it.isDeleted && it.importFingerprint == fingerprint
+                }
+            } ?: false
+            val originalUnavailable = existing?.originalTransactionId?.let { originalId ->
+                current.transactions.none { it.id == originalId && !it.isDeleted }
+            } ?: false
+            if (
+                existing?.deletedAtEpochMillis != expectedDeletedAtEpochMillis ||
+                fingerprintConflict ||
+                originalUnavailable
+            ) {
+                current to false
+            } else {
+                current.copy(
+                    revision = checkedNextRevision(current.revision),
+                    transactions = current.transactions.map {
+                        if (it.id == id) it.copy(deletedAtEpochMillis = null) else it
                     },
                 ) to true
             }
@@ -255,6 +290,14 @@ class ProtectedLedgerRepository private constructor(
                     "Rollback cannot precede commit"
                 }
                 val removedIds = batch.items.map { it.transactionId }
+                val removedIdSet = removedIds.toSet()
+                require(
+                    current.transactions.none {
+                        !it.isDeleted &&
+                            it.id.value !in removedIdSet &&
+                            it.originalTransactionId?.value in removedIdSet
+                    },
+                ) { "Import rollback would orphan an active refund" }
                 val nextRevision = checkedNextRevision(current.revision)
                 current.copy(
                     revision = nextRevision,
@@ -276,8 +319,10 @@ class ProtectedLedgerRepository private constructor(
 
     override suspend fun replaceWith(snapshot: LedgerSnapshot) {
         validateLedgerSnapshot(snapshot)
-        mutate<Unit> {
-            snapshot.copy(revision = checkedNextRevision(snapshot.revision)) to Unit
+        mutate<Unit> { current ->
+            snapshot.copy(
+                revision = checkedNextRevision(maxOf(current.revision, snapshot.revision)),
+            ) to Unit
         }
     }
 

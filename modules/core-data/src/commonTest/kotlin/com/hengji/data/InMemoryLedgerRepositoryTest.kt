@@ -40,6 +40,120 @@ class InMemoryLedgerRepositoryTest {
     }
 
     @Test
+    fun deletingAssetPurchaseTransactionDoesNotCascadeAssetCostRecords() {
+        val initial = DemoLedger.snapshot()
+        val transaction = initial.transactions.first { it.assetId != null }
+        val repository = InMemoryLedgerRepository(initial)
+
+        assertTrue(repository.softDeleteTransaction(transaction.id, deletedAtEpochMillis = 123))
+
+        val visible = repository.snapshot()
+        assertEquals(initial.assets, visible.assets)
+        assertEquals(initial.maintenanceCosts, visible.maintenanceCosts)
+        assertEquals(initial.usageEvents, visible.usageEvents)
+        assertEquals(initial.marketQuotes, visible.marketQuotes)
+        assertFalse(visible.transactions.any { it.id == transaction.id })
+    }
+
+    @Test
+    fun restoreRequiresExactDeletionTokenAndOnlySuccessAdvancesRevision() {
+        val repository = InMemoryLedgerRepository()
+        val transaction = importedTransaction("restore-me", "restore-fingerprint")
+        repository.upsertTransaction(transaction)
+        assertTrue(repository.softDeleteTransaction(transaction.id, deletedAtEpochMillis = 123))
+        val deletedRevision = repository.snapshot().revision
+
+        assertFalse(repository.restoreTransaction(transaction.id, expectedDeletedAtEpochMillis = 122))
+        assertFalse(repository.restoreTransaction(TransactionId("unknown"), expectedDeletedAtEpochMillis = 123))
+        assertEquals(deletedRevision, repository.snapshot().revision)
+        assertTrue(repository.snapshot().transactions.isEmpty())
+        assertEquals(123, repository.snapshot(includeDeleted = true).transactions.single().deletedAtEpochMillis)
+
+        assertTrue(repository.restoreTransaction(transaction.id, expectedDeletedAtEpochMillis = 123))
+        assertEquals(deletedRevision + 1, repository.snapshot().revision)
+        assertEquals(null, repository.snapshot().transactions.single().deletedAtEpochMillis)
+        assertFalse(repository.restoreTransaction(transaction.id, expectedDeletedAtEpochMillis = 123))
+        assertEquals(deletedRevision + 1, repository.snapshot().revision)
+        assertFailsWith<IllegalArgumentException> {
+            repository.restoreTransaction(transaction.id, expectedDeletedAtEpochMillis = -1)
+        }
+    }
+
+    @Test
+    fun deletedTransactionFingerprintRemainsReserved() {
+        val repository = InMemoryLedgerRepository()
+        val transaction = importedTransaction("original-import", "reserved-fingerprint")
+        repository.upsertTransaction(transaction)
+        assertTrue(repository.softDeleteTransaction(transaction.id, deletedAtEpochMillis = 123))
+        val deletedRevision = repository.snapshot().revision
+
+        assertEquals(
+            UpsertTransactionResult.DUPLICATE_IMPORT_SKIPPED,
+            repository.upsertTransaction(importedTransaction("reimport", "reserved-fingerprint")),
+        )
+        assertEquals(deletedRevision, repository.snapshot().revision)
+        assertEquals(
+            listOf(transaction.id),
+            repository.snapshot(includeDeleted = true).transactions.map { it.id },
+        )
+    }
+
+    @Test
+    fun activeRefundPreventsDeletingItsOriginalExpense() {
+        val repository = InMemoryLedgerRepository()
+        val expense = importedTransaction("expense-with-refund", "expense-fingerprint")
+        val refund = expense.copy(
+            id = TransactionId("active-refund"),
+            kind = TransactionKind.REFUND,
+            originalTransactionId = expense.id,
+            importFingerprint = "refund-fingerprint",
+        )
+        repository.upsertTransaction(expense)
+        repository.upsertTransaction(refund)
+        val before = repository.snapshot().revision
+
+        assertFalse(repository.softDeleteTransaction(expense.id, deletedAtEpochMillis = 123))
+        assertEquals(before, repository.snapshot().revision)
+        assertEquals(2, repository.snapshot().transactions.size)
+    }
+
+    @Test
+    fun refundCannotBeRestoredAfterItsOriginalWasDeleted() {
+        val repository = InMemoryLedgerRepository()
+        val expense = importedTransaction("refund-original", "refund-original-fingerprint")
+        val refund = expense.copy(
+            id = TransactionId("refund-to-restore"),
+            kind = TransactionKind.REFUND,
+            originalTransactionId = expense.id,
+            importFingerprint = "refund-to-restore-fingerprint",
+        )
+        repository.upsertTransaction(expense)
+        repository.upsertTransaction(refund)
+        assertTrue(repository.softDeleteTransaction(refund.id, deletedAtEpochMillis = 100))
+        assertTrue(repository.softDeleteTransaction(expense.id, deletedAtEpochMillis = 200))
+        val before = repository.snapshot().revision
+
+        assertFalse(repository.restoreTransaction(refund.id, expectedDeletedAtEpochMillis = 100))
+        assertEquals(before, repository.snapshot().revision)
+        assertEquals(100, repository.snapshot(includeDeleted = true).singleTransaction(refund.id).deletedAtEpochMillis)
+    }
+
+    @Test
+    fun replacementRevisionNeverMovesBackward() {
+        val repository = InMemoryLedgerRepository(emptySnapshot(revision = 10))
+
+        repository.replaceWith(emptySnapshot(revision = 2))
+        assertEquals(11, repository.snapshot().revision)
+        repository.replaceWith(emptySnapshot(revision = 20))
+        assertEquals(21, repository.snapshot().revision)
+
+        assertFailsWith<ArithmeticException> {
+            repository.replaceWith(emptySnapshot(revision = Long.MAX_VALUE))
+        }
+        assertEquals(21, repository.snapshot().revision)
+    }
+
+    @Test
     fun demoSnapshotHasOnlyClearlyMarkedDemoQuotes() {
         val snapshot = DemoLedger.snapshot()
         assertTrue(snapshot.assets.isNotEmpty())
@@ -168,4 +282,16 @@ class InMemoryLedgerRepositoryTest {
         source = TransactionSource.FILE_IMPORT,
         importFingerprint = fingerprint,
     )
+
+    private fun emptySnapshot(revision: Long) = LedgerSnapshot(
+        revision = revision,
+        transactions = emptyList(),
+        assets = emptyList(),
+        maintenanceCosts = emptyList(),
+        usageEvents = emptyList(),
+        marketQuotes = emptyList(),
+    )
+
+    private fun LedgerSnapshot.singleTransaction(id: TransactionId): Transaction =
+        transactions.single { it.id == id }
 }

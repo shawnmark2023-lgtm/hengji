@@ -6,7 +6,7 @@
 
 | 门禁 | 结果 | 证据 |
 | --- | --- | --- |
-| Gradle 依赖完整性 | 主构建与 quality harness 的 strict 全配置解析通过 | 14 个 lockfile、2 份 SHA-256 verification metadata；`apps/client` 按 5 个桌面 OS/架构 profile 锁定；远端 Linux/macOS CI 尚未产生通过记录 |
+| Gradle 依赖完整性 | 主构建与 quality harness 的 strict 全配置解析通过；Windows Release uber JAR 严格解析并构建通过 | 14 个 lockfile、2 份 SHA-256 verification metadata；Compose JDK version probe 的 JAR/module 摘要与 Maven Central 发布的 SHA-256 独立比对一致；远端 Linux/macOS CI 尚未产生通过记录 |
 | Kotlin Desktop | 111/111 通过，0 failure/error/skip | client 30、core-domain 12、core-data 44、core-insights 17、connectors 8 |
 | Room 持久层 | core-data 20/20；其中 Room Desktop 6/6 | 9 表 schema v2、事务写入、显式 1→2 迁移、洞察偏好覆盖/重置/跨重启、25 MiB 上限、production fail-closed |
 | Android | Debug APK 构建通过 | `:apps:client:androidApp:assembleDebug` |
@@ -17,12 +17,12 @@
 | Android 密钥保护 | 既有 Android host 22/22，其中保护物生命周期 4/4 | 非导出 Keystore AES-256-GCM 包装密钥、no-backup 保护物、版本/别名 AAD、并发首建、损坏/串换/缺钥不覆盖；新增原子密文文件与 3 个 host 用例本轮因本机无已授权 Android SDK 未执行，仍需补跑 |
 | Apple 密钥保护 | iOS arm64/simulator arm64 与 macOS JVM 源码编译通过；macOS 混淆产物符号/非宿主保护检查通过 | iOS/macOS 使用不同步、`WhenUnlockedThisDeviceOnly` Generic Password；iOS 入口、原子协调密文文件、双快照 Room 迁移、Complete File Protection、备份排除与安全重试 UI 已交叉编译；Windows 未执行真实 `SecItem*`、文件协调/保护、迁移、签名身份、锁屏或卸载验证 |
 | 代码级无障碍 | Desktop/Android/iOS 公共 UI 编译通过 | 导航/表单/开关/导入/状态语义、大字体重排与 Reduce Motion；不是 VoiceOver/TalkBack/Narrator 或仅键盘实机证据 |
-| 架构与发布守卫 | 30/30、220/220 通过 | 依赖方向、secret、沙箱/production 标签与禁止行为扫描；生成的 `quality/evidence` 已从源码计数排除，重复运行计数稳定 |
+| 架构与发布守卫 | 30/30、221/221 通过 | 依赖方向、secret、沙箱/production 标签与禁止行为扫描；生成的 `quality/evidence` 已从源码计数排除，重复运行计数稳定 |
 | 畸形导入 | 8/8 通过 | 引号未闭合、错列、重复表头、嵌套 JSON、行/文件上限、空必填、BOM/Unicode |
 | 10 万流水开发基线 | 4/4 通过 | 100,000 行，95 ms，内存增量 43.35 MiB；不是代表性设备或加密持久仓储证据 |
 | Connector gateway | 4/4 通过；`npm audit` 0 vulnerability | state 一次性/过期、沙箱非实时、production fail-closed |
 | Price intelligence | 3/3 通过 | 中位数/四分位、离群过滤、新鲜度与低置信度行为 |
-| Release 混淆 | 本轮 `proguardReleaseJars` 构建通过；DPAPI 从混淆后 JAR 往返通过；macOS Keychain/CoreFoundation ABI 名称保留；既有 Release 实跑通过 | 保留 Room/领域 ABI、SQLite JNI、加密 provider 服务及 Windows/macOS JNA native 符号；macOS 真实往返仍需 macOS |
+| Release 混淆与打包 | 当前提交的 `packageReleaseUberJarForCurrentOS` 通过；由该 JAR 生成的自带运行时便携包已从 ZIP 解压并完成首次启动/重启 | 保留 Room/领域 ABI、SQLite JNI、加密 provider 服务及 Windows/macOS JNA native 符号；实际 Release 入口使用 AES-256-GCM + DPAPI，macOS 真实往返仍需 macOS |
 
 主要命令：
 
@@ -32,30 +32,24 @@
 .\gradlew.bat desktopTest --no-daemon
 .\gradlew.bat :modules:core-data:testAndroidHostTest :modules:core-data:compileAndroidMain --dependency-verification strict --no-daemon
 .\gradlew.bat :apps:client:androidApp:assembleDebug :apps:client:proguardReleaseJars :apps:client:compileKotlinIosArm64 :apps:client:compileKotlinIosSimulatorArm64 --dependency-verification strict --no-configuration-cache --no-daemon
+.\gradlew.bat :apps:client:packageReleaseUberJarForCurrentOS --dependency-verification strict --no-configuration-cache --no-daemon
 .\gradlew.bat :apps:client:compileIosMainKotlinMetadata --no-daemon --rerun-tasks
 python scripts/quality/run_quality.py --output-dir quality/evidence
 Push-Location services\connector-gateway; npm test; npm audit --audit-level=high; Pop-Location
 Push-Location services\price-intelligence; python -m pytest -q; Pop-Location
-apksigner verify --verbose --print-certs artifacts\hengji-android-debug.apk
 ```
 
 依赖锁由 Gradle 内建 dependency locking 生成并以 `STRICT` 模式执行；verification metadata 校验依赖和插件工件的 SHA-256。`apps/client` 的发行桌面依赖按 `windows-x64`、`linux-x64`、`linux-arm64`、`macos-x64`、`macos-arm64` 分档，避免 `desktop-jvm-*` 与 Skiko 原生运行时在不同宿主间互相污染锁状态。Compose Hot Reload 自动创建的宿主开发配置不参与版本锁，但下载工件仍受 verification metadata 约束；它们不是发行或测试运行时。校验元数据证明内容完整性，不证明发布者身份，也不替代 SBOM、许可证或漏洞审查。当前只在 Windows 完成严格解析及实际 Desktop/Android/iOS 交叉编译；仓库已配置 Linux/macOS CI，但尚无本轮远端通过记录，因此 `FND-003` 仍保持 `PARTIAL`。
 
 本工作树路径包含中文字符，Android Gradle Plugin 9.1.1 会在 Windows 配置阶段直接拒绝该项目路径；因此本轮所有 Gradle 构建、测试与 quality harness 均在同一源码状态的 ASCII 隔离副本中执行。原工作树直接完成了 finance-app validator（227 个源码文件，0 error/0 warning）、架构/发布守卫和 `git diff --check`；这条宿主路径限制不应通过放松工程检查来掩盖。
 
-Desktop 受保护入口另以 `HENGJI_DATA_DIR=<isolated-data-dir>` 启动真实 Compose 应用。首次启动生成 `hengji.ledger.hjenc` 与 DPAPI 保护物，没有生成 `hengji.db`；关闭后以同一目录再次启动，信封 SHA-256 `0E96D0B835C4F9387383383040414EDF0091586A8AEA2C709CBE6DB6EFAABBAF` 与写入时间均未变化，证明已有账本没有被重新播种或无意义重写。信封文本未命中演示资产 sentinel `asset-headphones`。该证据是 Windows 当前用户、未混淆 `:apps:client:run` 的运行烟雾，不替代签名 Windows 包、macOS Keychain 或升级/卸载验证。
+当前 Windows Release 由提交 `324f8434b247` 的严格校验构建生成。ProGuard Release uber JAR 为 30,358,813 bytes，SHA-256 `C64A695BA435B65576057079C2993886E64CF58CB6D05A18853C7DDC20C0ABBF`；JDK 21 `jpackage` app-image 为 184,072,805 bytes，其中 `Hengji.exe` SHA-256 `0224147E6EC74BA7A1A2D9F593DEE833D04849C9554737999803A84351F21585`，Authenticode 状态为 `NotSigned`。
+
+最终便携 ZIP 解压后，以独立空 `HENGJI_DATA_DIR` 启动实际 `Hengji.exe`。首次启动生成 24,147 bytes 的 `hengji.ledger.hjenc` 与 DPAPI 保护物，没有生成 `hengji.db`；关闭后以同一目录再次启动，信封 SHA-256 `05B819755AC6BB21B6601D5A72A734E22C06A6A83E5B970447C72A6A5B0016E7`、大小与最后写入时间均未变化。信封文本未命中演示资产 sentinel `asset-headphones`。这证明当前混淆、打包后的 Windows 入口能安全重开已有账本，但不替代代码签名、真实安装/升级/卸载、SmartScreen 或 macOS Keychain 验证。
 
 无障碍本轮只取得代码审查、公共源码编译和既有单元测试证据。尚未在 macOS/iOS 上运行 VoiceOver，也未在 Android 上运行 TalkBack、在 Windows 上运行 Narrator 或完成仅键盘/高对比度矩阵，因此 `UX-008` 与 `QA-005` 均保持 `PARTIAL`。
 
-Windows MSI 在 21:07（Asia/Shanghai）用 JDK 21 `jpackage` 与便携 WiX Toolset 3.14 重建；本轮实际命令为：
-
-```powershell
-$env:PATH="<work>\wix3-portable\WiX Toolset v3.14\bin;$env:PATH"
-jpackage --type msi --app-image <work>\hengji-repackage\Hengji --dest <work>\hengji-repackage\msi
-msiexec /a artifacts\hengji-windows-0.1.0.msi /qn TARGETDIR=<work>\hengji-repackage-msi-extract
-```
-
-`msiexec` 返回 0；从行政解包结果启动的进程保持运行。这里的 `<work>` 是本次会话的隔离工作目录，不是源码或发行包的一部分。
+当前主机没有可用的 WiX 工具链；Compose `downloadWix` 尝试下载 WiX 3.11 时连接被重置，因此本轮没有生成 MSI，也没有执行行政解包或真实安装/升级/卸载。旧文档记录的 MSI 文件当前不存在，其大小、哈希与启动结论不作为本次提交的交付证据。
 
 ## 真实 UI 验收
 
@@ -63,14 +57,13 @@ msiexec /a artifacts\hengji-windows-0.1.0.msi /qn TARGETDIR=<work>\hengji-repack
 2. 关闭并重启同一路径：首页本月支出从 ¥261.80 变为 ¥274.14，流水列表仍显示该记录。
 3. 打开导入中心，选择明确标注“沙箱·非生产”的 CSV；自动映射字段、预览 3 笔、确认原子写入。
 4. 在完成页整批撤销，界面显示已移除 3 笔且不影响导入前流水。
-5. 在新 MSI 对应的 ProGuard Release app-image 中查看物品页：净日均成本 ¥4.32/¥5.48、单次使用成本和“示例行情·非实时”区间可见。
+5. 查看物品页：净日均成本 ¥4.32/¥5.48、单次使用成本和“示例行情·非实时”区间可见。
 6. 查看洞察页：可见本月可优化空间、证据、95% 置信度、预估影响和采纳/稍后动作。
-7. 21:12–21:15 使用独立空 `HENGJI_DATA_DIR` 启动同一 Release，新增“Release持久化验收 / ¥23.45”，关闭并重启；首页 ¥261.80→¥285.25，流水仍为 6 笔且记录可见。
-8. 将新 MSI 行政解包并从解包结果启动，进程保持运行。
-9. 2026-07-25 使用新的隔离 `HENGJI_DATA_DIR` 启动当前 Desktop 开发构建，在洞察页采纳第一条建议；关闭并重启后仍显示“已采纳”。
-10. 忽略第二条品类建议后列表即时从 3 条变为 2 条；Room 中保存稳定键 `category:transport:concentration`，再次重启后仍为 2 条且该建议不再出现。
-11. 将商户集中建议“稍后 7 天”；列表变为 1 条，Room 截止时间与更新时间差值精确为 7.0 天。
-12. “恢复默认”会先显示确认框，并明确说明只清除采纳/稍后/忽略状态、不修改账本数据；本次 UI 验证选择取消，实际重置行为由 reducer、gateway 与 Room 自动化测试覆盖。
+7. 使用新的隔离 `HENGJI_DATA_DIR` 启动当前 Desktop 开发构建，在洞察页采纳第一条建议；关闭并重启后仍显示“已采纳”。
+8. 忽略第二条品类建议后列表即时从 3 条变为 2 条；Room 中保存稳定键 `category:transport:concentration`，再次重启后仍为 2 条且该建议不再出现。
+9. 将商户集中建议“稍后 7 天”；列表变为 1 条，Room 截止时间与更新时间差值精确为 7.0 天。
+10. “恢复默认”会先显示确认框，并明确说明只清除采纳/稍后/忽略状态、不修改账本数据；本次 UI 验证选择取消，实际重置行为由 reducer、gateway 与 Room 自动化测试覆盖。
+11. 从当前 `hengji-windows-portable.zip` 解压启动未签名的 ProGuard Release `Hengji.exe`；首次启动与重启均保持两个实际进程存活，受保护账本完整性检查见上文。
 
 这轮 Release 冒烟先后捕获并修复：Room 生成数据库类被移除、SQLite JNI 方法被改名、领域枚举被优化失去枚举形态。最终规则保留 `com.hengji.**` ABI 和 `androidx.sqlite.driver.bundled.**` native 符号，证明“编译成功”不能替代发行二进制启动测试。
 
@@ -78,9 +71,7 @@ msiexec /a artifacts\hengji-windows-0.1.0.msi /qn TARGETDIR=<work>\hengji-repack
 
 | 文件 | 大小 | SHA-256 | 说明 |
 | --- | ---: | --- | --- |
-| `hengji-android-debug.apk` | 25,492,005 | `6A9E6401A768AAFCF11CBB70047B43AA6ADCA99CB461528548959837CB734056` | Android Debug 证书 v2 签名；未做生产签名或设备安装/启动 |
-| `hengji-windows-0.1.0.msi` | 82,158,957 | `262C4B9ABF764C7512E6A5C69A044E051548DD824F650A1A5869F7DAC894437A` | 未签名；已行政解包并启动，未做真实安装/升级/卸载 |
-| `hengji-windows-portable.zip` | 81,198,888 | `C0A1B0CEC9293DC3EA5FA075D4521B00343594B5C5A2237DABF4A478F54670D6` | 自带运行时，Release 实跑通过 |
+| `hengji-windows-portable.zip` | 83,602,469 | `6CF9AA770C7116E488993C12762E52E763673233EBBAC95FC997CF84AE90BBFA` | 自带运行时；从 ZIP 解压的受保护 Release 入口首次启动/重启通过；未签名 |
 
 ## 仍未完成，不能宣称 Beta/上线
 
@@ -88,7 +79,7 @@ msiexec /a artifacts\hengji-windows-0.1.0.msi /qn TARGETDIR=<work>\hengji-repack
 - 首次安装若在平台密钥落盘后、初始密文信封提交前崩溃，下一次启动会保守地 fail-closed；尚需持久初始化 journal 与用户明确确认的恢复/重置流程，不能用自动换钥或静默重建规避。
 - iOS/macOS 原生编译、真机、签名、公证和商店流程需要 macOS + Xcode；Windows 不能提供该证据。
 - 支付/电商/二手平台尚未取得生产 scope 或合同；沙箱和示例报价不是一键实时同步。
-- Windows 产物未签名；Android 只有 Debug 签名、没有生产发布签名；真实安装、升级、卸载、SmartScreen/Play 流程未验证。
+- 当前 Windows 便携包未签名且 MSI 未生成；当前交付目录没有 Android APK。没有生产发布签名、真实安装/升级/卸载或 SmartScreen/Play 流程证据。
 - iOS 文件适配器尚未在 Xcode、模拟器或真机运行；Windows 上的 Kotlin/Native 交叉编译不能证明 File Provider/iCloud、取消、超限、临时清理和跨重启流程正确。
 - `org.jetbrains.compose.material3:material3:1.11.0-alpha07` 是预发布依赖；升级到稳定兼容版本及回归验证属于 Beta 依赖门禁。
 - 全量 UI 自动化、屏幕阅读器、代表性低端设备性能、渗透测试、账户验证和加密同步仍是后续门禁。

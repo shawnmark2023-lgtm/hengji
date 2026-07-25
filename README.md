@@ -12,7 +12,7 @@
 - 五步导入中心：用户文件/明确沙箱 → 字段映射 → 预览去重 → 原子确认 → 整批撤销。
 - 完整 JSON 备份/恢复与防公式注入 CSV 导出。
 - 流水新增/编辑、资产与日均/单次使用成本、二手价格区间、支出占比和可解释建议。
-- Windows 免安装包与 MSI、Android Debug APK；iOS 系统文件导入/导出适配器、源码入口与 Apple CI 路线。
+- Windows 自带运行时免安装包；MSI 与 Android Debug APK 构建入口已配置但当前交付目录未保留对应产物；iOS 系统文件导入/导出适配器、源码入口与 Apple CI 路线。
 - 自动架构/secret/沙箱门禁、畸形导入矩阵和 10 万流水开发基线。
 
 ## 先读
@@ -39,12 +39,12 @@
 python scripts/quality/run_quality.py --output-dir quality/evidence
 ```
 
-Windows 发行构建还要执行 Release 混淆后的真实启动冒烟；Room 反射类与 SQLite JNI 符号的保留规则位于 `apps/client/proguard-rules.pro`。
+Windows 发行构建还要执行 Release 混淆后的真实启动冒烟；当前便携 ZIP 已从解压后的实际二进制完成受保护账本首次启动/重启验证。Room 反射类与 SQLite JNI 符号的保留规则位于 `apps/client/proguard-rules.pro`。
 
 ## 当前不能宣称的内容
 
 - iOS/macOS 原生编译、真机、签名、公证和商店发布仍需 macOS + Xcode。
-- Windows MSI/免安装包未签名；Android APK 由 Android Debug 证书以 v2 方案签名，但未做生产发布签名，也未做设备安装/启动验证。
+- 当前 Windows 免安装包未签名，MSI 未生成；Android Debug 构建曾通过但当前交付目录没有 APK，也没有生产发布签名或设备安装/启动证据。
 - iOS 系统文件选择、JSON/CSV 导出与 JSON 恢复适配器已实现并通过 Kotlin/Native arm64/simulator 交叉编译；Swift host、Xcode 链接、模拟器/真机交互与签名仍需 macOS 验证。
 - Android 旧 Room 库迁移与应用入口切换、Android/iOS 平台密钥和迁移真机验收，以及加密同步、灾难恢复和真实平台授权尚未完成；Desktop 的复制迁移已在 Windows 实跑，iOS 同构迁移只完成交叉编译，不能据此声明设备迁移成功。
 - 演示二手报价不是实时市场价；没有授权的数据源不会在生产模式降级为沙箱。

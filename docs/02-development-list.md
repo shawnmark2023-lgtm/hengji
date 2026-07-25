@@ -90,7 +90,7 @@
 
 | ID | 状态 | 关键依赖 | 可量化验收 |
 | --- | --- | --- | --- |
-| FND-003 | PARTIAL | 远端 dependency-integrity CI、可复现产物清单 | 主构建与独立 quality harness 严格解析通过；桌面发行配置按 Windows/Linux/macOS 架构分档锁定；仅宿主相关的 Compose Hot Reload 开发配置不锁版本但仍做 SHA-256 校验；干净环境连续两次构建依赖与产物清单一致 |
+| FND-003 | PARTIAL | 远端 dependency-integrity CI、可复现产物清单 | 主构建与独立 quality harness 严格解析通过；桌面发行配置按 Windows/Linux/macOS 架构分档锁定；当前 Windows Release 便携包记录源码提交、大小与 SHA-256；仍需干净环境连续两次构建依赖与产物清单一致 |
 | FND-004 | PARTIAL | formatter、coverage engine | Kotlin/TS/Python 格式化检查为 0；核心领域与导入模块达到约定分支覆盖率，CI 失败时阻断 |
 | DAT-004 | PARTIAL | Android 入口/迁移、Apple/Android 平台 runner | AES-256-GCM envelope 已绑定版本/算法/密钥别名；Windows DPAPI、Android Keystore 与 iOS/macOS Keychain 边界均已实现且不允许明文降级；Desktop/iOS 入口、Room 明文→密文复制迁移及中断恢复已接入，iOS 密文设置 Complete File Protection 并排除系统备份；仍需 Android 接线、Apple/Android 运行验收、轮换与灾难恢复 |
 | UX-006 | PARTIAL | macOS/Xcode runner、iOS simulator/device evidence | iOS 真机选择 CSV/JSON，完成映射/预览/提交/重复重试/整批撤销，全程不申请无关权限 |
@@ -143,7 +143,7 @@
 | PRI-001..004 | domain / Python service | 来源、运费、四分位、离群值、新鲜度；低置信度单点隐藏测试通过 |
 | SEC-001..002 | threat model / CI | 威胁模型、secret guard、脱敏 token、生产 fail-closed 测试通过 |
 | QA-001 | domain tests | 金额、退款、零使用、残值、跨期、溢出和低置信度边界通过 |
-| QA-004 | Gradle / Android SDK | Desktop 编译运行；Android Debug APK 产出；iOS source-set 元数据通过；Apple 原生仍仅配置 CI、未声称通过 |
+| QA-004 | Gradle / Android SDK | Desktop 编译运行；Android Debug APK 构建曾通过但当前未保留交付文件；iOS source-set 元数据通过；Apple 原生仍仅配置 CI、未声称通过 |
 | FND-002 | quality gates | 自动依赖方向与禁止依赖扫描通过，机器可读证据写入 `quality/evidence` |
 | UX-003 | application gateway | 流水写入后首页与列表更新，重启后记录和总额仍存在 |
 | QA-002 | export/import guards | 完整导出/恢复、公式中和及 8 类畸形输入契约通过 |

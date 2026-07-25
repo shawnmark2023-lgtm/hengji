@@ -18,6 +18,7 @@ enum class InsightType {
     POSSIBLE_SUBSCRIPTION,
     LOW_USAGE_ASSET,
     SELL_CANDIDATE,
+    PRICE_TARGET_REACHED,
 }
 
 enum class InsightFeedback {

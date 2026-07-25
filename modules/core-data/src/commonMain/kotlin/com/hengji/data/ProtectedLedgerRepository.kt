@@ -130,6 +130,9 @@ class ProtectedLedgerRepository private constructor(
 
     override suspend fun upsertAsset(asset: Asset) {
         mutate<Unit> { current ->
+            require(current.marketQuotes.filter { it.assetId == asset.id }.all {
+                it.price.currency == asset.purchasePrice.currency
+            }) { "Existing quotes must use the asset purchase currency" }
             current.copy(
                 revision = checkedNextRevision(current.revision),
                 assets = current.assets.filterNot { it.id == asset.id } + asset,
@@ -166,7 +169,12 @@ class ProtectedLedgerRepository private constructor(
 
     override suspend fun addMarketQuote(quote: MarketQuote) {
         mutate<Unit> { current ->
-            require(current.assets.any { it.id == quote.assetId }) { "Cannot add a quote for an unknown asset" }
+            val asset = requireNotNull(current.assets.firstOrNull { it.id == quote.assetId }) {
+                "Cannot add a quote for an unknown asset"
+            }
+            require(quote.price.currency == asset.purchasePrice.currency) {
+                "Quote must use the asset purchase currency"
+            }
             current.copy(
                 revision = checkedNextRevision(current.revision),
                 marketQuotes = current.marketQuotes.filterNot { it.id == quote.id } + quote,
@@ -478,6 +486,10 @@ internal fun validateLedgerSnapshot(snapshot: LedgerSnapshot) {
     require(snapshot.maintenanceCosts.all { it.assetId in assetIds }) { "Maintenance references an unknown asset" }
     require(snapshot.usageEvents.all { it.assetId in assetIds }) { "Usage references an unknown asset" }
     require(snapshot.marketQuotes.all { it.assetId in assetIds }) { "Quote references an unknown asset" }
+    val assetsById = snapshot.assets.associateBy { it.id }
+    require(snapshot.marketQuotes.all { quote ->
+        quote.price.currency == assetsById.getValue(quote.assetId).purchasePrice.currency
+    }) { "Quote must use the asset purchase currency" }
     require(snapshot.importBatches.distinctBy { it.batchId }.size == snapshot.importBatches.size) {
         "Duplicate import batch ids"
     }

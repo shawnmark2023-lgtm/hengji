@@ -19,7 +19,7 @@
 - [x] `DOM-004` P0 精确实现总拥有成本、日均成本、净日均成本、单次使用成本。
 - [x] `DOM-005` P0 预算、月度汇总、分类占比、趋势和异常计算。
 - [x] `DAT-001` P0 suspend 仓储接口、内存测试实现与 Room KMP/bundled SQLite 持久化实现。
-- [x] `DAT-002` P0 schema v2、v0→v1→v2 导出恢复、显式 Room 1→2 迁移、样例数据、幂等导入、去重和原子撤销批次。
+- [x] `DAT-002` P0 schema v3、v0→v1→v2→v3 导出恢复、显式 Room 1→2→3 迁移、样例数据、幂等导入、去重和原子撤销批次。
 - [x] `DAT-003` P0 完整 JSON 导出/恢复与防公式注入 CSV 导出。
 - [ ] `DAT-004` P1 已实现跨平台 AES-256-GCM 账本封装及 Windows DPAPI、Android Keystore、iOS/macOS Keychain 数据密钥保护；三平台入口、可恢复 Room 明文迁移和受保护初始化 journal 已接入，Apple/Android 平台运行验收、原子 key+bootstrap record、轮换与灾难恢复仍是 Beta 门禁。
 
@@ -59,10 +59,10 @@
 
 - [x] `PRI-001` P0 报价提供器协议：查询、来源、时间、币种、成色、运费、置信度。
 - [x] `PRI-002` P0 手工报价和演示报价提供器。
-- [x] `PRI-003` P0 中位数、四分位区间、离群值过滤和新鲜度衰减。
+- [x] `PRI-003` P0 中位数、四分位区间、离群值过滤和新鲜度策略；客户端当前估值硬排除超过 90 天的报价。
 - [x] `PRI-004` P0 产品规格归一化与匹配置信度；低置信度禁止给出单点价格。
 - [ ] `PRI-005` P1 合规聚合服务和缓存；只接入已签约/官方 API。
-- [ ] `PRI-006` P1 价格提醒和出售时机建议。
+- [ ] `PRI-006` P1 应用内出售目标价、近期非示例报价判断、建议去重/稍后/忽略和重启持久化已完成；系统通知权限、后台刷新和授权行情源仍待实现。
 
 ## G. 安全、隐私与上线
 
@@ -103,13 +103,13 @@
 | IMP-007 | TODO | FinanceKit entitlement、eligible region/account | entitlement/地区/账户三重门控；不可用时功能隐藏且文件导入仍可用；真机授权/撤销通过 |
 | IMP-008 | TODO | provider app、scope、DPA/合同 | 每个生产连接器有批准 scope、最小字段清单、撤权/过期/限流测试和上线回滚预案 |
 | PRI-005 | TODO | 官方 API 或授权聚合合同 | 0 个抓取/私有 API；缓存 TTL、来源、运费、币种、成色和删除 SLA 均可审计 |
-| PRI-006 | TODO | notification permissions、price history、stale policy | 手工报价采集与即时重算已完成；仍需提醒阈值、冷却期、撤销和过期报价行为通过，且通知不含敏感流水原文 |
+| PRI-006 | PARTIAL | notification permissions、background refresh、authorized price feed | 用户可按资产币种设置/修改/清除目标价；只有 90 天内至少 3 条同币种非示例报价且可呈现中位数达到目标时，才生成应用内建议；目标键参与去重，既有“稍后 7 天/忽略/恢复默认”提供本地冷却与撤销，目标与偏好均跨重启持久化；仍需系统通知权限、后台刷新和授权行情源，通知不得包含敏感流水原文 |
 | SEC-003 | PARTIAL | iOS simulator/device privacy and restart evidence | Desktop/Android/iOS 都能导出、恢复、清除并跨重启验证；网络计数为 0 时界面可见 |
-| SEC-004 | PARTIAL | Android/Apple 平台 runner | Windows 当前用户 DPAPI 已完成真实与混淆产物往返；Android 已实现非导出 Keystore 包装密钥、no-backup 保护物、备份/设备迁移排除规则，43 个 host 用例和受保护入口构建通过；iOS/macOS 已实现不迁移、不同步、仅解锁可用的 Keychain 项，macOS 使用 data-protection Keychain；仍需 Android/Apple 往返及锁屏、备份、卸载、轮换验收 |
+| SEC-004 | PARTIAL | Android/Apple 平台 runner | Windows 当前用户 DPAPI 已完成真实与混淆产物往返；Android 已实现非导出 Keystore 包装密钥、no-backup 保护物、备份/设备迁移排除规则，47 个 host 用例和受保护入口构建通过；iOS/macOS 已实现不迁移、不同步、仅解锁可用的 Keychain 项，macOS 使用 data-protection Keychain；仍需 Android/Apple 往返及锁屏、备份、卸载、轮换验收 |
 | SEC-005 | TODO | account backend、Passkey/SIWA | 注册/验证/恢复/2FA/会话撤销/设备丢失演练通过，且不破坏无账号本地模式 |
 | SEC-006 | TODO | E2EE protocol、sync engine | 双设备离线冲突、密钥轮换、恢复短语、灾难恢复和服务端不可读性测试通过 |
 | REL-001 | TODO | Apple/Google/Microsoft signing accounts | 四平台生产签名、隐私声明、公证/商店审查、分阶段发布和一键回滚演练通过 |
-| QA-003 | PARTIAL | UI automation harness、platform runners | Desktop 已真实走通手工报价→即时重算→重启保留，以及既有记账/物品/洞察/导入路径；仍需导出/恢复/清除和全部流程在每个平台自动化通过，失败保留截图与隔离数据目录 |
+| QA-003 | PARTIAL | UI automation harness、platform runners | Desktop 已真实走通三条非示例报价→目标价等待/达到→洞察证据→重启保留，以及既有记账/物品/洞察/导入路径；仍需导出/恢复/清除和全部流程在每个平台自动化通过，失败保留截图与隔离数据目录 |
 | QA-005 | PARTIAL | accessibility tooling、device matrix | UX-008 全矩阵通过且无 P0/P1 可访问性缺陷 |
 | QA-006 | PARTIAL | encrypted DB、representative low-end devices | 10 万流水首次载入/筛选/导入峰值分别低于预算，内存不超阈值，三次运行取中位数 |
 | QA-007 | TODO | external security review、store dry run | 高危漏洞为 0；加密备份恢复成功；四平台审核材料与回滚桌面演练签字完成 |
@@ -134,7 +134,7 @@
 | FND-005 | GitHub Actions | Windows/Linux Desktop、Android、macOS iOS 编译作业已配置；尚无远端 run 结果 |
 | FND-006 | Compose UI | token、品牌标记、排版、间距、自适应深浅色主题实跑通过 |
 | DOM-001..005 | core-domain / core-insights | 精确金额、日期、流水、资产、成本、预算、占比、趋势与异常测试通过 |
-| DAT-001..003 | Room KMP / bundled SQLite | 9 表 schema v2、显式 1→2 迁移、跨重启持久化、完整备份恢复、幂等批次和回滚测试/实跑通过 |
+| DAT-001..003 | Room KMP / bundled SQLite | 9 表 schema v3、显式 1→2→3 迁移、跨重启持久化、完整备份恢复、幂等批次和回滚测试/实跑通过 |
 | UX-001..002 | DomainDemoData / Compose | 宽屏侧栏、移动断点、同源总览/预算/占比/洞察编译并实跑 |
 | UX-004..005 | repository / market estimate | 使用打卡写入仓储；成本指标与非实时二手来源实跑 |
 | INS-001..004 | core-domain | 规则证据、阈值、影响、置信度、可执行性、去重排序测试通过 |

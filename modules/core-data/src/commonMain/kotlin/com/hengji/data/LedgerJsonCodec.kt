@@ -25,13 +25,14 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
-const val LEDGER_EXPORT_SCHEMA_VERSION: Int = 2
+const val LEDGER_EXPORT_SCHEMA_VERSION: Int = 3
 
 object LedgerJsonCodec {
     private val json = Json {
@@ -47,7 +48,9 @@ object LedgerJsonCodec {
         require(payload.encodeToByteArray().size <= 25 * 1024 * 1024) { "Ledger restore exceeds 25 MiB" }
         val parsed = json.parseToJsonElement(payload)
         val migrated = migrateToCurrent(parsed)
-        return json.decodeFromJsonElement<LedgerExportDto>(migrated).toDomain()
+        return json.decodeFromJsonElement<LedgerExportDto>(migrated)
+            .toDomain()
+            .also(::validateLedgerSnapshot)
     }
 
     internal fun migrateToCurrent(element: JsonElement): JsonObject {
@@ -60,6 +63,7 @@ object LedgerJsonCodec {
             migrated = when (migratedVersion) {
                 0 -> migrateVersionZeroToOne(migrated)
                 1 -> migrateVersionOneToTwo(migrated)
+                2 -> migrateVersionTwoToThree(migrated)
                 else -> error("Unsupported ledger schema")
             }
             migratedVersion += 1
@@ -89,6 +93,31 @@ object LedgerJsonCodec {
         return JsonObject(root + mapOf(
             "schemaVersion" to JsonPrimitive(2),
             "insightPreferences" to migratedPreferences,
+        ))
+    }
+
+    private fun migrateVersionTwoToThree(root: JsonObject): JsonObject {
+        val migratedAssets = when (val assets = root["assets"]) {
+            null -> JsonArray(emptyList())
+            is JsonArray -> JsonArray(
+                assets.map { asset ->
+                    if (asset is JsonObject) {
+                        JsonObject(
+                            asset + mapOf(
+                                "saleTargetMinorUnits" to
+                                    (asset["saleTargetMinorUnits"] ?: JsonNull),
+                            ),
+                        )
+                    } else {
+                        asset
+                    }
+                },
+            )
+            else -> assets
+        }
+        return JsonObject(root + mapOf(
+            "schemaVersion" to JsonPrimitive(3),
+            "assets" to migratedAssets,
         ))
     }
 }
@@ -199,6 +228,7 @@ private data class AssetDto(
     val targetUseDays: Int? = null,
     val warrantyEndsOn: String? = null,
     val estimatedMinorUnits: Long? = null,
+    val saleTargetMinorUnits: Long? = null,
 ) {
     fun toDomain() = Asset(
         id = AssetId(id),
@@ -210,6 +240,7 @@ private data class AssetDto(
         targetUseDays = targetUseDays,
         warrantyEndsOn = warrantyEndsOn?.let(LocalDate::parse),
         currentEstimatedValue = estimatedMinorUnits?.let { Money(it, CurrencyCode(currency)) },
+        saleTargetPrice = saleTargetMinorUnits?.let { Money(it, CurrencyCode(currency)) },
     )
 
     companion object {
@@ -224,6 +255,7 @@ private data class AssetDto(
             targetUseDays = value.targetUseDays,
             warrantyEndsOn = value.warrantyEndsOn?.toString(),
             estimatedMinorUnits = value.currentEstimatedValue?.minorUnits,
+            saleTargetMinorUnits = value.saleTargetPrice?.minorUnits,
         )
     }
 }

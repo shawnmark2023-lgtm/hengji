@@ -1,10 +1,12 @@
 package com.hengji.app.model
 
+import com.hengji.app.application.AssetSaleTargetProjector
 import com.hengji.data.DemoLedger
 import com.hengji.data.LedgerSnapshot
 import com.hengji.domain.AssetCostCalculator
 import com.hengji.domain.DateRange
 import com.hengji.domain.MarketQuoteEstimator
+import com.hengji.domain.QuoteProvenance
 import com.hengji.domain.TransactionKind
 import com.hengji.domain.TransactionSource
 import com.hengji.insights.EvidenceValue
@@ -58,6 +60,11 @@ internal object DomainDemoData {
         return snapshot.assets.map { asset ->
             val estimate = estimates[asset.id]
             val assetQuotes = snapshot.marketQuotes.filter { it.assetId == asset.id && it.collectedOn <= asOf }
+            val nonDemoQuotes = assetQuotes.filter {
+                it.provenance != QuoteProvenance.DEMO &&
+                    it.price.currency == asset.purchasePrice.currency
+            }
+            val actionableEstimate = MarketQuoteEstimator.estimate(asset.id, nonDemoQuotes, asOf)
             val latestQuoteDate = assetQuotes.maxByOrNull { it.collectedOn }?.collectedOn
             val latestQuoteDateLabel = latestQuoteDate?.let {
                 "${it.month.ordinal + 1} 月 ${it.day} 日"
@@ -87,6 +94,13 @@ internal object DomainDemoData {
                 marketMedianMinor = estimate?.median?.minorUnits,
                 quoteCount = assetQuotes.size,
                 marketConfidence = (estimate?.confidence?.basisPoints ?: 0) / 100,
+                currencyCode = asset.purchasePrice.currency.value,
+                saleTarget = AssetSaleTargetProjector.project(
+                    asset = asset,
+                    actionableEstimate = actionableEstimate,
+                    hasNonDemoQuotes = nonDemoQuotes.isNotEmpty(),
+                    hasDemoQuotes = assetQuotes.any { it.provenance == QuoteProvenance.DEMO },
+                ),
                 quoteUpdatedLabel = when {
                     estimate?.includesDemoData == true && estimate.includesManualData ->
                         "混合来源 · 含示例/手工 · 非实时${latestQuoteDateLabel?.let { " · $it" }.orEmpty()}"
@@ -132,6 +146,7 @@ internal object DomainDemoData {
                 maintenanceCosts = snapshot.maintenanceCosts,
                 usageEvents = snapshot.usageEvents,
                 marketEstimates = estimates,
+                marketQuotes = snapshot.marketQuotes,
             ),
             preferences = InsightPreferences(
                 mutedTypes = storedPreferences.mutedTypes.mapNotNull(knownTypes::get).toSet(),
@@ -140,7 +155,7 @@ internal object DomainDemoData {
                 snoozedUntilEpochMillisByKey = storedPreferences.snoozedUntilEpochMillisByKey,
             ),
             nowEpochMillis = nowEpochMillis,
-        ).take(4).map(::toDemoInsight)
+        ).let(::retainPriceTargetInsights).map(::toDemoInsight)
     }
 
     private fun startOfMonth(date: LocalDate): LocalDate = LocalDate(date.year, date.month, 1)
@@ -167,6 +182,11 @@ internal object DomainDemoData {
             InsightType.POSSIBLE_SUBSCRIPTION -> Triple("可能是一项订阅", "相似金额按稳定周期重复出现，请确认后再归类。", "确认或忽略订阅")
             InsightType.LOW_USAGE_ASSET -> Triple("物品使用率偏低", "持有期内记录的使用次数较少。", "记录使用或复核是否保留")
             InsightType.SELL_CANDIDATE -> Triple("物品可考虑出售", "低使用物品仍有可参考的二手残值。", "核对成色并创建出售清单")
+            InsightType.PRICE_TARGET_REACHED -> Triple(
+                "出售目标价已达到",
+                "可信的非示例二手报价中位数已达到你设置的出售目标价。",
+                "查看物品与报价",
+            )
         }
         return DemoInsight(
             deduplicationKey = insight.deduplicationKey,
@@ -191,7 +211,7 @@ internal object DomainDemoData {
         is EvidenceValue.BasisPoints -> "${codeLabel(code)} ${value.value / 100}%"
         is EvidenceValue.Count -> "${codeLabel(code)} ${value.value}"
         is EvidenceValue.Days -> "${codeLabel(code)} ${value.value} 天"
-        is EvidenceValue.Text -> "${codeLabel(code)} ${value.value}"
+        is EvidenceValue.Text -> "${codeLabel(code)} ${evidenceTextLabel(value.value)}"
     }
 
     private fun codeLabel(code: String): String = when (code) {
@@ -202,7 +222,18 @@ internal object DomainDemoData {
         "merchant.transactions" -> "交易笔数"
         "asset.usage" -> "使用次数"
         "asset.net_daily_cost" -> "日均净成本"
+        "asset.market_median" -> "可信报价中位数"
+        "asset.accepted_quote_count" -> "有效报价数"
+        "asset.newest_quote_age" -> "最新报价距今"
+        "asset.estimate_source" -> "报价来源"
         else -> code.substringAfterLast('.').replace('_', ' ')
+    }
+
+    private fun evidenceTextLabel(value: String): String = when (value) {
+        "market_live_or_licensed" -> "官方或授权报价"
+        "market_mixed_live_manual" -> "官方或授权与手工报价"
+        "market_manual_quotes" -> "本机手工报价"
+        else -> value
     }
 
     private fun categoryLabel(id: String): String = when (id) {
@@ -220,4 +251,22 @@ internal object DomainDemoData {
         TransactionSource.OFFICIAL_CONNECTOR -> "官方授权连接器"
         TransactionSource.SAMPLE -> "演示账本 · 本机"
     }
+}
+
+/**
+ * Keeps the compact four-card feed while never silently dropping a reached user-defined target.
+ * Existing rank order is preserved; the feed expands only when a reached-target card falls outside the cap.
+ */
+internal fun retainPriceTargetInsights(
+    rankedInsights: List<Insight>,
+    compactLimit: Int = 4,
+): List<Insight> {
+    require(compactLimit > 0)
+    val retainedKeys = buildSet {
+        rankedInsights.take(compactLimit).forEach { add(it.deduplicationKey) }
+        rankedInsights
+            .filter { it.type == InsightType.PRICE_TARGET_REACHED }
+            .forEach { add(it.deduplicationKey) }
+    }
+    return rankedInsights.filter { it.deduplicationKey in retainedKeys }
 }

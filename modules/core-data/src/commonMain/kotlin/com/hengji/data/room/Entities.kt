@@ -44,6 +44,7 @@ data class AssetEntity(
     val targetUseDays: Int?,
     val warrantyEndsOn: String?,
     val estimatedMinor: Long?,
+    val saleTargetMinor: Long?,
 )
 
 @Entity(tableName = "maintenance_costs", primaryKeys = ["id"], indices = [Index(value = ["assetId"])])

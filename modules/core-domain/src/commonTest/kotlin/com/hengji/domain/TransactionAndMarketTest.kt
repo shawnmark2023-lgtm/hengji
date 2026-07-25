@@ -105,6 +105,65 @@ class TransactionAndMarketTest {
         assertTrue(estimate.median != null)
     }
 
+    @Test
+    fun `quote is accepted at ninety days and rejected at ninety one days`() {
+        val assetId = AssetId("freshness-boundary")
+        val quote = marketQuote(
+            id = "boundary",
+            assetId = assetId,
+            collectedOn = LocalDate(2026, 1, 1),
+        )
+
+        val atNinetyDays = MarketQuoteEstimator.estimate(
+            assetId = assetId,
+            quotes = listOf(quote),
+            asOf = LocalDate(2026, 4, 1),
+        )
+        val atNinetyOneDays = MarketQuoteEstimator.estimate(
+            assetId = assetId,
+            quotes = listOf(quote),
+            asOf = LocalDate(2026, 4, 2),
+        )
+
+        assertEquals(1, atNinetyDays?.acceptedQuoteCount)
+        assertEquals(LocalDate(2026, 1, 1), atNinetyDays?.newestAcceptedQuoteOn)
+        assertEquals(null, atNinetyOneDays)
+    }
+
+    @Test
+    fun `estimate reports stale rejections separately from retained price history`() {
+        val assetId = AssetId("mixed-freshness")
+        val estimate = MarketQuoteEstimator.estimate(
+            assetId = assetId,
+            quotes = listOf(
+                marketQuote("stale", assetId, LocalDate(2025, 12, 31)),
+                marketQuote("boundary", assetId, LocalDate(2026, 1, 1)),
+                marketQuote("latest", assetId, LocalDate(2026, 3, 20)),
+            ),
+            asOf = LocalDate(2026, 4, 1),
+        )!!
+
+        assertEquals(2, estimate.acceptedQuoteCount)
+        assertEquals(1, estimate.rejectedStaleQuoteCount)
+        assertEquals(LocalDate(2026, 3, 20), estimate.newestAcceptedQuoteOn)
+    }
+
+    private fun marketQuote(
+        id: String,
+        assetId: AssetId,
+        collectedOn: LocalDate,
+    ) = MarketQuote(
+        id = id,
+        assetId = assetId,
+        providerId = QuoteProviderId("manual"),
+        provenance = QuoteProvenance.MANUAL,
+        specification = "same model",
+        condition = ItemCondition.GOOD,
+        price = Money(50_000, CurrencyCode.CNY),
+        collectedOn = collectedOn,
+        confidence = Confidence(8_000),
+    )
+
     private fun transaction(id: String, kind: TransactionKind, amount: Long) = Transaction(
         id = TransactionId(id),
         kind = kind,

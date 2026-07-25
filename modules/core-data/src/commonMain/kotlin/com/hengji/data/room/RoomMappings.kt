@@ -78,6 +78,7 @@ internal fun Asset.toRoomEntity() = AssetEntity(
     targetUseDays = targetUseDays,
     warrantyEndsOn = warrantyEndsOn?.toString(),
     estimatedMinor = currentEstimatedValue?.minorUnits,
+    saleTargetMinor = saleTargetPrice?.minorUnits,
 )
 
 internal fun AssetEntity.toDomain() = Asset(
@@ -90,6 +91,7 @@ internal fun AssetEntity.toDomain() = Asset(
     targetUseDays = targetUseDays,
     warrantyEndsOn = warrantyEndsOn?.let(LocalDate::parse),
     currentEstimatedValue = estimatedMinor?.let { Money(it, CurrencyCode(currency)) },
+    saleTargetPrice = saleTargetMinor?.let { Money(it, CurrencyCode(currency)) },
 )
 
 internal fun MaintenanceCost.toRoomEntity() = MaintenanceCostEntity(

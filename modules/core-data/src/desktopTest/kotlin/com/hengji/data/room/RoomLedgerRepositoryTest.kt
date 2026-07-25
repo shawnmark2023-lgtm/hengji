@@ -59,7 +59,15 @@ class RoomLedgerRepositoryTest {
     fun manualMarketQuotePersistsAcrossRoomReopen() = runTest {
         withDatabaseFile { path ->
             var repository = open(path)
-            val seed = DemoLedger.snapshot()
+            val originalSeed = DemoLedger.snapshot()
+            val assetWithSaleTarget = originalSeed.assets.first().copy(
+                saleTargetPrice = Money(18_800, CurrencyCode.CNY),
+            )
+            val seed = originalSeed.copy(
+                assets = originalSeed.assets.map {
+                    if (it.id == assetWithSaleTarget.id) assetWithSaleTarget else it
+                },
+            )
             val baseQuote = seed.marketQuotes.first()
             repository.replaceWith(seed)
             repository.addMarketQuote(
@@ -78,6 +86,30 @@ class RoomLedgerRepositoryTest {
             assertEquals(QuoteProvenance.MANUAL, quote.provenance)
             assertFalse(quote.isLive)
             assertEquals(null, quote.sourceUrl)
+            assertEquals(
+                Money(18_800, CurrencyCode.CNY),
+                repository.snapshot().assets.single { it.id == assetWithSaleTarget.id }.saleTargetPrice,
+            )
+            repository.close()
+        }
+    }
+
+    @Test
+    fun wrongCurrencyQuoteIsRejectedWithoutPersisting() = runTest {
+        withDatabaseFile { path ->
+            val repository = open(path)
+            val seed = DemoLedger.snapshot()
+            repository.replaceWith(seed)
+            val wrongCurrency = seed.marketQuotes.first().copy(
+                id = "wrong-currency-room",
+                price = Money(100, CurrencyCode("USD")),
+                shipping = Money.zero(CurrencyCode("USD")),
+            )
+
+            assertFailsWith<IllegalArgumentException> {
+                repository.addMarketQuote(wrongCurrency)
+            }
+            assertFalse(repository.snapshot().marketQuotes.any { it.id == wrongCurrency.id })
             repository.close()
         }
     }
@@ -164,6 +196,38 @@ class RoomLedgerRepositoryTest {
                     assertEquals(77, statement.getLong(2))
                     assertEquals("[]", statement.getText(3))
                     assertEquals("{}", statement.getText(4))
+                }
+            }
+        }
+    }
+
+    @Test
+    fun migrationTwoToThreePreservesAssetAndDefaultsSaleTargetToNull() {
+        withDatabaseFileBlocking { path ->
+            BundledSQLiteDriver().open(path).use { connection ->
+                connection.execSQL(
+                    """
+                    CREATE TABLE assets (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        purchaseMinor INTEGER NOT NULL
+                    )
+                    """.trimIndent(),
+                )
+                connection.execSQL(
+                    "INSERT INTO assets (id, name, purchaseMinor) VALUES ('asset-v2', 'Legacy asset', 123400)",
+                )
+
+                MIGRATION_2_3.migrate(connection)
+
+                connection.prepare(
+                    "SELECT id, name, purchaseMinor, saleTargetMinor FROM assets WHERE id = 'asset-v2'",
+                ).use { statement ->
+                    assertTrue(statement.step())
+                    assertEquals("asset-v2", statement.getText(0))
+                    assertEquals("Legacy asset", statement.getText(1))
+                    assertEquals(123400, statement.getLong(2))
+                    assertTrue(statement.isNull(3))
                 }
             }
         }

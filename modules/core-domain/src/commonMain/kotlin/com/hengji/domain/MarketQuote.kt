@@ -90,7 +90,21 @@ data class MarketEstimate(
     val includesManualData: Boolean,
     val includesLiveData: Boolean,
     val isEntirelyLiveData: Boolean,
+    val newestAcceptedQuoteOn: LocalDate,
+    val rejectedStaleQuoteCount: Int,
 )
+
+data class MarketEstimatePolicy(
+    val maximumQuoteAgeDays: Int = DEFAULT_MAXIMUM_QUOTE_AGE_DAYS,
+) {
+    init {
+        require(maximumQuoteAgeDays >= 0) { "Maximum quote age cannot be negative" }
+    }
+
+    companion object {
+        const val DEFAULT_MAXIMUM_QUOTE_AGE_DAYS: Int = 90
+    }
+}
 
 object MarketQuoteEstimator {
     /**
@@ -98,8 +112,16 @@ object MarketQuoteEstimator {
      * conservative confidence. Four-point samples are too sparse for the discrete percentile
      * method: applying a fence there can incorrectly discard both valid endpoints.
      */
-    fun estimate(assetId: AssetId, quotes: Iterable<MarketQuote>, asOf: LocalDate): MarketEstimate? {
-        val candidates = quotes.filter { it.assetId == assetId && it.collectedOn <= asOf }
+    fun estimate(
+        assetId: AssetId,
+        quotes: Iterable<MarketQuote>,
+        asOf: LocalDate,
+        policy: MarketEstimatePolicy = MarketEstimatePolicy(),
+    ): MarketEstimate? {
+        val historicalCandidates = quotes.filter { it.assetId == assetId && it.collectedOn <= asOf }
+        val candidates = historicalCandidates.filter {
+            asOf.toEpochDays() - it.collectedOn.toEpochDays() <= policy.maximumQuoteAgeDays
+        }
         if (candidates.isEmpty()) return null
         val currency = candidates.first().price.currency
         require(candidates.all { it.price.currency == currency }) { "Market estimate cannot mix currencies" }
@@ -146,6 +168,8 @@ object MarketQuoteEstimator {
             includesManualData = accepted.any { it.provenance == QuoteProvenance.MANUAL },
             includesLiveData = accepted.any { it.isLiveSource },
             isEntirelyLiveData = accepted.all { it.isLiveSource },
+            newestAcceptedQuoteOn = accepted.maxOf { it.collectedOn },
+            rejectedStaleQuoteCount = historicalCandidates.size - candidates.size,
         )
     }
 

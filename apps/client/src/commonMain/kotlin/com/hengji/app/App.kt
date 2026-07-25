@@ -36,6 +36,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.hengji.app.application.AppLedgerGateway
+import com.hengji.app.application.AssetSaleTargetEditor
 import com.hengji.app.application.InsightFeedbackReducer
 import com.hengji.app.application.LocalImportFlowPort
 import com.hengji.app.application.ManualMarketQuoteFactory
@@ -50,6 +51,7 @@ import com.hengji.app.application.PreviewOnlyLedgerExportWriter
 import com.hengji.app.importflow.ImportWizard
 import com.hengji.app.importflow.ImportDocumentFormat
 import com.hengji.app.model.DomainDemoData
+import com.hengji.app.model.currencyDisplayPrefix
 import com.hengji.app.model.parseMoneyToMinor
 import com.hengji.app.navigation.AppDestination
 import com.hengji.app.theme.HengjiTheme
@@ -280,6 +282,19 @@ fun HengjiApp(
                         assets = assets,
                         onAddAsset = { showAddAsset = true },
                         onAddManualQuote = { manualQuoteAssetId = it },
+                        onSaleTargetChange = { assetId, targetPriceMinor ->
+                            mutate {
+                                val asset = currentSnapshot.assets.firstOrNull { it.id.value == assetId }
+                                    ?: return@mutate
+                                gateway.upsertAsset(
+                                    if (targetPriceMinor == null) {
+                                        AssetSaleTargetEditor.clear(asset)
+                                    } else {
+                                        AssetSaleTargetEditor.set(asset, targetPriceMinor)
+                                    },
+                                )
+                            }
+                        },
                         onRecordUsage = { assetId ->
                             mutate {
                                 gateway.addUsageEvent(
@@ -473,12 +488,11 @@ fun HengjiApp(
         }
 
         manualQuoteAssetId?.let { assetIdValue ->
-            val assetName = currentSnapshot.assets
-                .firstOrNull { it.id.value == assetIdValue }
-                ?.name
-            if (assetName != null) {
+            val asset = currentSnapshot.assets.firstOrNull { it.id.value == assetIdValue }
+            if (asset != null) {
                 AddManualQuoteDialog(
-                    assetName = assetName,
+                    assetName = asset.name,
+                    currency = asset.purchasePrice.currency,
                     onDismiss = { manualQuoteAssetId = null },
                     onAdd = { specification, condition, priceMinor, shippingMinor ->
                         mutate {
@@ -493,6 +507,7 @@ fun HengjiApp(
                                     shippingMinor = shippingMinor,
                                     collectedOn = today,
                                     asOf = today,
+                                    currency = asset.purchasePrice.currency,
                                 ),
                             )
                             manualQuoteAssetId = null
@@ -771,6 +786,7 @@ private fun AddAssetDialog(
 @Composable
 private fun AddManualQuoteDialog(
     assetName: String,
+    currency: CurrencyCode,
     onDismiss: () -> Unit,
     onAdd: (specification: String, condition: ItemCondition, priceMinor: Long, shippingMinor: Long) -> Unit,
 ) {
@@ -836,8 +852,8 @@ private fun AddManualQuoteDialog(
                     value = priceAmount,
                     onValueChange = { priceAmount = it.filter { char -> char.isDigit() || char == '.' } },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("标价（必填）") },
-                    prefix = { Text("¥") },
+                    label = { Text("标价（${currency.value}，必填）") },
+                    prefix = { Text(currencyDisplayPrefix(currency.value)) },
                     singleLine = true,
                     isError = priceError,
                     keyboardOptions = KeyboardOptions(
@@ -854,8 +870,8 @@ private fun AddManualQuoteDialog(
                     value = shippingAmount,
                     onValueChange = { shippingAmount = it.filter { char -> char.isDigit() || char == '.' } },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("预计运费（可选）") },
-                    prefix = { Text("¥") },
+                    label = { Text("预计运费（${currency.value}，可选）") },
+                    prefix = { Text(currencyDisplayPrefix(currency.value)) },
                     singleLine = true,
                     isError = shippingError,
                     keyboardOptions = KeyboardOptions(

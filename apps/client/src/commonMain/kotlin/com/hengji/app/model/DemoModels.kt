@@ -1,5 +1,7 @@
 package com.hengji.app.model
 
+import com.hengji.app.application.SaleTargetProjection
+import com.hengji.app.application.SaleTargetStatus
 import com.hengji.insights.InsightFeedback
 import com.hengji.insights.InsightType
 import kotlinx.datetime.LocalDate
@@ -35,6 +37,11 @@ data class DemoAsset(
     val quoteCount: Int = 0,
     val marketConfidence: Int,
     val quoteUpdatedLabel: String,
+    val currencyCode: String = "CNY",
+    val saleTarget: SaleTargetProjection = SaleTargetProjection(
+        status = SaleTargetStatus.NOT_SET,
+        targetPriceMinor = null,
+    ),
     val dailyCostMinor: Long = totalCostMinor / ownedDays.coerceAtLeast(1),
     val netDailyCostMinor: Long = (totalCostMinor - currentValueMinor) / ownedDays.coerceAtLeast(1),
     val costPerUseMinor: Long = (totalCostMinor - currentValueMinor) / usageCount.coerceAtLeast(1),
@@ -75,7 +82,11 @@ val sampleInsights: List<DemoInsight> = DomainDemoData.insights(
     nowEpochMillis = 0,
 )
 
-fun formatMoney(minorUnits: Long, showSign: Boolean = false): String {
+fun formatMoney(
+    minorUnits: Long,
+    showSign: Boolean = false,
+    currencyCode: String = "CNY",
+): String {
     val negative = minorUnits < 0
     val absolute = if (negative) -minorUnits else minorUnits
     val whole = (absolute / 100).toString()
@@ -86,7 +97,16 @@ fun formatMoney(minorUnits: Long, showSign: Boolean = false): String {
         showSign && minorUnits > 0 -> "+"
         else -> ""
     }
-    return "$prefix¥$grouped.$cents"
+    return "$prefix${currencyDisplayPrefix(currencyCode)}$grouped.$cents"
+}
+
+fun currencyDisplayPrefix(currencyCode: String): String = when (currencyCode) {
+    "CNY" -> "¥"
+    "USD" -> "$"
+    "EUR" -> "€"
+    "GBP" -> "£"
+    "JPY" -> "¥"
+    else -> "$currencyCode "
 }
 
 fun parseMoneyToMinor(input: String): Long? {

@@ -74,6 +74,9 @@ class InMemoryLedgerRepository(
     }
 
     override fun upsertAsset(asset: Asset) {
+        require(marketQuotes.values.filter { it.assetId == asset.id }.all {
+            it.price.currency == asset.purchasePrice.currency
+        }) { "Existing quotes must use the asset purchase currency" }
         assets[asset.id] = asset
         bumpRevision()
     }
@@ -93,7 +96,10 @@ class InMemoryLedgerRepository(
     }
 
     override fun addMarketQuote(quote: MarketQuote) {
-        require(assets.containsKey(quote.assetId)) { "Cannot add a quote for an unknown asset" }
+        val asset = requireNotNull(assets[quote.assetId]) { "Cannot add a quote for an unknown asset" }
+        require(quote.price.currency == asset.purchasePrice.currency) {
+            "Quote must use the asset purchase currency"
+        }
         marketQuotes[quote.id] = quote
         bumpRevision()
     }
@@ -147,6 +153,10 @@ class InMemoryLedgerRepository(
         require(snapshot.maintenanceCosts.all { it.assetId in assetIds }) { "Maintenance references an unknown asset" }
         require(snapshot.usageEvents.all { it.assetId in assetIds }) { "Usage references an unknown asset" }
         require(snapshot.marketQuotes.all { it.assetId in assetIds }) { "Quote references an unknown asset" }
+        val assetsById = snapshot.assets.associateBy { it.id }
+        require(snapshot.marketQuotes.all { quote ->
+            quote.price.currency == assetsById.getValue(quote.assetId).purchasePrice.currency
+        }) { "Quote must use the asset purchase currency" }
         require(snapshot.importBatches.distinctBy { it.batchId }.size == snapshot.importBatches.size) {
             "Duplicate import batch ids"
         }

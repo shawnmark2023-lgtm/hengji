@@ -51,7 +51,7 @@ class InMemoryLedgerRepositoryTest {
     @Test
     fun jsonExportDeclaresSchemaAndDoesNotInventIdentityFields() {
         val json = LedgerJsonExporter.export(DemoLedger.snapshot())
-        assertTrue("\"schemaVersion\": 2" in json)
+        assertTrue("\"schemaVersion\": 3" in json)
         assertTrue("\"transactions\"" in json)
         assertFalse("\"phone\"" in json.lowercase())
         assertFalse("\"email\"" in json.lowercase())
@@ -140,6 +140,22 @@ class InMemoryLedgerRepositoryTest {
         assertFailsWith<IllegalArgumentException> {
             InsightPreferenceRecord(snoozedUntilEpochMillisByKey = mapOf("key" to -1))
         }
+    }
+
+    @Test
+    fun marketQuoteMustUseReferencedAssetCurrency() {
+        val seed = DemoLedger.snapshot()
+        val repository = InMemoryLedgerRepository(seed)
+        val quote = seed.marketQuotes.first().copy(
+            id = "wrong-currency-memory",
+            price = Money(100, CurrencyCode("USD")),
+            shipping = Money.zero(CurrencyCode("USD")),
+        )
+
+        assertFailsWith<IllegalArgumentException> {
+            repository.addMarketQuote(quote)
+        }
+        assertFalse(repository.snapshot().marketQuotes.any { it.id == quote.id })
     }
 
     private fun importedTransaction(id: String, fingerprint: String) = Transaction(

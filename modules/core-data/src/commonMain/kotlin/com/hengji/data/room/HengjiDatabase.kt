@@ -7,7 +7,7 @@ import androidx.room.RoomDatabaseConstructor
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import kotlinx.coroutines.Dispatchers
 
-const val HENGJI_DATABASE_VERSION: Int = 2
+const val HENGJI_DATABASE_VERSION: Int = 3
 
 @Database(
     entities = [
@@ -54,7 +54,7 @@ fun buildHengjiDatabase(
         )
     }
     return builder
-        .addMigrations(MIGRATION_1_2)
+        .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
         .setDriver(BundledSQLiteDriver())
         // Dispatchers.IO is not available to common metadata in every KMP target.
         // Room executes blocking driver work through this portable background context.

@@ -17,9 +17,15 @@ class LedgerJsonCodecTest {
     @Test
     fun fullSnapshotRoundTripsWithoutLosingBatchOrPreferences() {
         val imported = importedTransaction("json-import", "hj1_json")
+        val assetWithSaleTarget = DemoLedger.snapshot().assets.first().copy(
+            saleTargetPrice = Money(18_800, CurrencyCode.CNY),
+        )
         val snapshot = DemoLedger.snapshot().copy(
             revision = 42,
             transactions = DemoLedger.snapshot().transactions + imported,
+            assets = DemoLedger.snapshot().assets.map {
+                if (it.id == assetWithSaleTarget.id) assetWithSaleTarget else it
+            },
             insightPreferences = InsightPreferenceRecord(
                 mutedTypes = setOf("BUDGET_PACE"),
                 ignoredDeduplicationKeys = setOf("merchant:demo"),
@@ -43,7 +49,8 @@ class LedgerJsonCodecTest {
         val restored = LedgerJsonCodec.restore(LedgerJsonCodec.export(snapshot))
 
         assertEquals(snapshot, restored)
-        assertTrue("\"schemaVersion\": 2" in LedgerJsonCodec.export(snapshot))
+        assertEquals(Money(18_800, CurrencyCode.CNY), restored.assets.first().saleTargetPrice)
+        assertTrue("\"schemaVersion\": 3" in LedgerJsonCodec.export(snapshot))
     }
 
     @Test
@@ -78,6 +85,51 @@ class LedgerJsonCodecTest {
         assertEquals(77, restored.insightPreferences.updatedAtEpochMillis)
         assertTrue(restored.insightPreferences.adoptedDeduplicationKeys.isEmpty())
         assertTrue(restored.insightPreferences.snoozedUntilEpochMillisByKey.isEmpty())
+    }
+
+    @Test
+    fun migratesSchemaTwoAssetSaleTargetToNull() {
+        val legacy = """
+            {
+              "schemaVersion": 2,
+              "revision": 9,
+              "assets": [{
+                "id": "asset-v2",
+                "name": "Legacy asset",
+                "categoryId": "electronics",
+                "purchaseMinorUnits": 123400,
+                "currency": "CNY",
+                "purchasedOn": "2026-01-02",
+                "status": "ACTIVE"
+              }]
+            }
+        """.trimIndent()
+
+        val restored = LedgerJsonCodec.restore(legacy)
+
+        assertEquals(null, restored.assets.single().saleTargetPrice)
+        assertTrue("\"saleTargetMinorUnits\": null" in LedgerJsonCodec.export(restored))
+    }
+
+    @Test
+    fun restoreRejectsQuoteWhoseCurrencyDiffersFromAsset() {
+        val seed = DemoLedger.snapshot()
+        val invalid = seed.copy(
+            marketQuotes = seed.marketQuotes.mapIndexed { index, quote ->
+                if (index == 0) {
+                    quote.copy(
+                        price = Money(100, CurrencyCode("USD")),
+                        shipping = Money.zero(CurrencyCode("USD")),
+                    )
+                } else {
+                    quote
+                }
+            },
+        )
+
+        assertFailsWith<IllegalArgumentException> {
+            LedgerJsonCodec.restore(LedgerJsonCodec.export(invalid))
+        }
     }
 
     @Test

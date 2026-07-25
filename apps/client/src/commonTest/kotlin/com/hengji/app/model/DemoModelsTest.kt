@@ -1,5 +1,6 @@
 package com.hengji.app.model
 
+import com.hengji.app.application.SaleTargetStatus
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -7,10 +8,17 @@ import kotlin.test.assertTrue
 import com.hengji.domain.QuoteProvenance
 import com.hengji.domain.QuoteProviderId
 import com.hengji.domain.Confidence
+import com.hengji.domain.Money
 import kotlinx.datetime.LocalDate
 import com.hengji.data.InsightPreferenceRecord
 import com.hengji.data.LedgerSnapshot
 import com.hengji.insights.InsightFeedback
+import com.hengji.insights.EvidenceValue
+import com.hengji.insights.Insight
+import com.hengji.insights.InsightAction
+import com.hengji.insights.InsightEvidence
+import com.hengji.insights.RuleScore
+import com.hengji.insights.InsightType
 
 class DemoModelsTest {
     @Test
@@ -28,6 +36,7 @@ class DemoModelsTest {
         assertEquals("¥12,345.67", formatMoney(1_234_567L))
         assertEquals("−¥4.59", formatMoney(-459L))
         assertEquals("+¥8.00", formatMoney(800L, showSign = true))
+        assertEquals("\$8.00", formatMoney(800L, currencyCode = "USD"))
     }
 
     @Test
@@ -108,6 +117,59 @@ class DemoModelsTest {
         assertTrue("非实时" in projected.quoteUpdatedLabel)
         assertTrue("7 月 25 日" in projected.quoteUpdatedLabel)
         assertTrue(projected.marketMedianMinor != null)
+    }
+
+    @Test
+    fun saleTargetProjectionUsesOnlyNonDemoQuotesAndReachedInsightIsRetained() {
+        val asOf = LocalDate(2026, 7, 25)
+        val initial = DomainDemoData.initialSnapshot
+        val originalAsset = initial.assets.first()
+        val targetedAsset = originalAsset.copy(
+            saleTargetPrice = Money(1, originalAsset.purchasePrice.currency),
+        )
+        val demoOnlySnapshot = initial.copy(
+            assets = initial.assets.map { if (it.id == originalAsset.id) targetedAsset else it },
+        )
+        val demoOnly = DomainDemoData.assets(demoOnlySnapshot, asOf)
+            .first { it.id == originalAsset.id.value }
+        assertEquals(SaleTargetStatus.DEMO_ONLY, demoOnly.saleTarget.status)
+
+        val manualQuotes = initial.marketQuotes
+            .filter { it.assetId == originalAsset.id }
+            .mapIndexed { index, quote ->
+                quote.copy(
+                    id = "target-manual-$index",
+                    providerId = QuoteProviderId("manual-local"),
+                    provenance = QuoteProvenance.MANUAL,
+                    collectedOn = asOf,
+                    sourceUrl = null,
+                    confidence = Confidence(8_000),
+                    isLive = false,
+                )
+            }
+        val actionableSnapshot = demoOnlySnapshot.copy(
+            marketQuotes = initial.marketQuotes + manualQuotes,
+        )
+
+        val projected = DomainDemoData.assets(actionableSnapshot, asOf)
+            .first { it.id == originalAsset.id.value }
+        val insights = DomainDemoData.insights(actionableSnapshot, asOf, nowEpochMillis = 0)
+
+        assertEquals(SaleTargetStatus.REACHED, projected.saleTarget.status)
+        assertTrue(insights.any { it.type == InsightType.PRICE_TARGET_REACHED })
+    }
+
+    @Test
+    fun compactInsightFeedDoesNotClipReachedTargetOutsideTopFour() {
+        val regular = (1..4).map { index ->
+            testInsight("regular-$index", InsightType.POSSIBLE_DUPLICATE)
+        }
+        val reachedTarget = testInsight("target", InsightType.PRICE_TARGET_REACHED)
+
+        assertEquals(
+            regular + reachedTarget,
+            retainPriceTargetInsights(regular + reachedTarget),
+        )
     }
 
     @Test
@@ -218,4 +280,18 @@ class DemoModelsTest {
         )
         assertTrue(ignored.none { it.deduplicationKey == target.deduplicationKey })
     }
+
+    private fun testInsight(id: String, type: InsightType): Insight = Insight(
+        id = id,
+        deduplicationKey = id,
+        type = type,
+        title = id,
+        summary = id,
+        evidence = listOf(InsightEvidence("test", EvidenceValue.Text(id))),
+        estimatedImpact = null,
+        impact = RuleScore(1_000),
+        confidence = RuleScore(1_000),
+        actionability = RuleScore(1_000),
+        action = InsightAction("test", "test"),
+    )
 }

@@ -44,7 +44,15 @@ class ProtectedLedgerRepositoryTest {
         val store = MemoryProtectedLedgerStore()
         val keys = TestProvisioningKeyProvider()
         val repository = ProtectedLedgerRepository.open(store, "ledger-primary", keys).repository
-        val seed = DemoLedger.snapshot()
+        val originalSeed = DemoLedger.snapshot()
+        val assetWithSaleTarget = originalSeed.assets.first().copy(
+            saleTargetPrice = Money(18_800, CurrencyCode.CNY),
+        )
+        val seed = originalSeed.copy(
+            assets = originalSeed.assets.map {
+                if (it.id == assetWithSaleTarget.id) assetWithSaleTarget else it
+            },
+        )
         val baseQuote = seed.marketQuotes.first()
         repository.replaceWith(seed)
         repository.addMarketQuote(
@@ -63,6 +71,49 @@ class ProtectedLedgerRepositoryTest {
         assertEquals(QuoteProvenance.MANUAL, quote.provenance)
         assertFalse(quote.isLive)
         assertEquals(null, quote.sourceUrl)
+        assertEquals(
+            Money(18_800, CurrencyCode.CNY),
+            reopened.snapshot().assets.single { it.id == assetWithSaleTarget.id }.saleTargetPrice,
+        )
+    }
+
+    @Test
+    fun rejectsWrongCurrencyQuoteForAddAndReplacement() = runProtectedTest {
+        val store = MemoryProtectedLedgerStore()
+        val repository = ProtectedLedgerRepository.open(
+            store,
+            "ledger-primary",
+            TestProvisioningKeyProvider(),
+        ).repository
+        val seed = DemoLedger.snapshot()
+        repository.replaceWith(seed)
+        val wrongCurrency = seed.marketQuotes.first().copy(
+            id = "wrong-currency-protected",
+            price = Money(100, CurrencyCode("USD")),
+            shipping = Money.zero(CurrencyCode("USD")),
+        )
+
+        assertFailsWith<IllegalArgumentException> {
+            runProtectedTest { repository.addMarketQuote(wrongCurrency) }
+        }
+        assertFailsWith<IllegalArgumentException> {
+            runProtectedTest {
+                repository.replaceWith(seed.copy(marketQuotes = seed.marketQuotes + wrongCurrency))
+            }
+        }
+        val quotedAsset = seed.assets.first { it.id == seed.marketQuotes.first().assetId }
+        assertFailsWith<IllegalArgumentException> {
+            runProtectedTest {
+                repository.upsertAsset(
+                    quotedAsset.copy(
+                        purchasePrice = Money(quotedAsset.purchasePrice.minorUnits, CurrencyCode("USD")),
+                        currentEstimatedValue = null,
+                    ),
+                )
+            }
+        }
+        assertFalse(repository.snapshot().marketQuotes.any { it.id == wrongCurrency.id })
+        assertEquals(CurrencyCode.CNY, repository.findAsset(quotedAsset.id)?.purchasePrice?.currency)
     }
 
     @Test

@@ -7,6 +7,7 @@ import com.hengji.domain.CurrencyCode
 import com.hengji.domain.DateRange
 import com.hengji.domain.MaintenanceCost
 import com.hengji.domain.MarketEstimate
+import com.hengji.domain.MarketQuote
 import com.hengji.domain.Money
 import com.hengji.domain.Transaction
 import com.hengji.domain.UsageEvent
@@ -41,6 +42,7 @@ data class InsightSnapshot(
     val maintenanceCosts: List<MaintenanceCost> = emptyList(),
     val usageEvents: List<UsageEvent> = emptyList(),
     val marketEstimates: Map<AssetId, MarketEstimate> = emptyMap(),
+    val marketQuotes: List<MarketQuote> = emptyList(),
 )
 
 class InsightEngine(
@@ -63,6 +65,13 @@ class InsightEngine(
             addLargeExpenseInsights(snapshot)
             addDuplicateInsights(snapshot)
             addSubscriptionInsights(snapshot)
+            addAll(
+                PriceTargetAnalyzer.analyze(
+                    assets = snapshot.assets,
+                    quotes = snapshot.marketQuotes,
+                    asOf = snapshot.asOf,
+                ),
+            )
             addAll(
                 AssetOpportunityAnalyzer.analyze(
                     assets = snapshot.assets,

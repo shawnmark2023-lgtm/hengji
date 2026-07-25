@@ -1,6 +1,7 @@
 package com.hengji.app.application
 
 import com.hengji.domain.AssetId
+import com.hengji.domain.CurrencyCode
 import com.hengji.domain.ItemCondition
 import com.hengji.domain.QuoteProvenance
 import kotlin.test.Test
@@ -22,11 +23,13 @@ class ManualMarketQuoteFactoryTest {
             shippingMinor = 1_200,
             collectedOn = LocalDate(2026, 7, 25),
             asOf = LocalDate(2026, 7, 25),
+            currency = CurrencyCode.USD,
         )
 
         assertEquals(125_099, quote.price.minorUnits)
         assertEquals(1_200, quote.shipping.minorUnits)
         assertEquals(126_299, quote.landedPrice.minorUnits)
+        assertEquals(CurrencyCode.USD, quote.price.currency)
         assertEquals("256GB · 良好", quote.specification)
         assertEquals(QuoteProvenance.MANUAL, quote.provenance)
         assertEquals("manual-local", quote.providerId.value)
@@ -49,6 +52,7 @@ class ManualMarketQuoteFactoryTest {
                 shippingMinor = shippingMinor,
                 collectedOn = LocalDate(2026, 7, 25),
                 asOf = LocalDate(2026, 7, 25),
+                currency = CurrencyCode.CNY,
             )
         }
 
@@ -66,6 +70,7 @@ class ManualMarketQuoteFactoryTest {
                 shippingMinor = 0,
                 collectedOn = LocalDate(2026, 7, 26),
                 asOf = LocalDate(2026, 7, 25),
+                currency = CurrencyCode.CNY,
             )
         }
     }

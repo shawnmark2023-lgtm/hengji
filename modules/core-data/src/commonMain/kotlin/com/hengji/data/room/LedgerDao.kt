@@ -109,6 +109,9 @@ interface LedgerDao {
     @Query("SELECT * FROM market_quotes ORDER BY collectedOn, id")
     suspend fun marketQuotes(): List<MarketQuoteEntity>
 
+    @Query("SELECT * FROM market_quotes WHERE assetId = :assetId")
+    suspend fun marketQuotesForAsset(assetId: String): List<MarketQuoteEntity>
+
     @Upsert
     suspend fun upsertMarketQuote(entity: MarketQuoteEntity)
 
@@ -211,6 +214,9 @@ interface LedgerDao {
 
     @Transaction
     suspend fun atomicUpsertAsset(entity: AssetEntity): Long {
+        require(marketQuotesForAsset(entity.id).all { it.currency == entity.currency }) {
+            "Existing quotes must use the asset purchase currency"
+        }
         upsertAsset(entity)
         return bumpRevision()
     }
@@ -231,7 +237,10 @@ interface LedgerDao {
 
     @Transaction
     suspend fun atomicUpsertMarketQuote(entity: MarketQuoteEntity): Long {
-        requireNotNull(asset(entity.assetId)) { "Cannot add quote for an unknown asset" }
+        val referencedAsset = requireNotNull(asset(entity.assetId)) { "Cannot add quote for an unknown asset" }
+        require(entity.currency == referencedAsset.currency) {
+            "Quote must use the asset purchase currency"
+        }
         upsertMarketQuote(entity)
         return bumpRevision()
     }

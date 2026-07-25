@@ -28,7 +28,7 @@ object ManualMarketQuoteFactory {
         shippingMinor: Long,
         collectedOn: LocalDate,
         asOf: LocalDate,
-        currency: CurrencyCode = CurrencyCode.CNY,
+        currency: CurrencyCode,
     ): MarketQuote {
         val normalizedSpecification = specification.trim()
         require(normalizedSpecification.isNotEmpty()) { "Manual quote specification cannot be blank" }

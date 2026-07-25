@@ -1,10 +1,17 @@
 package com.hengji.insights
 
 import com.hengji.domain.CategoryId
+import com.hengji.domain.Asset
+import com.hengji.domain.AssetId
+import com.hengji.domain.Confidence
 import com.hengji.domain.CurrencyCode
 import com.hengji.domain.DateRange
+import com.hengji.domain.ItemCondition
+import com.hengji.domain.MarketQuote
 import com.hengji.domain.Merchant
 import com.hengji.domain.Money
+import com.hengji.domain.QuoteProvenance
+import com.hengji.domain.QuoteProviderId
 import com.hengji.domain.Transaction
 import com.hengji.domain.TransactionId
 import com.hengji.domain.TransactionKind
@@ -45,6 +52,39 @@ class InsightEngineTest {
             InsightFeedback.NEW,
             boundary.single { it.deduplicationKey == target.deduplicationKey }.feedback,
         )
+    }
+
+    @Test
+    fun `engine includes a price target insight from raw quote history`() {
+        val cny = CurrencyCode.CNY
+        val base = snapshot(cny)
+        val asset = Asset(
+            id = AssetId("camera"),
+            name = "Camera",
+            categoryId = CategoryId("electronics"),
+            purchasePrice = Money(2_000, cny),
+            purchasedOn = LocalDate(2025, 1, 1),
+            saleTargetPrice = Money(1_500, cny),
+        )
+        val quotes = listOf(1_400L, 1_500L, 1_600L).mapIndexed { index, price ->
+            MarketQuote(
+                id = "engine-price-$index",
+                assetId = asset.id,
+                providerId = QuoteProviderId("manual-$index"),
+                provenance = QuoteProvenance.MANUAL,
+                specification = "same model",
+                condition = ItemCondition.GOOD,
+                price = Money(price, cny),
+                collectedOn = base.asOf,
+                confidence = Confidence(8_000),
+            )
+        }
+
+        val insights = InsightEngine().generate(
+            base.copy(assets = listOf(asset), marketQuotes = quotes),
+        )
+
+        assertTrue(insights.any { it.type == InsightType.PRICE_TARGET_REACHED })
     }
 
     private fun snapshot(cny: CurrencyCode): InsightSnapshot {

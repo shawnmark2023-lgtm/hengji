@@ -16,3 +16,9 @@ object MIGRATION_1_2 : Migration(1, 2) {
         )
     }
 }
+
+object MIGRATION_2_3 : Migration(2, 3) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("ALTER TABLE assets ADD COLUMN saleTargetMinor INTEGER")
+    }
+}

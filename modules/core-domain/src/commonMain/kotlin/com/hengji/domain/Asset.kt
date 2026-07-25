@@ -25,6 +25,7 @@ data class Asset(
     val targetUseDays: Int? = null,
     val warrantyEndsOn: LocalDate? = null,
     val currentEstimatedValue: Money? = null,
+    val saleTargetPrice: Money? = null,
 ) {
     init {
         require(name.isNotBlank()) { "Asset name cannot be blank" }
@@ -36,6 +37,10 @@ data class Asset(
         currentEstimatedValue?.let {
             it.requireNonNegative("Current estimated value")
             require(it.currency == purchasePrice.currency) { "Asset estimate must use purchase currency" }
+        }
+        saleTargetPrice?.let {
+            require(it.minorUnits > 0) { "Sale target price must be positive" }
+            require(it.currency == purchasePrice.currency) { "Sale target price must use purchase currency" }
         }
     }
 }

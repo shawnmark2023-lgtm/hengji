@@ -24,7 +24,9 @@ class RoomLedgerRepository(
     private val dao: LedgerDao = database.ledgerDao()
 
     override suspend fun snapshot(includeDeleted: Boolean): LedgerSnapshot =
-        dao.snapshotRows().toDomainSnapshot(includeDeleted)
+        dao.snapshotRows()
+            .toDomainSnapshot(includeDeleted)
+            .also(::validateLedgerSnapshot)
 
     override suspend fun upsertTransaction(transaction: Transaction): UpsertTransactionResult {
         val (code) = dao.atomicUpsertTransaction(transaction.toRoomEntity())

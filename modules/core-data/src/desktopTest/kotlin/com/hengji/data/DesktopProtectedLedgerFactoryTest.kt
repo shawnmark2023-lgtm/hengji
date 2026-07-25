@@ -38,6 +38,30 @@ class DesktopProtectedLedgerFactoryTest {
         }
     }
 
+    @Test
+    fun windowsFactoryClearRemainsEmptyAcrossProtectedReopen() {
+        if (!System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) return
+        withDirectory { directory ->
+            runTest {
+                val first = openDesktopProtectedLedger(directory)
+                first.repository.replaceWith(DemoLedger.snapshot())
+                val populatedRevision = first.repository.snapshot(includeDeleted = true).revision
+
+                first.repository.clear()
+                val cleared = first.repository.snapshot(includeDeleted = true)
+                assertEquals(populatedRevision + 1, cleared.revision)
+                assertTrue(cleared.transactions.isEmpty())
+                assertTrue(cleared.assets.isEmpty())
+                assertEquals(InsightPreferenceRecord(), cleared.insightPreferences)
+                assertTrue(cleared.importBatches.isEmpty())
+
+                val reopened = openDesktopProtectedLedger(directory)
+                assertEquals(ProtectedLedgerOpenOutcome.OPENED_EXISTING, reopened.outcome)
+                assertEquals(cleared, reopened.repository.snapshot(includeDeleted = true))
+            }
+        }
+    }
+
     private fun withDirectory(block: (Path) -> Unit) {
         val directory = Files.createTempDirectory("hengji-protected-factory-")
         try {

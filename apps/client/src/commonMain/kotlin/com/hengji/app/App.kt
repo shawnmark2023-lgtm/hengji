@@ -37,6 +37,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.hengji.app.application.AppLedgerGateway
 import com.hengji.app.application.AssetSaleTargetEditor
+import com.hengji.app.application.DemoDataSeedPolicy
 import com.hengji.app.application.InsightFeedbackReducer
 import com.hengji.app.application.LocalImportFlowPort
 import com.hengji.app.application.ManualMarketQuoteFactory
@@ -155,8 +156,7 @@ fun HengjiApp(
         storageBusy = true
         try {
             var loaded = gateway.snapshot()
-            val pristine = loaded.revision == 0L && loaded.transactions.isEmpty() && loaded.assets.isEmpty()
-            if (seedDemoData && pristine) {
+            if (DemoDataSeedPolicy.shouldSeed(seedDemoData, loaded)) {
                 gateway.replaceWith(DomainDemoData.initialSnapshot)
                 loaded = gateway.snapshot()
             }

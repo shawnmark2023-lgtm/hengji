@@ -40,6 +40,54 @@ class ProtectedLedgerRepositoryTest {
     }
 
     @Test
+    fun clearRemovesEverySnapshotFieldAndReopensAsExistingEmptyLedger() = runProtectedTest {
+        val store = MemoryProtectedLedgerStore()
+        val keys = TestProvisioningKeyProvider()
+        val repository = ProtectedLedgerRepository.open(store, "ledger-primary", keys).repository
+        val populated = DemoLedger.snapshot().copy(
+            revision = 7,
+            insightPreferences = InsightPreferenceRecord(
+                mutedTypes = setOf("LOW_USE_ASSET"),
+                ignoredDeduplicationKeys = setOf("ignored-insight"),
+                updatedAtEpochMillis = 25,
+                adoptedDeduplicationKeys = setOf("adopted-insight"),
+                snoozedUntilEpochMillisByKey = mapOf("snoozed-insight" to 50),
+            ),
+            importBatches = listOf(
+                ImportBatchRecord(
+                    batchId = "batch_clear_001",
+                    sourceConnectorId = "local-test",
+                    sourceDigest = "digest-clear-001",
+                    state = ImportBatchState.ROLLED_BACK,
+                    createdAtEpochMillis = 10,
+                    committedAtEpochMillis = 20,
+                    rolledBackAtEpochMillis = 30,
+                ),
+            ),
+        )
+        repository.replaceWith(populated)
+        val populatedRevision = repository.snapshot(includeDeleted = true).revision
+
+        repository.clear()
+
+        val cleared = repository.snapshot(includeDeleted = true)
+        assertEquals(populatedRevision + 1, cleared.revision)
+        assertTrue(cleared.transactions.isEmpty())
+        assertTrue(cleared.assets.isEmpty())
+        assertTrue(cleared.maintenanceCosts.isEmpty())
+        assertTrue(cleared.usageEvents.isEmpty())
+        assertTrue(cleared.marketQuotes.isEmpty())
+        assertEquals(InsightPreferenceRecord(), cleared.insightPreferences)
+        assertTrue(cleared.importBatches.isEmpty())
+
+        val reopened = ProtectedLedgerRepository.open(store, "ledger-primary", keys)
+        val reopenedSnapshot = reopened.repository.snapshot(includeDeleted = true)
+        assertEquals(ProtectedLedgerOpenOutcome.OPENED_EXISTING, reopened.outcome)
+        assertEquals(cleared, reopenedSnapshot)
+        assertEquals(1, keys.provisionCount)
+    }
+
+    @Test
     fun manualMarketQuotePersistsAcrossEncryptedReopen() = runProtectedTest {
         val store = MemoryProtectedLedgerStore()
         val keys = TestProvisioningKeyProvider()

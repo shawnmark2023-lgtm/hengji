@@ -68,7 +68,7 @@
 
 - [x] `SEC-001` P0 威胁模型：本地数据库、导入文件、OAuth token、备份、日志、模型调用。
 - [x] `SEC-002` P0 日志脱敏、禁止明文 secret、依赖最小化和能力白名单。
-- [ ] `SEC-003` P0 Desktop/Android 一键导出/恢复/删除和网络访问状态可见；iOS 有界导入、导出临时文件隔离/清扫与恢复已实现，待真机跨重启和隐私清理验收。
+- [ ] `SEC-003` P0 Desktop/Android 一键导出/恢复/删除和网络访问状态可见；受保护账本与 Windows DPAPI 真实入口已自动验证清除全部字段、revision 前进且跨重启保持为空，应用播种策略也保证清除后不恢复示例；iOS 有界导入、导出临时文件隔离/清扫与恢复已实现，仍待三平台真实 UI 自动化及 iOS 真机隐私清理验收。
 - [ ] `SEC-004` P1 平台密钥抽象与四平台实现已完成；Android/iOS/macOS 真实 Keystore/Keychain 往返和锁屏/卸载/恢复验收仍待完成。
 - [ ] `SEC-005` P2 Passkey/Sign in with Apple、2FA 恢复流程、会话撤销。
 - [ ] `SEC-006` P2 端到端加密同步、密钥轮换、冲突与灾难恢复演练。
@@ -78,7 +78,7 @@
 
 - [x] `QA-001` P0 领域单元测试：金额精度、跨月、退款、零使用、残值高于成本等边界。
 - [x] `QA-002` P0 重复、公式注入、文件上限、BOM/Unicode、错列、空值、嵌套 JSON 和回滚矩阵通过。
-- [ ] `QA-003` P0 记一笔、跨重启持久化、完整导入与整批撤销、洞察采纳/忽略/稍后与恢复确认已真实 UI 实跑；其余流程与自动化 UI 套件仍待补齐。
+- [ ] `QA-003` P0 记一笔、跨重启持久化、完整导入与整批撤销、洞察采纳/忽略/稍后与恢复确认已真实 UI 实跑；清除后不重播种及 Windows 受保护入口跨重启为空已有自动化契约，其余真实 UI 流程与跨平台自动化套件仍待补齐。
 - [x] `QA-004` P0 Desktop 编译/运行与 Android APK 通过；iOS/macOS 目标交由 macOS CI 验证。
 - [ ] `QA-005` P0 代码级语义、响应式重排与减少动态效果已完成；无障碍与键盘验收、200% 字体/缩放、深浅色及窄/宽窗口矩阵仍待执行。
 - [ ] `QA-006` P1 10 万流水开发/CI 基线已通过；代表性低端设备、加密持久层与完整 UI 性能仍待验证。
@@ -104,12 +104,12 @@
 | IMP-008 | TODO | provider app、scope、DPA/合同 | 每个生产连接器有批准 scope、最小字段清单、撤权/过期/限流测试和上线回滚预案 |
 | PRI-005 | TODO | 官方 API 或授权聚合合同 | 0 个抓取/私有 API；缓存 TTL、来源、运费、币种、成色和删除 SLA 均可审计 |
 | PRI-006 | PARTIAL | notification permissions、background refresh、authorized price feed | 用户可按资产币种设置/修改/清除目标价；只有 90 天内至少 3 条同币种非示例报价且可呈现中位数达到目标时，才生成应用内建议；目标键参与去重，既有“稍后 7 天/忽略/恢复默认”提供本地冷却与撤销，目标与偏好均跨重启持久化；仍需系统通知权限、后台刷新和授权行情源，通知不得包含敏感流水原文 |
-| SEC-003 | PARTIAL | iOS simulator/device privacy and restart evidence | Desktop/Android/iOS 都能导出、恢复、清除并跨重启验证；网络计数为 0 时界面可见 |
+| SEC-003 | PARTIAL | cross-platform UI automation、iOS simulator/device privacy evidence | 受保护仓储会原子覆盖为高 revision 空快照并在重开后保持 `OPENED_EXISTING`；Windows DPAPI 真实入口已验证跨重启为空，应用播种策略不会在清除后恢复示例；仍需 Desktop/Android/iOS 导出、恢复、清除的完整真实 UI 自动化及 iOS 真机隐私清理 |
 | SEC-004 | PARTIAL | Android/Apple 平台 runner | Windows 当前用户 DPAPI 已完成真实与混淆产物往返；Android 已实现非导出 Keystore 包装密钥、no-backup 保护物、备份/设备迁移排除规则，47 个 host 用例和受保护入口构建通过；iOS/macOS 已实现不迁移、不同步、仅解锁可用的 Keychain 项，macOS 使用 data-protection Keychain；仍需 Android/Apple 往返及锁屏、备份、卸载、轮换验收 |
 | SEC-005 | TODO | account backend、Passkey/SIWA | 注册/验证/恢复/2FA/会话撤销/设备丢失演练通过，且不破坏无账号本地模式 |
 | SEC-006 | TODO | E2EE protocol、sync engine | 双设备离线冲突、密钥轮换、恢复短语、灾难恢复和服务端不可读性测试通过 |
 | REL-001 | TODO | Apple/Google/Microsoft signing accounts | 四平台生产签名、隐私声明、公证/商店审查、分阶段发布和一键回滚演练通过 |
-| QA-003 | PARTIAL | UI automation harness、platform runners | Desktop 已真实走通三条非示例报价→目标价等待/达到→洞察证据→重启保留，以及既有记账/物品/洞察/导入路径；仍需导出/恢复/清除和全部流程在每个平台自动化通过，失败保留截图与隔离数据目录 |
+| QA-003 | PARTIAL | UI automation harness、platform runners | Desktop 已真实走通三条非示例报价→目标价等待/达到→洞察证据→重启保留，以及既有记账/物品/洞察/导入路径；清除全字段、Windows 受保护重开为空和防示例重播种已有自动化证明；仍需导出/恢复/清除的真实 UI 操作及全部流程在每个平台自动化通过，失败保留截图与隔离数据目录 |
 | QA-005 | PARTIAL | accessibility tooling、device matrix | UX-008 全矩阵通过且无 P0/P1 可访问性缺陷 |
 | QA-006 | PARTIAL | encrypted DB、representative low-end devices | 10 万流水首次载入/筛选/导入峰值分别低于预算，内存不超阈值，三次运行取中位数 |
 | QA-007 | TODO | external security review、store dry run | 高危漏洞为 0；加密备份恢复成功；四平台审核材料与回滚桌面演练签字完成 |

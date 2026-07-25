@@ -7,7 +7,7 @@
 
 - Encrypted desktop: `openDesktopProtectedLedger(dataDirectory)`
 - Encrypted Android: `openAndroidProtectedLedger(context, plaintextSource = ...)`
-- Encrypted iOS: `openIosProtectedLedger(applicationSupportDirectory, plaintextSource = ...)`
+- Encrypted iOS: `openIosProtectedLedger(applicationSupportDirectory)`
 - Plaintext development Room: `createDesktopLedgerRepository`, `createAndroidLedgerRepository`,
   and `createIosLedgerRepository`
 
@@ -73,12 +73,14 @@ missing while a key still exists, opening fails closed instead of creating an em
 trigger demo reseeding. A crash after first key provisioning but before the initial envelope commit also requires an
 explicit recovery/reset path; a durable initialization journal remains a pre-Beta recovery improvement.
 
-The Desktop application composition root now selects `openDesktopProtectedLedger` and fails closed when its platform
-key or authenticated envelope cannot be opened. Android and iOS still select the plaintext Room development factories.
-Their legacy Room retirement, encrypted-store performance on representative devices, Android store host/device
-execution, and Apple Keychain/file-coordination runtime validation remain required before their protected factories
-can become the default. The Apple implementations currently have cross-compilation and release-shrinking evidence, not
-a Keychain round trip on signed Apple hosts.
+The Desktop and iOS application composition roots now select their protected factories and fail closed when a platform
+key, authenticated envelope, or legacy migration cannot be opened. The iOS factory automatically detects the legacy
+Room database, snapshots it twice, and uses a retirement marker before removing SQLite sidecars. Its encrypted file is
+set to `NSFileProtectionComplete` and excluded from system backup after every atomic replacement so a device-only
+Keychain item is not separated from a restored envelope. Android still selects the plaintext Room development factory.
+Android retirement, encrypted-store performance on representative devices, Android host/device execution, and Apple
+Keychain/file-coordination runtime validation remain required. The Apple implementations currently have cross-
+compilation and release-shrinking evidence, not a Keychain round trip or migration run on signed Apple hosts.
 
 ## Verification
 

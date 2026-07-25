@@ -1,35 +1,33 @@
 package com.hengji.data
 
-import platform.Foundation.NSFileManager
-
 private const val IOS_LEDGER_KEY_ALIAS = "hengji-ledger-primary"
 
 /**
  * Opens the iOS encrypted persistence boundary.
  *
- * Existing Room artifacts require an explicit migration source. Until that source is supplied,
- * initialization fails without creating a second empty ledger.
+ * Existing Room artifacts are kept behind a recoverable migration source and are retired only
+ * after the encrypted target authenticates and matches a second plaintext snapshot.
  */
 suspend fun openIosProtectedLedger(
     applicationSupportDirectory: String,
     keyAlias: String = IOS_LEDGER_KEY_ALIAS,
-    plaintextSource: PlaintextLedgerMigrationSource? = null,
 ): ProtectedLedgerOpenResult {
     val root = applicationSupportDirectory.trimEnd('/')
     require(root.isNotBlank()) { "Application Support directory cannot be blank" }
-    val legacyPath = "$root/hengji.db"
-    val legacyArtifacts = listOf(
-        legacyPath,
-        "$legacyPath-wal",
-        "$legacyPath-shm",
-        "$legacyPath-journal",
-        "$legacyPath.hengji-retiring",
+    return openIosProtectedLedger(
+        applicationSupportDirectory = root,
+        keyAlias = keyAlias,
+        plaintextSource = IosRoomPlaintextMigrationSource.openIfPresent("$root/hengji.db"),
     )
-    if (plaintextSource == null && legacyArtifacts.any(NSFileManager.defaultManager::fileExistsAtPath)) {
-        throw StorageProtectionException(
-            "Legacy iOS plaintext storage exists but no verified migration source was provided",
-        )
-    }
+}
+
+internal suspend fun openIosProtectedLedger(
+    applicationSupportDirectory: String,
+    keyAlias: String,
+    plaintextSource: PlaintextLedgerMigrationSource?,
+): ProtectedLedgerOpenResult {
+    val root = applicationSupportDirectory.trimEnd('/')
+    require(root.isNotBlank()) { "Application Support directory cannot be blank" }
     return ProtectedLedgerRepository.open(
         store = IosAtomicProtectedLedgerStore(root),
         keyAlias = keyAlias,

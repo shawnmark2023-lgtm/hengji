@@ -8,7 +8,7 @@
 
 - Kotlin Multiplatform + Compose Multiplatform 共享领域与 UI。
 - 持久化仓储边界覆盖流水、资产、使用、报价、偏好和导入批次；Room KMP + bundled SQLite 保留为开发/迁移源。
-- AES-256-GCM 受保护账本仓储、Windows/Android/iOS 原子密文文件适配器，以及可中断恢复的 Desktop Room 明文迁移门禁；Windows/macOS Desktop 入口已 fail-closed 接入。
+- AES-256-GCM 受保护账本仓储、Windows/Android/iOS 原子密文文件适配器，以及可中断恢复的 Desktop/iOS Room 明文迁移门禁；Desktop 与 iOS 入口已 fail-closed 接入。
 - 五步导入中心：用户文件/明确沙箱 → 字段映射 → 预览去重 → 原子确认 → 整批撤销。
 - 完整 JSON 备份/恢复与防公式注入 CSV 导出。
 - 流水新增/编辑、资产与日均/单次使用成本、二手价格区间、支出占比和可解释建议。
@@ -27,7 +27,7 @@
 
 ## 隐私与安全边界
 
-首版无登录、默认不联网，不采集姓名、手机号、证件、通讯录、位置、广告标识或设备指纹。交易和资产记录即使不含直接身份字段，仍按敏感财务数据处理。Desktop 应用入口已使用平台密钥保护的认证密文仓储，并在失败时拒绝创建明文替代账本；密文账本缺失但平台密钥仍存在时也会阻止空账本重建。Android/iOS 入口仍是显式 Room 明文开发存储，切换其生产默认值前必须完成旧库迁移、真机运行和代表性数据量性能验收。
+首版无登录、默认不联网，不采集姓名、手机号、证件、通讯录、位置、广告标识或设备指纹。交易和资产记录即使不含直接身份字段，仍按敏感财务数据处理。Desktop 与 iOS 应用入口已使用平台密钥保护的认证密文仓储，并在失败时拒绝创建明文替代账本；密文账本缺失但平台密钥仍存在时也会阻止空账本重建。iOS 接线目前只有 Kotlin/Native 交叉编译证据，真实 Keychain、文件保护和迁移仍须 Apple runner/真机验证；Android 入口仍是显式 Room 明文开发存储。
 
 沙箱连接器、示例报价和本地文件导入不会伪装成平台实时同步。支付宝、微信、淘宝、京东、闲鱼等真实连接器只有在取得官方 scope、合同与审核后才能启用；禁止抓密码、复用 Cookie、调用私有 API 或违规爬取。
 
@@ -46,5 +46,5 @@ Windows 发行构建还要执行 Release 混淆后的真实启动冒烟；Room �
 - iOS/macOS 原生编译、真机、签名、公证和商店发布仍需 macOS + Xcode。
 - Windows MSI/免安装包未签名；Android APK 由 Android Debug 证书以 v2 方案签名，但未做生产发布签名，也未做设备安装/启动验证。
 - iOS 系统文件选择、JSON/CSV 导出与 JSON 恢复适配器已实现并通过 Kotlin/Native arm64/simulator 交叉编译；Swift host、Xcode 链接、模拟器/真机交互与签名仍需 macOS 验证。
-- Android/iOS 平台密钥真机验收、旧 Room 库迁移与应用入口切换，以及加密同步、灾难恢复和真实平台授权尚未完成；Desktop 使用受验证的复制迁移门禁，而移动端密文仓储不会把现有 bundled SQLite 文件原地变成密文。
+- Android 旧 Room 库迁移与应用入口切换、Android/iOS 平台密钥和迁移真机验收，以及加密同步、灾难恢复和真实平台授权尚未完成；Desktop 的复制迁移已在 Windows 实跑，iOS 同构迁移只完成交叉编译，不能据此声明设备迁移成功。
 - 演示二手报价不是实时市场价；没有授权的数据源不会在生产模式降级为沙箱。

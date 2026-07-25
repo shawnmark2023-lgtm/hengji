@@ -12,10 +12,13 @@ import platform.Foundation.NSFileCoordinator
 import platform.Foundation.NSFileCoordinatorWritingForReplacing
 import platform.Foundation.NSFileHandle
 import platform.Foundation.NSFileManager
+import platform.Foundation.NSFileProtectionComplete
+import platform.Foundation.NSFileProtectionKey
 import platform.Foundation.NSFileType
 import platform.Foundation.NSFileTypeDirectory
 import platform.Foundation.NSFileTypeRegular
 import platform.Foundation.NSURL
+import platform.Foundation.NSURLIsExcludedFromBackupKey
 import platform.Foundation.dataWithBytes
 import platform.Foundation.dataWithContentsOfFile
 import platform.Foundation.fileHandleForWritingToURL
@@ -90,6 +93,7 @@ class IosAtomicProtectedLedgerStore(
                         } finally {
                             handle.closeAndReturnError(error = null)
                         }
+                        applyDeviceOnlyFilePolicy(destination)
                         committed = true
                     }
                 } catch (error: Throwable) {
@@ -111,6 +115,7 @@ class IosAtomicProtectedLedgerStore(
     private fun readEnvelopeLocked(): String? {
         if (!fileManager.fileExistsAtPath(targetPath)) return null
         requireFileType(targetPath, NSFileTypeRegular, "Encrypted ledger")
+        applyDeviceOnlyFilePolicy(targetUrl)
         val data = NSData.dataWithContentsOfFile(targetPath)
             ?: throw StorageProtectionException("Encrypted ledger could not be read")
         val size = data.length
@@ -139,6 +144,26 @@ class IosAtomicProtectedLedgerStore(
             if (!created) throw StorageProtectionException("Encrypted ledger root could not be created")
         }
         requireFileType(root, NSFileTypeDirectory, "Encrypted ledger root")
+    }
+
+    private fun applyDeviceOnlyFilePolicy(url: NSURL) {
+        val path = requireNotNull(url.path) { "Encrypted ledger destination has no filesystem path" }
+        val protected = fileManager.setAttributes(
+            attributes = mapOf(NSFileProtectionKey to NSFileProtectionComplete),
+            ofItemAtPath = path,
+            error = null,
+        )
+        if (!protected) {
+            throw StorageProtectionException("Encrypted ledger file protection could not be applied")
+        }
+        if (!url.setResourceValue(true, forKey = NSURLIsExcludedFromBackupKey, error = null)) {
+            throw StorageProtectionException("Encrypted ledger backup exclusion could not be applied")
+        }
+        val attributes = fileManager.attributesOfItemAtPath(path, error = null)
+            ?: throw StorageProtectionException("Encrypted ledger attributes are unavailable after publication")
+        if (attributes[NSFileProtectionKey] != NSFileProtectionComplete) {
+            throw StorageProtectionException("Encrypted ledger file protection could not be verified")
+        }
     }
 
     private fun requireFileType(

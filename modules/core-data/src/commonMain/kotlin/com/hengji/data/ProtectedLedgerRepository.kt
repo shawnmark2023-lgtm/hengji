@@ -49,6 +49,7 @@ enum class ProtectedLedgerOpenOutcome {
     OPENED_EXISTING,
     CREATED_EMPTY,
     MIGRATED_PLAINTEXT,
+    COMPLETED_INTERRUPTED_INITIALIZATION,
     COMPLETED_INTERRUPTED_MIGRATION,
 }
 
@@ -324,15 +325,18 @@ class ProtectedLedgerRepository private constructor(
             store: ProtectedLedgerStore,
             keyAlias: String,
             keyProvider: ProvisioningDatabaseKeyProvider,
+            initializationJournal: ProtectedLedgerInitializationJournal =
+                KeyBackedProtectedLedgerInitializationJournal(keyAlias, keyProvider),
             cipher: PayloadCipher = Aes256GcmPayloadCipher(),
             plaintextSource: PlaintextLedgerMigrationSource? = null,
         ): ProtectedLedgerOpenResult {
             requireValidDatabaseKeyAlias(keyAlias)
             val codec = ProtectedLedgerPayloadCodec(keyAlias, keyProvider, cipher)
             val existingEnvelope = store.readEnvelope()
-            val sourceSnapshot = plaintextSource?.snapshotForMigration()
+            val initializationState = initializationJournal.readState()
 
             if (existingEnvelope != null) {
+                val sourceSnapshot = plaintextSource?.snapshotForMigration()
                 val restored = codec.restoreEnvelope(existingEnvelope)
                 validateLedgerSnapshot(restored)
                 if (plaintextSource != null) {
@@ -341,22 +345,46 @@ class ProtectedLedgerRepository private constructor(
                     }
                     plaintextSource.retireAfterVerifiedMigration()
                 }
+                markInitializationReady(initializationJournal, initializationState)
                 return ProtectedLedgerOpenResult(
                     repository = ProtectedLedgerRepository(store, codec, existingEnvelope, restored),
-                    outcome = if (plaintextSource == null) {
-                        ProtectedLedgerOpenOutcome.OPENED_EXISTING
-                    } else {
-                        ProtectedLedgerOpenOutcome.COMPLETED_INTERRUPTED_MIGRATION
+                    outcome = when {
+                        plaintextSource != null ->
+                            ProtectedLedgerOpenOutcome.COMPLETED_INTERRUPTED_MIGRATION
+
+                        initializationState == ProtectedLedgerInitializationState.INITIALIZING_FRESH ||
+                            initializationState == ProtectedLedgerInitializationState.INITIALIZING_MIGRATION ->
+                            ProtectedLedgerOpenOutcome.COMPLETED_INTERRUPTED_INITIALIZATION
+
+                        else -> ProtectedLedgerOpenOutcome.OPENED_EXISTING
                     },
                 )
             }
 
+            if (initializationState == ProtectedLedgerInitializationState.READY) {
+                throw StorageProtectionException(
+                    "A protected ledger was initialized but its encrypted envelope is missing; " +
+                        "automatic replacement is forbidden",
+                )
+            }
+
+            val sourceSnapshot = plaintextSource?.snapshotForMigration()
             if (plaintextSource != null && sourceSnapshot == null) {
                 throw StorageProtectionException(
                     "Plaintext retirement artifacts exist without an encrypted ledger; manual recovery is required",
                 )
             }
-            if (plaintextSource == null) {
+            val requiredInitializationState = if (sourceSnapshot == null) {
+                ProtectedLedgerInitializationState.INITIALIZING_FRESH
+            } else {
+                ProtectedLedgerInitializationState.INITIALIZING_MIGRATION
+            }
+            if (initializationState != null && initializationState != requiredInitializationState) {
+                throw StorageProtectionException(
+                    "Protected ledger initialization mode conflicts with the available migration source",
+                )
+            }
+            if (initializationState == null && plaintextSource == null) {
                 val orphanedKey = keyProvider.loadKey(keyAlias)
                 if (orphanedKey != null) {
                     orphanedKey.destroy()
@@ -366,6 +394,11 @@ class ProtectedLedgerRepository private constructor(
                     )
                 }
             }
+            ensureInitializationStarted(
+                journal = initializationJournal,
+                observedState = initializationState,
+                requiredState = requiredInitializationState,
+            )
             val provisioned = keyProvider.loadOrCreateKey(keyAlias)
             provisioned.destroy()
             val initial = sourceSnapshot ?: emptyLedgerSnapshot()
@@ -381,6 +414,7 @@ class ProtectedLedgerRepository private constructor(
                 if (committedSnapshot != sourceSnapshot) throw PlaintextLedgerMigrationConflictException()
                 plaintextSource.retireAfterVerifiedMigration()
             }
+            markInitializationReady(initializationJournal, requiredInitializationState)
             return ProtectedLedgerOpenResult(
                 repository = ProtectedLedgerRepository(store, codec, committedEnvelope, committedSnapshot),
                 outcome = if (sourceSnapshot == null) {
@@ -390,6 +424,33 @@ class ProtectedLedgerRepository private constructor(
                 },
             )
         }
+    }
+}
+
+private suspend fun ensureInitializationStarted(
+    journal: ProtectedLedgerInitializationJournal,
+    observedState: ProtectedLedgerInitializationState?,
+    requiredState: ProtectedLedgerInitializationState,
+) {
+    if (observedState == requiredState) return
+    check(observedState == null)
+    if (journal.compareAndSwap(null, requiredState)) return
+    val racedState = journal.readState()
+    if (racedState != requiredState) {
+        throw StorageProtectionException(
+            "Protected ledger initialization raced with an incompatible state transition",
+        )
+    }
+}
+
+private suspend fun markInitializationReady(
+    journal: ProtectedLedgerInitializationJournal,
+    observedState: ProtectedLedgerInitializationState?,
+) {
+    if (observedState == ProtectedLedgerInitializationState.READY) return
+    if (journal.compareAndSwap(observedState, ProtectedLedgerInitializationState.READY)) return
+    if (journal.readState() != ProtectedLedgerInitializationState.READY) {
+        throw StorageProtectionException("Protected ledger initialization could not be marked ready")
     }
 }
 

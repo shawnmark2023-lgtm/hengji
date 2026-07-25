@@ -1,39 +1,42 @@
 package com.hengji.data
 
 import android.content.Context
-import java.io.File
 
 private const val ANDROID_LEDGER_KEY_ALIAS = "hengji-ledger-primary"
 
 /**
  * Opens the Android encrypted persistence boundary.
  *
- * A caller migrating an existing Room database must provide its migration source explicitly.
- * Legacy artifacts without that source fail closed instead of creating an unrelated empty ledger.
+ * Existing Room artifacts are detected inside the data boundary and retired only after the
+ * encrypted target authenticates and matches a second plaintext snapshot.
  */
 suspend fun openAndroidProtectedLedger(
     context: Context,
     keyAlias: String = ANDROID_LEDGER_KEY_ALIAS,
-    plaintextSource: PlaintextLedgerMigrationSource? = null,
 ): ProtectedLedgerOpenResult {
     val applicationContext = context.applicationContext
-    val legacyDatabase = applicationContext.getDatabasePath("hengji.db").absoluteFile
-    val legacyArtifacts = listOf(
-        legacyDatabase,
-        File("${legacyDatabase.path}-wal"),
-        File("${legacyDatabase.path}-shm"),
-        File("${legacyDatabase.path}-journal"),
-        File("${legacyDatabase.path}.hengji-retiring"),
+    return openAndroidProtectedLedger(
+        context = applicationContext,
+        keyAlias = keyAlias,
+        plaintextSource = AndroidRoomPlaintextMigrationSource.openIfPresent(applicationContext),
     )
-    if (plaintextSource == null && legacyArtifacts.any(File::exists)) {
-        throw StorageProtectionException(
-            "Legacy Android plaintext storage exists but no verified migration source was provided",
-        )
-    }
+}
+
+internal suspend fun openAndroidProtectedLedger(
+    context: Context,
+    keyAlias: String,
+    plaintextSource: PlaintextLedgerMigrationSource?,
+): ProtectedLedgerOpenResult {
+    val applicationContext = context.applicationContext
+    val keyProvider = AndroidKeystoreDatabaseKeyProvider(applicationContext)
     return ProtectedLedgerRepository.open(
         store = AndroidAtomicProtectedLedgerStore(applicationContext),
+        initializationJournal = KeyBackedProtectedLedgerInitializationJournal(
+            keyAlias = keyAlias,
+            keyProvider = keyProvider,
+        ),
         keyAlias = keyAlias,
-        keyProvider = AndroidKeystoreDatabaseKeyProvider(applicationContext),
+        keyProvider = keyProvider,
         plaintextSource = plaintextSource,
     )
 }

@@ -28,10 +28,15 @@ internal suspend fun openIosProtectedLedger(
 ): ProtectedLedgerOpenResult {
     val root = applicationSupportDirectory.trimEnd('/')
     require(root.isNotBlank()) { "Application Support directory cannot be blank" }
+    val keyProvider = IosKeychainDatabaseKeyProvider()
     return ProtectedLedgerRepository.open(
         store = IosAtomicProtectedLedgerStore(root),
+        initializationJournal = KeyBackedProtectedLedgerInitializationJournal(
+            keyAlias = keyAlias,
+            keyProvider = keyProvider,
+        ),
         keyAlias = keyAlias,
-        keyProvider = IosKeychainDatabaseKeyProvider(),
+        keyProvider = keyProvider,
         plaintextSource = plaintextSource,
     )
 }

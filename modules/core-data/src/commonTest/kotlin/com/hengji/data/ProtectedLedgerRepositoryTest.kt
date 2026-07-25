@@ -141,6 +141,122 @@ class ProtectedLedgerRepositoryTest {
     }
 
     @Test
+    fun protectedPendingMarkerRecoversCrashAfterKeyProvisioning() = runProtectedTest {
+        val store = MemoryProtectedLedgerStore()
+        val keys = TestProvisioningKeyProvider()
+        val journal = KeyBackedProtectedLedgerInitializationJournal("ledger-primary", keys)
+        assertTrue(
+            journal.compareAndSwap(
+                null,
+                ProtectedLedgerInitializationState.INITIALIZING_FRESH,
+            ),
+        )
+        keys.loadOrCreateKey("ledger-primary").destroy()
+
+        val recovered = ProtectedLedgerRepository.open(
+            store = store,
+            keyAlias = "ledger-primary",
+            keyProvider = keys,
+            initializationJournal = journal,
+        )
+
+        assertEquals(ProtectedLedgerOpenOutcome.CREATED_EMPTY, recovered.outcome)
+        assertEquals(ProtectedLedgerInitializationState.READY, journal.readState())
+        assertTrue(recovered.repository.snapshot().transactions.isEmpty())
+    }
+
+    @Test
+    fun readyMarkerWithMissingEnvelopeStillFailsClosed() = runProtectedTest {
+        val store = MemoryProtectedLedgerStore()
+        val keys = TestProvisioningKeyProvider()
+        val journal = KeyBackedProtectedLedgerInitializationJournal("ledger-primary", keys)
+        assertTrue(
+            journal.compareAndSwap(
+                null,
+                ProtectedLedgerInitializationState.INITIALIZING_FRESH,
+            ),
+        )
+        assertTrue(
+            journal.compareAndSwap(
+                ProtectedLedgerInitializationState.INITIALIZING_FRESH,
+                ProtectedLedgerInitializationState.READY,
+            ),
+        )
+
+        assertFailsWith<StorageProtectionException> {
+            runProtectedTest {
+                ProtectedLedgerRepository.open(
+                    store = store,
+                    keyAlias = "ledger-primary",
+                    keyProvider = keys,
+                    initializationJournal = journal,
+                )
+            }
+        }
+        assertEquals(null, store.envelope)
+    }
+
+    @Test
+    fun migrationPendingMarkerCannotBecomeFreshEmptyLedger() = runProtectedTest {
+        val store = MemoryProtectedLedgerStore()
+        val keys = TestProvisioningKeyProvider()
+        val journal = KeyBackedProtectedLedgerInitializationJournal("ledger-primary", keys)
+        assertTrue(
+            journal.compareAndSwap(
+                null,
+                ProtectedLedgerInitializationState.INITIALIZING_MIGRATION,
+            ),
+        )
+
+        assertFailsWith<StorageProtectionException> {
+            runProtectedTest {
+                ProtectedLedgerRepository.open(
+                    store = store,
+                    keyAlias = "ledger-primary",
+                    keyProvider = keys,
+                    initializationJournal = journal,
+                )
+            }
+        }
+        assertEquals(null, store.envelope)
+    }
+
+    @Test
+    fun authenticatedEnvelopeCompletesInterruptedReadyTransition() = runProtectedTest {
+        val store = MemoryProtectedLedgerStore()
+        val keys = TestProvisioningKeyProvider()
+        val protectedJournal = KeyBackedProtectedLedgerInitializationJournal("ledger-primary", keys)
+        val failingJournal = FailingReadyInitializationJournal(protectedJournal)
+
+        assertFailsWith<StorageProtectionException> {
+            runProtectedTest {
+                ProtectedLedgerRepository.open(
+                    store = store,
+                    keyAlias = "ledger-primary",
+                    keyProvider = keys,
+                    initializationJournal = failingJournal,
+                )
+            }
+        }
+        assertTrue(store.envelope != null)
+        assertEquals(
+            ProtectedLedgerInitializationState.INITIALIZING_FRESH,
+            protectedJournal.readState(),
+        )
+
+        failingJournal.failReadyTransition = false
+        val recovered = ProtectedLedgerRepository.open(
+            store = store,
+            keyAlias = "ledger-primary",
+            keyProvider = keys,
+            initializationJournal = failingJournal,
+        )
+
+        assertEquals(ProtectedLedgerOpenOutcome.COMPLETED_INTERRUPTED_INITIALIZATION, recovered.outcome)
+        assertEquals(ProtectedLedgerInitializationState.READY, protectedJournal.readState())
+    }
+
+    @Test
     fun importCommitIsIdempotentAndRollbackOnlyRemovesInsertedRows() = runProtectedTest {
         val store = MemoryProtectedLedgerStore()
         val repository = ProtectedLedgerRepository.open(
@@ -175,6 +291,22 @@ class ProtectedLedgerRepositoryTest {
     }
 }
 
+private class FailingReadyInitializationJournal(
+    private val delegate: ProtectedLedgerInitializationJournal,
+) : ProtectedLedgerInitializationJournal {
+    var failReadyTransition = true
+
+    override suspend fun readState(): ProtectedLedgerInitializationState? = delegate.readState()
+
+    override suspend fun compareAndSwap(
+        expectedState: ProtectedLedgerInitializationState?,
+        replacementState: ProtectedLedgerInitializationState,
+    ): Boolean {
+        if (failReadyTransition && replacementState == ProtectedLedgerInitializationState.READY) return false
+        return delegate.compareAndSwap(expectedState, replacementState)
+    }
+}
+
 private class MemoryProtectedLedgerStore : ProtectedLedgerStore {
     var envelope: String? = null
     var rejectNextWrite: Boolean = false
@@ -193,18 +325,23 @@ private class MemoryProtectedLedgerStore : ProtectedLedgerStore {
 }
 
 private class TestProvisioningKeyProvider(
-    private var keyAvailable: Boolean = false,
+    keyAvailable: Boolean = false,
 ) : ProvisioningDatabaseKeyProvider {
     var provisionCount: Int = 0
         private set
     private val key = ByteArray(32) { 42 }
+    private val availableAliases = mutableSetOf<String>().apply {
+        if (keyAvailable) add("ledger-primary")
+    }
 
     override suspend fun loadKey(alias: String): DatabaseKeyMaterial? =
-        if (keyAvailable) DatabaseKeyMaterial(key) else null
+        if (alias in availableAliases) DatabaseKeyMaterial(key) else null
 
     override suspend fun loadOrCreateKey(alias: String): DatabaseKeyMaterial {
-        provisionCount += 1
-        keyAvailable = true
+        if (alias !in availableAliases) {
+            availableAliases += alias
+            if (alias == "ledger-primary") provisionCount += 1
+        }
         return DatabaseKeyMaterial(key)
     }
 }

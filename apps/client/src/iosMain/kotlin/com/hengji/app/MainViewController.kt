@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.uikit.LocalUIViewController
 import androidx.compose.ui.window.ComposeUIViewController
 import com.hengji.app.theme.HengjiTheme
+import com.hengji.data.ProtectedLedgerOpenOutcome
 import com.hengji.data.ProtectedLedgerOpenResult
 import com.hengji.data.openIosProtectedLedger
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -81,6 +82,7 @@ fun MainViewController(): UIViewController {
                 repository = state.result.repository,
                 userImportDocumentPicker = importDocumentPicker,
                 ledgerExportWriter = ledgerExportWriter,
+                seedDemoData = state.result.outcome == ProtectedLedgerOpenOutcome.CREATED_EMPTY,
             )
 
             IosStorageState.Failed -> IosStorageStartupStatus(

@@ -21,7 +21,7 @@
 - [x] `DAT-001` P0 suspend 仓储接口、内存测试实现与 Room KMP/bundled SQLite 持久化实现。
 - [x] `DAT-002` P0 schema v2、v0→v1→v2 导出恢复、显式 Room 1→2 迁移、样例数据、幂等导入、去重和原子撤销批次。
 - [x] `DAT-003` P0 完整 JSON 导出/恢复与防公式注入 CSV 导出。
-- [ ] `DAT-004` P1 已实现跨平台 AES-256-GCM 账本封装及 Windows DPAPI、Android Keystore、iOS/macOS Keychain 数据密钥保护；Desktop/iOS 入口与可恢复明文迁移已接入，Android 入口和旧库迁移、Apple/Android 平台运行验收仍是 Beta 门禁。
+- [ ] `DAT-004` P1 已实现跨平台 AES-256-GCM 账本封装及 Windows DPAPI、Android Keystore、iOS/macOS Keychain 数据密钥保护；三平台入口、可恢复 Room 明文迁移和受保护初始化 journal 已接入，Apple/Android 平台运行验收、原子 key+bootstrap record、轮换与灾难恢复仍是 Beta 门禁。
 
 ## C. 用户体验
 
@@ -92,7 +92,7 @@
 | --- | --- | --- | --- |
 | FND-003 | PARTIAL | 远端 dependency-integrity CI、可复现产物清单 | 主构建与独立 quality harness 严格解析通过；桌面发行配置按 Windows/Linux/macOS 架构分档锁定；当前 Windows Release 便携包记录源码提交、大小与 SHA-256；仍需干净环境连续两次构建依赖与产物清单一致 |
 | FND-004 | PARTIAL | formatter、coverage engine | Kotlin/TS/Python 格式化检查为 0；核心领域与导入模块达到约定分支覆盖率，CI 失败时阻断 |
-| DAT-004 | PARTIAL | Android 入口/迁移、Apple/Android 平台 runner | AES-256-GCM envelope 已绑定版本/算法/密钥别名；Windows DPAPI、Android Keystore 与 iOS/macOS Keychain 边界均已实现且不允许明文降级；Desktop/iOS 入口、Room 明文→密文复制迁移及中断恢复已接入，iOS 密文设置 Complete File Protection 并排除系统备份；仍需 Android 接线、Apple/Android 运行验收、轮换与灾难恢复 |
+| DAT-004 | PARTIAL | Apple/Android 平台 runner、provider v2 journal、轮换/恢复 | AES-256-GCM envelope 已绑定版本/算法/密钥别名；Windows DPAPI、Android Keystore 与 iOS/macOS Keychain 边界均已实现且不允许明文降级；Desktop/Android/iOS 入口、Room 明文→密文复制迁移及中断恢复已接入；受保护初始化标记区分全新/迁移/就绪且迁移不能静默变空；iOS 密文设置 Complete File Protection 并排除系统备份，Android 排除备份与设备迁移；仍需平台设备运行验收、原子 key+bootstrap record、抗回滚、轮换与灾难恢复 |
 | UX-006 | PARTIAL | macOS/Xcode runner、iOS simulator/device evidence | iOS 真机选择 CSV/JSON，完成映射/预览/提交/重复重试/整批撤销，全程不申请无关权限 |
 | UX-007 | PARTIAL | macOS/Xcode runner、iOS simulator/device evidence | iOS 真机导出 JSON/CSV 到用户选定位置并从 JSON 恢复；清除后重启仍为空 |
 | UX-008 | PARTIAL | platform screen readers、focus order、contrast audit | 主要交互已有角色/选中/标题/状态语义，表单错误可读，200% 字体可重排，Reduce Motion 可抑制不确定动画；VoiceOver/TalkBack/Narrator、仅键盘、深浅色和对比度清单仍须 100% 通过 |
@@ -105,7 +105,7 @@
 | PRI-005 | TODO | 官方 API 或授权聚合合同 | 0 个抓取/私有 API；缓存 TTL、来源、运费、币种、成色和删除 SLA 均可审计 |
 | PRI-006 | TODO | notification permissions、price history | 提醒阈值、冷却期、撤销和过期报价行为通过；通知不含敏感流水原文 |
 | SEC-003 | PARTIAL | iOS simulator/device privacy and restart evidence | Desktop/Android/iOS 都能导出、恢复、清除并跨重启验证；网络计数为 0 时界面可见 |
-| SEC-004 | PARTIAL | Android/Apple 平台 runner | Windows 当前用户 DPAPI 已完成真实与混淆产物往返；Android 已实现非导出 Keystore 包装密钥与 no-backup 保护物；iOS/macOS 已实现不迁移、不同步、仅解锁可用的 Keychain 项，macOS 使用 data-protection Keychain；仍需 Android/Apple 往返及锁屏、备份、卸载、轮换验收 |
+| SEC-004 | PARTIAL | Android/Apple 平台 runner | Windows 当前用户 DPAPI 已完成真实与混淆产物往返；Android 已实现非导出 Keystore 包装密钥、no-backup 保护物、备份/设备迁移排除规则，42 个 host 用例和受保护入口构建通过；iOS/macOS 已实现不迁移、不同步、仅解锁可用的 Keychain 项，macOS 使用 data-protection Keychain；仍需 Android/Apple 往返及锁屏、备份、卸载、轮换验收 |
 | SEC-005 | TODO | account backend、Passkey/SIWA | 注册/验证/恢复/2FA/会话撤销/设备丢失演练通过，且不破坏无账号本地模式 |
 | SEC-006 | TODO | E2EE protocol、sync engine | 双设备离线冲突、密钥轮换、恢复短语、灾难恢复和服务端不可读性测试通过 |
 | REL-001 | TODO | Apple/Google/Microsoft signing accounts | 四平台生产签名、隐私声明、公证/商店审查、分阶段发布和一键回滚演练通过 |
@@ -143,7 +143,7 @@
 | PRI-001..004 | domain / Python service | 来源、运费、四分位、离群值、新鲜度；低置信度单点隐藏测试通过 |
 | SEC-001..002 | threat model / CI | 威胁模型、secret guard、脱敏 token、生产 fail-closed 测试通过 |
 | QA-001 | domain tests | 金额、退款、零使用、残值、跨期、溢出和低置信度边界通过 |
-| QA-004 | Gradle / Android SDK | Desktop 编译运行；Android Debug APK 构建曾通过但当前未保留交付文件；iOS source-set 元数据通过；Apple 原生仍仅配置 CI、未声称通过 |
+| QA-004 | Gradle / Android SDK | Desktop 编译运行；Android lint、Debug APK 与未签名 R8 Release 构建通过，Debug APK 已保留；iOS arm64/simulator arm64 Kotlin klib 通过；Apple 原生仍仅配置 CI、未声称通过 |
 | FND-002 | quality gates | 自动依赖方向与禁止依赖扫描通过，机器可读证据写入 `quality/evidence` |
 | UX-003 | application gateway | 流水写入后首页与列表更新，重启后记录和总额仍存在 |
 | QA-002 | export/import guards | 完整导出/恢复、公式中和及 8 类畸形输入契约通过 |

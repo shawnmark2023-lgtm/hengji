@@ -17,6 +17,7 @@ import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.hengji.app.theme.HengjiTheme
+import com.hengji.data.ProtectedLedgerOpenOutcome
 import com.hengji.data.openDesktopProtectedLedger
 import java.io.File
 import kotlinx.coroutines.runBlocking
@@ -45,6 +46,7 @@ fun main() {
                         repository = opened.repository,
                         userImportDocumentPicker = remember { DesktopImportDocumentPicker() },
                         ledgerExportWriter = remember { DesktopLedgerExportWriter() },
+                        seedDemoData = opened.outcome == ProtectedLedgerOpenOutcome.CREATED_EMPTY,
                     )
                 },
                 onFailure = {

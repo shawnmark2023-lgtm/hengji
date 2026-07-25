@@ -64,7 +64,7 @@
 | T13 | 错误响应回显原始交易或内部堆栈 | 隐私/实现泄露 | 稳定错误码 + request ID；500 使用通用文案 | 集中脱敏日志与响应快照测试 |
 | T14 | 依赖、CI 或签名供应链被篡改 | 恶意发行包 | 锁文件、最小依赖、CI 测试、禁止提交密钥 | SBOM、依赖审查、固定 action SHA、隔离签名 runner |
 | T15 | 日后账户恢复绕过、设备撤销失效 | 云端账本泄露 | 首版无账户/云同步，攻击面不存在 | Passkey、恢复码、设备清单、会话/密钥吊销专项评审 |
-| T16 | 本地数据库、备份或临时文件被离线复制/篡改 | 高敏财务明文泄露、静默数据操纵 | 受保护账本 envelope 使用 AES-256-GCM、随机 96-bit nonce、版本/算法/密钥别名 AAD、大小上限与 fail-closed；密文缺失但平台密钥仍在时禁止空账本重建；Windows 用当前用户 DPAPI；Android 用不可导出 Keystore AES 密钥和 no-backup 保护物；iOS/macOS 用不迁移、不同步、仅解锁可用的 Keychain 项；iOS 密文设置 Complete File Protection 并排除系统备份；Desktop/iOS 入口已受保护，Android Room 仍仅限开发明文策略 | 持久初始化 journal、Android Room 明文→密文原子迁移、错钥/轮换/崩溃恢复与 Android/Apple 设备验收 |
+| T16 | 本地数据库、备份或临时文件被离线复制/篡改 | 高敏财务明文泄露、静默数据操纵 | 受保护账本 envelope 使用 AES-256-GCM、随机 96-bit nonce、版本/算法/密钥别名 AAD、大小上限与 fail-closed；平台保护的单调初始化标记区分全新、迁移与就绪，迁移中断不能静默变成空账本；Windows 用当前用户 DPAPI；Android 用不可导出 Keystore AES 密钥和 no-backup 保护物，并排除系统备份/设备迁移；iOS/macOS 用不迁移、不同步、仅解锁可用的 Keychain 项；iOS 密文设置 Complete File Protection 并排除系统备份；三平台入口均只打开受保护仓储 | Android/Apple 设备验收；原子 key+bootstrap record、抗回滚、错钥/轮换、崩溃与灾难恢复 |
 
 ## 5. OAuth 上线约束
 
@@ -91,4 +91,4 @@
 
 P0 门禁：导入边界/公式/去重/撤销测试，沙箱非实时不变量测试，网关 state 一次性与过期测试，服务请求体限制，生产模式 fail-closed，仓库 secret 扫描。iOS/macOS 签名、Keychain、FinanceKit entitlement、Android SMS 例外和真实 OAuth 均不能在 Windows 首轮构建中宣称完成。
 
-剩余高风险项：Desktop/iOS 已接入 AES-256-GCM 受保护账本及可恢复旧库迁移，但 Android 入口/迁移尚未完成，Apple 平台真实 Keychain、File Protection、备份排除和迁移行为也只有交叉编译证据；批次撤销与用户后续编辑的冲突策略待持久化层实现；沙箱网关为单进程内存 state；服务未配置真实 vault/限流/集中审计；真实平台 scope 尚未取得。这些都必须在对应生产开关开启前关闭或书面接受。
+剩余高风险项：Desktop/Android/iOS 均已接入 AES-256-GCM 受保护账本及可恢复旧库迁移，但 Android 只有主机测试/构建证据，Apple 只有交叉编译证据；真实 Keystore/Keychain、文件保护、备份/设备迁移、锁屏、卸载与升级行为仍未设备验收，初始化 journal 也尚未升级为原子 key+bootstrap record 或提供系统级抗回滚。批次撤销与用户后续编辑的冲突策略待持久化层实现；沙箱网关为单进程内存 state；服务未配置真实 vault/限流/集中审计；真实平台 scope 尚未取得。这些都必须在对应生产开关开启前关闭或书面接受。

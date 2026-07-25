@@ -107,9 +107,10 @@ fun HengjiApp(
     repository: PersistentLedgerRepository,
     userImportDocumentPicker: UserImportDocumentPicker = UnavailableUserImportDocumentPicker,
     ledgerExportWriter: LedgerExportWriter = PreviewOnlyLedgerExportWriter,
+    seedDemoData: Boolean = false,
 ) {
     val gateway = remember(repository) { PersistentAppLedgerGateway(repository) }
-    HengjiApp(gateway, userImportDocumentPicker, ledgerExportWriter)
+    HengjiApp(gateway, userImportDocumentPicker, ledgerExportWriter, seedDemoData)
 }
 
 @Composable
@@ -117,6 +118,7 @@ fun HengjiApp(
     gateway: AppLedgerGateway,
     userImportDocumentPicker: UserImportDocumentPicker = UnavailableUserImportDocumentPicker,
     ledgerExportWriter: LedgerExportWriter = PreviewOnlyLedgerExportWriter,
+    seedDemoData: Boolean = false,
 ) {
     var destination by rememberSaveable { mutableStateOf(AppDestination.Overview) }
     var darkThemeOverride by rememberSaveable { mutableStateOf<Boolean?>(null) }
@@ -149,7 +151,7 @@ fun HengjiApp(
         try {
             var loaded = gateway.snapshot()
             val pristine = loaded.revision == 0L && loaded.transactions.isEmpty() && loaded.assets.isEmpty()
-            if (pristine) {
+            if (seedDemoData && pristine) {
                 gateway.replaceWith(DomainDemoData.initialSnapshot)
                 loaded = gateway.snapshot()
             }
@@ -377,7 +379,7 @@ fun HengjiApp(
                         onClearData = { confirmClear = true },
                         onOpenImport = { showImportWizard = true },
                         storageStatus = if (gateway is PersistentAppLedgerGateway) {
-                            "SQLite 已跨重启持久化 · 当前开发构建未启用应用层加密"
+                            "认证加密账本已跨重启持久化 · 平台密钥保护"
                         } else {
                             "内存预览 · 关闭后不保留"
                         },

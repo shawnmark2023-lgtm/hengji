@@ -85,13 +85,13 @@ class JvmAtomicProtectedLedgerStoreTest {
 
 private class DesktopTestKeyProvider : ProvisioningDatabaseKeyProvider {
     private val key = ByteArray(32) { 17 }
-    private var available = false
+    private val availableAliases = mutableSetOf<String>()
 
     override suspend fun loadKey(alias: String): DatabaseKeyMaterial? =
-        if (available) DatabaseKeyMaterial(key) else null
+        if (alias in availableAliases) DatabaseKeyMaterial(key) else null
 
     override suspend fun loadOrCreateKey(alias: String): DatabaseKeyMaterial {
-        available = true
+        availableAliases += alias
         return DatabaseKeyMaterial(key)
     }
 }

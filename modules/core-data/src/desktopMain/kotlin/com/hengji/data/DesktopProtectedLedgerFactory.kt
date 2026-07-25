@@ -30,8 +30,13 @@ suspend fun openDesktopProtectedLedger(
             "No audited protected database-key provider is available for this desktop operating system",
         )
     }
+    val initializationJournal = KeyBackedProtectedLedgerInitializationJournal(
+        keyAlias = keyAlias,
+        keyProvider = keyProvider,
+    )
     return ProtectedLedgerRepository.open(
         store = JvmAtomicProtectedLedgerStore(root.resolve("hengji.ledger.hjenc")),
+        initializationJournal = initializationJournal,
         keyAlias = keyAlias,
         keyProvider = keyProvider,
         plaintextSource = JvmRoomPlaintextMigrationSource.openIfPresent(root.resolve("hengji.db")),

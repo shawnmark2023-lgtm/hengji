@@ -5,11 +5,11 @@
 ## 当前已验证基础
 
 - [x] Room KMP/bundled SQLite 跨重启持久化、schema v1、备份/恢复、批次回滚。
-- [x] 自动架构/secret/沙箱门禁、87 个 Kotlin 测试、8 类畸形导入、10 万流水开发基线。
-- [x] Android Debug APK 构建；Windows Release 免安装包启动；MSI 生成、行政解包并启动。
+- [x] 自动架构/secret/沙箱门禁、115 个 Desktop Kotlin 测试、42 个 Android host 测试、8 类畸形导入、10 万流水开发基线。
+- [x] Android lint、Debug APK 与未签名 R8 Release 构建；Windows Release 免安装包启动。
 - [x] iOS 客户端与数据层 source-set 元数据及 arm64/simulator Kotlin klib 交叉编译；此项不代表 Xcode 链接、真机或签名通过。
 - [x] 真实 UI 走通新增流水→关闭→重启保留，以及五步导入→原子写入→整批撤销。
-- [ ] 应用层数据库加密、平台密钥实现与加密迁移/恢复。
+- [ ] 应用层加密、平台密钥与三平台明文迁移均已实现；仍待 Android/Apple 设备验收、原子 key+bootstrap record、轮换与灾难恢复。
 - [ ] 签名、商店/公证、真实平台授权、账号验证与端到端加密同步。
 
 ## 通用门禁
@@ -40,7 +40,7 @@
 - [ ] Data Safety 与实际 SDK/网络字段一致。
 - [ ] 若启用金融短信导入，先取得 SMS 权限声明批准；无批准版本不声明权限。
 - [ ] TalkBack、大字体、预测返回、不同窗口尺寸和低端设备通过。
-- [ ] Keystore、App Link、备份规则和截屏保护策略验证。
+- [ ] Keystore、App Link、备份/设备迁移排除规则和截屏保护策略设备验证；当前仅有主机测试、lint 与构建证据。
 
 ## macOS
 
@@ -51,7 +51,8 @@
 
 ## Windows
 
-- [x] Release 免安装包真实启动；MSI 生成、Windows Installer 行政解包并从解包结果启动。
+- [x] Release 免安装包真实启动；最新源码的 `runRelease` 首次启动/重启不重写密文。
+- [ ] MSI 生成、Windows Installer 行政解包并从解包结果启动。
 - [ ] 代码签名、SmartScreen、真实安装/升级/卸载和数据保留策略验证。
 - [ ] 日常升级不要求管理员权限的分发策略确定。
 - [ ] 键盘、屏幕阅读器、高对比度、125%–300% 缩放和触控设备验证。

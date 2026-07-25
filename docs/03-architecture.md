@@ -57,14 +57,15 @@ hengji/
 
 ## 5. 数据与同步
 
-首版采用 Local-first：UI 只依赖 suspend 仓储/应用网关，本地测试仍可注入内存仓储，网络连接器不是核心体验前置条件。Desktop 与 iOS 生产入口使用平台密钥保护的 AES-256-GCM 账本信封；Room KMP 2.8.4 + bundled SQLite 2.7.0 保留为旧库迁移源和 Android 明文开发入口。持久化工厂均在平台组合根创建，领域层不引用 SQL、文件系统或平台 SDK。
+首版采用 Local-first：UI 只依赖 suspend 仓储/应用网关，本地测试仍可注入内存仓储，网络连接器不是核心体验前置条件。Desktop、Android 与 iOS 入口使用平台密钥保护的 AES-256-GCM 账本信封；Room KMP 2.8.4 + bundled SQLite 2.7.0 仅保留为旧库迁移源和可注入测试实现。持久化工厂均在平台组合根创建，领域层不引用 SQL、文件系统或平台 SDK。
 
 - 每个写操作由应用网关/use case 管理；受保护仓储在认证加密与原子 CAS 成功后才发布内存状态，Room 开发/迁移实现则用 `@Transaction` 原子提交导入与资产+购买流水等复合操作。
 - 导入数据携带稳定指纹，防止重复。
 - 删除默认软删除并提供短期撤销；“彻底清除”执行物理删除。
 - JSON 导出格式带 `schemaVersion`，当前验证 v0→v1；恢复前有 25 MiB 上限和结构校验。
 - 后续同步使用操作日志或版本向量，不做数据库文件级覆盖。
-- `RoomStoragePolicy.REQUIRE_ENCRYPTED_PRODUCTION` 对直接 Room 生产入口继续 fail-closed；Desktop/iOS 组合根只打开受保护仓储，Room 仅在检测到旧库时作为迁移源短暂打开。Android 当前可运行开发包仍明确使用 `ALLOW_UNENCRYPTED_DEVELOPMENT`，不能据此声明跨平台 Beta 加密门禁已完成。
+- `RoomStoragePolicy.REQUIRE_ENCRYPTED_PRODUCTION` 对直接 Room 生产入口继续 fail-closed；三平台组合根只打开受保护仓储，Room 仅在检测到旧库时作为迁移源短暂打开。Android 入口异步完成受保护账本初始化，失败时只显示重试/退出，不回退到 Room 明文仓储。
+- 初始化 journal 使用同一平台密钥提供器下的专用受保护标记，单调区分全新初始化、旧库迁移与就绪；迁移标记不能被当作空账本恢复，就绪但信封缺失会 fail-closed。现有 v1 设计仍不是“数据密钥 + 初始化记录”的单一原子平台事务，抵抗具备系统级文件回滚能力的攻击者和密钥轮换仍属于 Beta 加固。
 
 ## 6. 分析系统
 
@@ -108,7 +109,7 @@ Repository snapshot
 - UI：状态驱动的组件测试、关键路径 UI 自动化、平台截图回归。
 - 构建：依赖锁定、编译警告升级策略、SBOM、漏洞扫描、签名产物。
 - 发布：Windows 与 Android 可在当前 Windows 环境验证；iOS/macOS 必须由 macOS runner、Xcode 和真实签名链验证，不能声称已在 Windows 完成。
-- Release：必须测试混淆后的真实二进制。Room 生成类、领域枚举和 SQLite JNI 都可能被优化破坏；本工程用 `proguard-rules.pro` 保留应用 ABI 与 native 符号，并以便携包/MSI 解包启动验证，而不是只检查任务成功。
+- Release：必须测试混淆后的真实二进制。Room 生成类、领域枚举和 SQLite JNI 都可能被优化破坏；本工程用 `proguard-rules.pro` 保留应用 ABI 与 native 符号，并以便携包解包和 `runRelease` 启动验证，而不是只检查任务成功；MSI 尚未生成。
 
 ## 10. ADR
 

@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-27T20:40:07+08:00",
+  "source": {
+    "gitSha": "15b3b45ac018002e2a9c0007b8a8ea321f64544b",
+    "trackedTreeDirtyAtBuildStart": false,
+    "scope": [
+      "windows",
+      "android"
+    ]
+  },
+  "artifacts": [
+    {
+      "path": "artifacts/hengji-windows-portable.zip",
+      "bytes": 53851008,
+      "sha256": "579A2AC0AE78D74078CB999C812008FB85EA71D002F855B2C8111DDEC1553B5F",
+      "kind": "unsigned-jpackage-app-image-zip",
+      "embeddedReleaseJar": {
+        "bytes": 30513828,
+        "sha256": "8EEEF6887345BC9A7E94E3F1150ABF1D924693C0441D80ACB5D5CCBA15FB761E"
+      },
+      "launcher": {
+        "path": "Hengji/Hengji.exe",
+        "bytes": 458752,
+        "sha256": "0224147E6EC74BA7A1A2D9F593DEE833D04849C9554737999803A84351F21585",
+        "authenticode": "NotSigned",
+        "runtimeSmoke": "blocked-by-host-application-control"
+      },
+      "releaseJarSmoke": {
+        "status": "passed",
+        "firstLaunch": "protected-ledger-created",
+        "reopen": "ciphertext-preserved",
+        "plaintextDatabaseCount": 0,
+        "ledgerBytes": 24259,
+        "ledgerSha256": "0C46F8D82A2E4BEBD90BA80C4AA624EA46E56967060A509C51FA5F56D78C170D"
+      }
+    },
+    {
+      "path": "artifacts/hengji-android-debug.apk",
+      "bytes": 25891743,
+      "sha256": "B4A4BBAC38BCBD7737352AFDDE521AA04C433B817AE7AF16E0BB6CF643787A26",
+      "kind": "android-debug-apk",
+      "signing": {
+        "schemeV2": true,
+        "certificateDn": "C=US, O=Android, CN=Android Debug",
+        "certificateSha256": "D740D66C573B4954E0A78E3A97034A45FD50E69310A0B289C4F9135F0FF4542B"
+      },
+      "deviceSmoke": {
+        "api": 36,
+        "coldStart": "passed",
+        "reopen": "passed",
+        "sharedUiTests": "52/52",
+        "protectedLedgerInstrumentation": "1/1"
+      }
+    }
+  ],
+  "limitations": [
+    "Windows launcher is unsigned and blocked by this host's Application Control policy.",
+    "No MSI, AAB, production signing, store track, upgrade, uninstall, or SmartScreen evidence.",
+    "iOS and macOS were explicitly deferred from this P0 pass."
+  ]
+}

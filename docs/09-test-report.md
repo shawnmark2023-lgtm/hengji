@@ -18,7 +18,7 @@
 | 两次隔离构建 | Windows/Android 均通过 | Windows 73 个 Release JAR 的路径、权限和内容规范化比较差异为 0；Android 两次 Debug APK 的原始及规范化 SHA-256 均一致 |
 | 输入与性能 | 通过 | 8/8 畸形导入；100,000 流水 4/4，112 ms、内存增量 43.49 MiB；后者只是开发/CI 内存基线 |
 | 辅助服务 | 通过 | connector gateway 4/4 且 `npm audit` 0 vulnerability；price intelligence 3/3 |
-| 最终应用校验器 | 通过 | 扫描 1,201 个文件，0 error、0 warning |
+| 最终应用校验器 | 通过 | 扫描 865 个文件，0 error、0 warning |
 
 本轮仍不能关闭的 P0 只有外部证据项：
 
@@ -26,6 +26,8 @@
 - `UX-008` / `QA-005`：自动化已覆盖语义、键盘、重排、主题和 Reduce Motion；Android TalkBack、Windows Narrator、真实硬件键盘与视觉对比度仍需专项设备/辅助技术验收。
 
 这些阻断不会被描述为“已通过”。Android AOSP 镜像不含 TalkBack；未用自动化结果替代真实屏幕阅读器。iOS/macOS 是明确延期范围，不代表已经通过。
+
+当前交付物由干净提交 `15b3b45ac018002e2a9c0007b8a8ea321f64544b` 重建，精确大小、SHA-256、签名和运行边界见 `artifacts/manifest.json`。Windows `jpackage` app-image 生成及解压校验通过，但本机 Application Control 会阻止执行新生成的未签名 `Hengji.exe`；同一份 ProGuard Release JAR 已通过首次受保护账本创建和同账本重开。Android Debug APK 与两次隔离构建哈希一致，并保持 API 36 启动/重开与设备测试证据。
 
 ---
 

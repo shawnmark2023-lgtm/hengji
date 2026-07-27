@@ -1,7 +1,9 @@
 # 交付产物
 
-- `hengji-windows-portable.zip`：83,602,469 bytes；SHA-256 `6CF9AA770C7116E488993C12762E52E763673233EBBAC95FC997CF84AE90BBFA`。由提交 `324f8434b247` 的 ProGuard Release JAR 和 JDK 21 `jpackage` app-image 生成，自带运行时。已从 ZIP 解压并以独立空数据目录完成首次启动与重启：AES-256-GCM 信封及 DPAPI 保护物存在，没有明文 `hengji.db`，第二次启动没有改写信封。`Hengji.exe` 的 Authenticode 状态为 `NotSigned`。
-- `hengji-android-debug.apk`：25,858,975 bytes；SHA-256 `5C7A74014ABC515DFB9C632AEE0A48EF6A71EAA1E6BABD9A3884F6E710B6D935`。由当前源码的 strict Debug 构建生成，包含手工二手报价与应用内出售目标价入口；`apksigner` 验证 v2 签名通过，证书主题为 `C=US, O=Android, CN=Android Debug`，证书 SHA-256 为 `d740d66c573b4954e0a78e3a97034a45fd50e69310a0b289c4f9135f0ff4542b`；未在设备安装或启动。
-- `build-local-first-finance-app.skill`：10,415 bytes；SHA-256 `4A719C409C67105325DEFAD517A42414F64C07E4923275F082EB7A1FD379081B`。`quick_validate.py` 与项目审计均通过。
+本目录的当前 Windows/Android 开发产物由提交 `15b3b45ac018002e2a9c0007b8a8ea321f64544b` 的干净跟踪源码生成；iOS/macOS 不在本轮范围。二进制默认被 `.gitignore` 排除，精确清单记录在 `manifest.json`。
 
-当前目录没有 MSI 或源码 ZIP；旧报告中的对应哈希不再作为当前交付证据。MSI 本轮因本机没有 WiX 工具链且 Compose 的 WiX 下载失败而未生成。Windows 便携包和 Android Debug APK 都是开发交付物，不是生产签名商店版本；Windows 包仍对应较早的 `324f8434b247`，本轮最新 Desktop 源码另以 `runRelease` 完成首次启动/重启验证。
+- `hengji-windows-portable.zip`：53,851,008 bytes；SHA-256 `579A2AC0AE78D74078CB999C812008FB85EA71D002F855B2C8111DDEC1553B5F`。它是 JDK 21 `jpackage` app-image，自带运行时，内含 ProGuard Release JAR；解压后的 JAR SHA-256 与构建输出一致。`Hengji.exe` 未签名，本机 Application Control 会阻止新生成的未签名 EXE，因此不能把 EXE 启动标记为通过。同一 ProGuard Release JAR 已通过首次受保护账本创建和同账本重开，重开未改写密文且没有生成明文 `hengji.db`。
+- `hengji-android-debug.apk`：25,891,743 bytes；SHA-256 `B4A4BBAC38BCBD7737352AFDDE521AA04C433B817AE7AF16E0BB6CF643787A26`。两次干净构建的原始和规范化 SHA-256 均一致；`apksigner` 验证 v2 签名通过，证书为 `C=US, O=Android, CN=Android Debug`。API 36 上应用首次启动/重启、共享 UI 52/52 和 AndroidKeyStore 受保护账本创建/重开 1/1 通过。
+- `build-local-first-finance-app.skill`：项目内保留的技能归档；不是应用可执行产物。
+
+当前没有 MSI、AAB、生产签名、SmartScreen/Play 内测轨证据。Compose MSI/分发任务仍因本机 WiX ZIP 不可用而失败；开发 ZIP 和 Debug APK 均不得描述为生产发布包。

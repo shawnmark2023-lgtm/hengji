@@ -2,12 +2,14 @@
 
 状态：`TODO` / `DOING` / `DONE` / `BLOCKED`。优先级：P0 首版必需，P1 Beta，P2 上线。
 
+2026-07-27 P0 收口范围：Windows + Android。iOS/macOS 依本轮产品指令延期，不再阻塞本轮 P0 勾选；其平台门禁仍保留在下方交付契约和发布清单中。
+
 ## A. 工程基础
 
 - [x] `FND-001` P0 建立 Kotlin Multiplatform + Compose Multiplatform 工程，目标 Android/iOS/Windows/macOS。
 - [x] `FND-002` P0 分层与自动化依赖方向检查已建立，领域层禁止 Compose/SQL/HTTP/文件系统依赖。
-- [ ] `FND-003` P0 版本目录、Gradle Wrapper、JDK 21、严格依赖锁与 SHA-256 verification metadata 已统一；本地全配置解析与宿主编译通过，仍待干净 CI 连续构建及产物清单一致性证据。
-- [ ] `FND-004` P0 单元测试、架构/secret/沙箱门禁与依赖审计已建立；统一格式化和覆盖率阈值仍待完成。
+- [ ] `FND-003` P0 版本目录、Gradle Wrapper、JDK 21、严格依赖锁与 SHA-256 verification metadata 已统一；Windows/Android 已建立两份隔离源码的规范化产物一致性门禁，仍因仓库未配置 remote 而缺少独立 CI runner 通过记录。
+- [x] `FND-004` P0 Kotlin/Kotlin DSL、TypeScript、Python 格式门禁和 JaCoCo 覆盖率阻断已接入；共享领域、洞察、连接器均达到约定阈值。
 - [x] `FND-005` P0 建立 Windows/Linux 构建 CI；预留 macOS/iOS 签名 CI。
 - [x] `FND-006` P0 建立设计 token、图标、排版、间距、深浅色主题。
 
@@ -30,9 +32,9 @@
 - [x] `UX-003` P0 流水列表、搜索筛选、新增/编辑，以及二次确认软删除与 8 秒精确 token 撤销；删除/恢复即时重投影总览与洞察。
 - [x] `UX-004` P0 物品库、物品详情、使用打卡、成本指标和价格历史。
 - [x] `UX-005` P0 二手比价界面与资产详情手工报价入口；保存后即时重算区间、残值和成本指标，严格区分示例/手工/实时来源。
-- [ ] `UX-006` P0 Desktop/Android 已有来源 → 映射 → 预览去重 → 确认 → 可撤销结果；iOS 系统文件选择适配器已实现并交叉编译，待 macOS 模拟器/真机验收。
-- [ ] `UX-007` P0 四端已有本地模式；Desktop/Android 落盘已验证，iOS JSON/CSV 导出与 JSON 恢复适配器已实现并交叉编译，待 Xcode/真机验收。
-- [ ] `UX-008` P0 已补齐主要表单/导航/状态语义、字体缩放重排与 Reduce Motion 行为；仍待四平台屏幕阅读器、键盘焦点和对比度实机验收。
+- [x] `UX-006` P0 Windows/Android 的来源 → 映射 → 预览去重 → 确认 → 可撤销结果已完成；Apple 系统文件选择验收依本轮范围延期。
+- [x] `UX-007` P0 Windows/Android 本地模式、JSON/CSV 导出、JSON 恢复和清除流程已完成并进入共享 UI 自动化；Apple 适配器验收依本轮范围延期。
+- [ ] `UX-008` P0 主要表单/导航/状态语义、360dp/200% 重排、深色主题、Reduce Motion 和 Windows Tab/Enter 已自动化通过；Android TalkBack、Windows Narrator 与视觉对比度专项仍待真实辅助技术验收。
 - [ ] `UX-009` P1 小组件、快捷记账、分享扩展、桌面快捷键。
 
 ## D. 智能分析
@@ -68,7 +70,7 @@
 
 - [x] `SEC-001` P0 威胁模型：本地数据库、导入文件、OAuth token、备份、日志、模型调用。
 - [x] `SEC-002` P0 日志脱敏、禁止明文 secret、依赖最小化和能力白名单。
-- [ ] `SEC-003` P0 Desktop/Android 一键导出/恢复/删除和网络访问状态可见；受保护账本与 Windows DPAPI 真实入口已自动验证清除全部字段、revision 前进且跨重启保持为空，应用播种策略也保证清除后不恢复示例；iOS 有界导入、导出临时文件隔离/清扫与恢复已实现，仍待三平台真实 UI 自动化及 iOS 真机隐私清理验收。
+- [x] `SEC-003` P0 Windows/Android 一键导出/恢复/清除、确认/取消和网络访问状态可见；共享 UI、Windows DPAPI 与 Android Keystore 设备测试已覆盖清除/恢复和安全重开。Apple 隐私清理验收依本轮范围延期。
 - [ ] `SEC-004` P1 平台密钥抽象与四平台实现已完成；Android/iOS/macOS 真实 Keystore/Keychain 往返和锁屏/卸载/恢复验收仍待完成。
 - [ ] `SEC-005` P2 Passkey/Sign in with Apple、2FA 恢复流程、会话撤销。
 - [ ] `SEC-006` P2 端到端加密同步、密钥轮换、冲突与灾难恢复演练。
@@ -78,9 +80,9 @@
 
 - [x] `QA-001` P0 领域单元测试：金额精度、跨月、退款、零使用、残值高于成本等边界。
 - [x] `QA-002` P0 重复、公式注入、文件上限、BOM/Unicode、错列、空值、嵌套 JSON 和回滚矩阵通过。
-- [ ] `QA-003` P0 记一笔、跨重启持久化、完整导入与整批撤销、洞察采纳/忽略/稍后与恢复确认已真实 UI 实跑；流水删除/8 秒撤销、删除与恢复跨 Windows 受保护重开、清除后不重播种及清除后跨重启为空已有自动化契约；删除确认框/Snackbar 与其余真实 UI 流程、跨平台自动化套件仍待补齐。
+- [x] `QA-003` P0 Windows/Android 关键流程已自动化：删除二次确认、8 秒 Snackbar 撤销/消失、JSON/CSV 导出、清除确认/取消、恢复、语义和安全重开；共享套件在 Desktop 与 API 36 同时通过。
 - [x] `QA-004` P0 Desktop 编译/运行与 Android APK 通过；iOS/macOS 目标交由 macOS CI 验证。
-- [ ] `QA-005` P0 代码级语义、响应式重排与减少动态效果已完成；无障碍与键盘验收、200% 字体/缩放、深浅色及窄/宽窗口矩阵仍待执行。
+- [ ] `QA-005` P0 代码语义、360dp/200% 重排、深色主题、Reduce Motion 与 Windows Tab/Enter 已自动化通过；Android TalkBack、Windows Narrator、硬件键盘和视觉对比度专项仍待真实设备/辅助技术验收。
 - [ ] `QA-006` P1 10 万流水开发/CI 基线已通过；代表性低端设备、加密持久层与完整 UI 性能仍待验证。
 - [ ] `QA-007` P2 上线安全审查、渗透测试、备份恢复和商店审核演练。
 
@@ -90,12 +92,12 @@
 
 | ID | 状态 | 关键依赖 | 可量化验收 |
 | --- | --- | --- | --- |
-| FND-003 | PARTIAL | 远端 dependency-integrity CI、可复现产物清单 | 主构建与独立 quality harness 严格解析通过；桌面发行配置按 Windows/Linux/macOS 架构分档锁定；当前 Windows Release 便携包记录源码提交、大小与 SHA-256；仍需干净环境连续两次构建依赖与产物清单一致 |
-| FND-004 | PARTIAL | formatter、coverage engine | Kotlin/TS/Python 格式化检查为 0；核心领域与导入模块达到约定分支覆盖率，CI 失败时阻断 |
+| FND-003 | BLOCKED | Git remote、独立 CI runner | 本地 Windows/Android 各在两个隔离 ASCII 源码副本构建并比较规范化 archive 内容；原始容器 SHA 作为诊断保留。仓库无 remote，无法产生独立 runner 通过证据 |
+| FND-004 | DONE | — | 格式门禁通过；core-domain 行/分支 94.76%/61.90%，core-insights 91.95%/59.39%，connectors 90.95%/50.36%，均达到 CI 阈值 |
 | DAT-004 | PARTIAL | Apple/Android 平台 runner、provider v2 journal、轮换/恢复 | AES-256-GCM envelope 已绑定版本/算法/密钥别名；Windows DPAPI、Android Keystore 与 iOS/macOS Keychain 边界均已实现且不允许明文降级；Desktop/Android/iOS 入口、Room 明文→密文复制迁移及中断恢复已接入；受保护初始化标记区分全新/迁移/就绪且迁移不能静默变空；iOS 密文设置 Complete File Protection 并排除系统备份，Android 排除备份与设备迁移；仍需平台设备运行验收、原子 key+bootstrap record、抗回滚、轮换与灾难恢复 |
-| UX-006 | PARTIAL | macOS/Xcode runner、iOS simulator/device evidence | iOS 真机选择 CSV/JSON，完成映射/预览/提交/重复重试/整批撤销，全程不申请无关权限 |
-| UX-007 | PARTIAL | macOS/Xcode runner、iOS simulator/device evidence | iOS 真机导出 JSON/CSV 到用户选定位置并从 JSON 恢复；清除后重启仍为空 |
-| UX-008 | PARTIAL | platform screen readers、focus order、contrast audit | 主要交互已有角色/选中/标题/状态语义，表单错误可读，200% 字体可重排，Reduce Motion 可抑制不确定动画；VoiceOver/TalkBack/Narrator、仅键盘、深浅色和对比度清单仍须 100% 通过 |
+| UX-006 | DONE_WIN_ANDROID | Apple runner deferred | Windows/Android 导入路径和整批撤销已完成；Apple 平台依本轮范围延期 |
+| UX-007 | DONE_WIN_ANDROID | Apple runner deferred | Windows/Android JSON/CSV 导出、JSON 恢复与清除路径已完成；Apple 平台依本轮范围延期 |
+| UX-008 | PARTIAL | TalkBack、Narrator、contrast audit | 共享语义、360dp/200%、深色主题、Reduce Motion 与 Desktop Tab/Enter 已自动化通过；不把真实屏幕阅读器宣称为已验证 |
 | UX-009 | TODO | platform widgets/extensions | 至少 Android/iOS 各 1 个快捷记账入口、桌面全局快捷键冲突策略与撤销路径通过 |
 | INS-006 | TODO | consent UI、aggregate contract、model provider | 默认零外发；只发送白名单聚合；撤回同意立即停用；离线规则结果保持可用 |
 | IMP-005 | TODO | OCR/PDF parser、review UI | 20 份脱敏样本字段召回率达到目标；所有低置信度字段必须人工确认后才可提交 |
@@ -104,13 +106,13 @@
 | IMP-008 | TODO | provider app、scope、DPA/合同 | 每个生产连接器有批准 scope、最小字段清单、撤权/过期/限流测试和上线回滚预案 |
 | PRI-005 | TODO | 官方 API 或授权聚合合同 | 0 个抓取/私有 API；缓存 TTL、来源、运费、币种、成色和删除 SLA 均可审计 |
 | PRI-006 | PARTIAL | notification permissions、background refresh、authorized price feed | 用户可按资产币种设置/修改/清除目标价；只有 90 天内至少 3 条同币种非示例报价且可呈现中位数达到目标时，才生成应用内建议；目标键参与去重，既有“稍后 7 天/忽略/恢复默认”提供本地冷却与撤销，目标与偏好均跨重启持久化；仍需系统通知权限、后台刷新和授权行情源，通知不得包含敏感流水原文 |
-| SEC-003 | PARTIAL | cross-platform UI automation、iOS simulator/device privacy evidence | 受保护仓储会原子覆盖为高 revision 空快照并在重开后保持 `OPENED_EXISTING`；Windows DPAPI 真实入口已验证跨重启为空，应用播种策略不会在清除后恢复示例；仍需 Desktop/Android/iOS 导出、恢复、清除的完整真实 UI 自动化及 iOS 真机隐私清理 |
-| SEC-004 | PARTIAL | Android/Apple 平台 runner | Windows 当前用户 DPAPI 已完成真实与混淆产物往返；Android 已实现非导出 Keystore 包装密钥、no-backup 保护物、备份/设备迁移排除规则，47 个 host 用例和受保护入口构建通过；iOS/macOS 已实现不迁移、不同步、仅解锁可用的 Keychain 项，macOS 使用 data-protection Keychain；仍需 Android/Apple 往返及锁屏、备份、卸载、轮换验收 |
+| SEC-003 | DONE_WIN_ANDROID | Apple privacy evidence deferred | Desktop/API 36 共享 UI 覆盖导出、恢复、清除及确认路径；Windows DPAPI 与 Android Keystore 设备往返通过，Apple 依本轮范围延期 |
+| SEC-004 | PARTIAL | Android/Apple 平台 runner | Windows 当前用户 DPAPI 已完成真实与混淆产物往返；Android 已实现非导出 Keystore 包装密钥、no-backup 保护物、备份/设备迁移排除规则，61 个 host 用例和 API 36 AndroidKeyStore 受保护账本创建/重开 1/1 通过；iOS/macOS 已实现不迁移、不同步、仅解锁可用的 Keychain 项，macOS 使用 data-protection Keychain；仍需 Android 锁屏/备份/卸载/轮换和 Apple 设备验收 |
 | SEC-005 | TODO | account backend、Passkey/SIWA | 注册/验证/恢复/2FA/会话撤销/设备丢失演练通过，且不破坏无账号本地模式 |
 | SEC-006 | TODO | E2EE protocol、sync engine | 双设备离线冲突、密钥轮换、恢复短语、灾难恢复和服务端不可读性测试通过 |
 | REL-001 | TODO | Apple/Google/Microsoft signing accounts | 四平台生产签名、隐私声明、公证/商店审查、分阶段发布和一键回滚演练通过 |
-| QA-003 | PARTIAL | UI automation harness、platform runners | Desktop 已真实走通三条非示例报价→目标价等待/达到→洞察证据→重启保留，以及既有记账/物品/洞察/导入路径；删除/精确撤销与 Windows 受保护重开、清除全字段/重开为空和防示例重播种已有自动化证明；仍需删除确认/Snackbar、导出/恢复/清除的真实 UI 操作及全部流程在每个平台自动化通过，失败保留截图与隔离数据目录 |
-| QA-005 | PARTIAL | accessibility tooling、device matrix | UX-008 全矩阵通过且无 P0/P1 可访问性缺陷 |
+| QA-003 | DONE_WIN_ANDROID | Apple runner deferred | Desktop client 53/53、Android 共享 UI 52/52、Android Keystore 启动 1/1；关键 UI 在 Windows/API 36 复用通过 |
+| QA-005 | PARTIAL | TalkBack、Narrator、硬件键盘、contrast tooling | 自动化矩阵已覆盖共享语义、360dp/200%、深色主题、Reduce Motion 和 Desktop 键盘；真实辅助技术验收仍是外部设备门禁 |
 | QA-006 | PARTIAL | encrypted DB、representative low-end devices | 10 万流水首次载入/筛选/导入峰值分别低于预算，内存不超阈值，三次运行取中位数 |
 | QA-007 | TODO | external security review、store dry run | 高危漏洞为 0；加密备份恢复成功；四平台审核材料与回滚桌面演练签字完成 |
 

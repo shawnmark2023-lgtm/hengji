@@ -40,6 +40,10 @@ internal interface AndroidKeyProtector {
 }
 
 internal interface AndroidVaultFileOperations {
+    fun isRegularDirectory(directory: File): Boolean
+
+    fun isRegularFile(file: File): Boolean
+
     fun publishWithoutReplacing(source: File, target: File)
 
     fun syncDirectory(directory: File)
@@ -182,13 +186,13 @@ class AndroidKeystoreDatabaseKeyProvider internal constructor(
         if (!root.exists() && !root.mkdirs()) {
             throw StorageProtectionException("Android key vault directory could not be created")
         }
-        if (!root.isDirectory || root.canonicalFile != root) {
+        if (!fileOperations.isRegularDirectory(root)) {
             throw StorageProtectionException("Android key vault root is not a regular directory")
         }
     }
 
     private fun requireRegularVaultFile(file: File, description: String) {
-        if (!file.isFile || file.canonicalFile != file) {
+        if (!fileOperations.isRegularFile(file)) {
             throw StorageProtectionException("$description is not a regular file")
         }
     }
@@ -200,7 +204,7 @@ class AndroidKeystoreDatabaseKeyProvider internal constructor(
             requireRegularVaultFile(lockFile, "Android key vault lock")
         }
         return RandomAccessFile(lockFile, "rw").use { randomAccess ->
-            if (lockFile.canonicalFile != lockFile) {
+            if (!fileOperations.isRegularFile(lockFile)) {
                 throw StorageProtectionException("Android key vault lock is not a regular file")
             }
             randomAccess.channel.lock().use { block() }
@@ -213,8 +217,15 @@ class AndroidKeystoreDatabaseKeyProvider internal constructor(
 }
 
 private object AndroidOsVaultFileOperations : AndroidVaultFileOperations {
+    override fun isRegularDirectory(directory: File): Boolean =
+        OsConstants.S_ISDIR(Os.lstat(directory.path).st_mode)
+
+    override fun isRegularFile(file: File): Boolean =
+        OsConstants.S_ISREG(Os.lstat(file.path).st_mode)
+
     override fun publishWithoutReplacing(source: File, target: File) {
-        Os.link(source.path, target.path)
+        if (target.exists()) throw ErrnoException("rename", OsConstants.EEXIST)
+        Os.rename(source.path, target.path)
     }
 
     override fun syncDirectory(directory: File) {

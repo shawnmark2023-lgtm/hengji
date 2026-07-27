@@ -25,7 +25,11 @@ internal interface AndroidPlaintextLedgerReader {
 }
 
 internal interface AndroidPlaintextMigrationFileOperations {
-    fun linkWithoutReplacing(source: File, target: File)
+    fun isRegularDirectory(directory: File): Boolean
+
+    fun isRegularFile(file: File): Boolean
+
+    fun moveWithoutReplacing(source: File, target: File)
 
     fun unlink(file: File)
 
@@ -38,9 +42,9 @@ internal interface AndroidPlaintextMigrationFileOperations {
  * Recoverable migration source for the legacy Android Room database.
  *
  * The encrypted repository authenticates a second copy of the snapshot before invoking retirement.
- * Retirement then hard-links the main database to a marker, removes the original name, cleans
- * SQLite sidecars and deletes the marker last. A crash at any boundary leaves either the readable
- * database or a marker that can only be finalized after the encrypted target authenticates.
+ * Retirement atomically renames the main database to a marker, cleans SQLite sidecars and deletes
+ * the marker last. A crash at any boundary leaves either the readable database or a marker that
+ * can only be finalized after the encrypted target authenticates.
  */
 class AndroidRoomPlaintextMigrationSource internal constructor(
     databaseFile: File,
@@ -124,9 +128,7 @@ class AndroidRoomPlaintextMigrationSource internal constructor(
 
             database.exists() -> {
                 requireRegularFile(database, "Plaintext database")
-                fileOperations.linkWithoutReplacing(database, retiring)
-                fileOperations.syncDirectory(root)
-                fileOperations.unlink(database)
+                fileOperations.moveWithoutReplacing(database, retiring)
                 fileOperations.syncDirectory(root)
             }
 
@@ -168,13 +170,13 @@ class AndroidRoomPlaintextMigrationSource internal constructor(
     }
 
     private fun validateRoot() {
-        if (!root.isDirectory || root.canonicalFile != root) {
+        if (!fileOperations.isRegularDirectory(root)) {
             throw StorageProtectionException("Plaintext database root is not a regular directory")
         }
     }
 
     private fun requireRegularFile(file: File, description: String) {
-        if (!file.isFile || file.canonicalFile != file) {
+        if (!fileOperations.isRegularFile(file)) {
             throw StorageProtectionException("$description is not a regular file")
         }
     }
@@ -228,8 +230,17 @@ private class AndroidRoomLedgerReader(
 }
 
 private object AndroidOsPlaintextMigrationFileOperations : AndroidPlaintextMigrationFileOperations {
-    override fun linkWithoutReplacing(source: File, target: File) {
-        Os.link(source.path, target.path)
+    override fun isRegularDirectory(directory: File): Boolean =
+        OsConstants.S_ISDIR(Os.lstat(directory.path).st_mode)
+
+    override fun isRegularFile(file: File): Boolean =
+        OsConstants.S_ISREG(Os.lstat(file.path).st_mode)
+
+    override fun moveWithoutReplacing(source: File, target: File) {
+        if (target.exists()) throw StorageProtectionException(
+            "Plaintext retirement marker appeared during migration",
+        )
+        Os.rename(source.path, target.path)
     }
 
     override fun unlink(file: File) {

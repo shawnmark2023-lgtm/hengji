@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "engine": "JaCoCo 0.8.14",
+  "scope": "Shared JVM implementations used by both Windows and Android",
+  "targets": [
+    {
+      "id": "core-domain",
+      "project": ":modules:core-domain",
+      "testTask": ":modules:core-domain:desktopTest",
+      "classDirectory": "modules/core-domain/build/classes/kotlin/desktop/main",
+      "sourceDirectory": "modules/core-domain/src/commonMain/kotlin",
+      "minimumLineRatio": 0.9,
+      "minimumBranchRatio": 0.6
+    },
+    {
+      "id": "core-insights",
+      "project": ":modules:core-insights",
+      "testTask": ":modules:core-insights:desktopTest",
+      "classDirectory": "modules/core-insights/build/classes/kotlin/desktop/main",
+      "sourceDirectory": "modules/core-insights/src/commonMain/kotlin",
+      "minimumLineRatio": 0.9,
+      "minimumBranchRatio": 0.55
+    },
+    {
+      "id": "connectors",
+      "project": ":modules:connectors",
+      "testTask": ":modules:connectors:desktopTest",
+      "classDirectory": "modules/connectors/build/classes/kotlin/desktop/main",
+      "sourceDirectory": "modules/connectors/src/commonMain/kotlin",
+      "minimumLineRatio": 0.9,
+      "minimumBranchRatio": 0.5
+    }
+  ]
+}

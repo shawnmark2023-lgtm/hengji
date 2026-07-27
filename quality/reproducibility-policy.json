@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "gradleWrapper": {
+    "distributionUrl": "https://services.gradle.org/distributions/gradle-9.3.1-bin.zip",
+    "distributionSha256": "b266d5ff6b90eada6dc3b20cb090e3731302e553a27c5d3e4df1f0d76beaff06",
+    "wrapperJarSha256": "B3A875DDC1F044746E1B1A55F645584505F4A10438C1AFEA9F15E92A7C42EC13"
+  },
+  "requiredLockfiles": [
+    "settings-gradle.lockfile",
+    "apps/client/androidApp/gradle.lockfile",
+    "apps/client/gradle-windows-x64.lockfile",
+    "modules/connectors/gradle.lockfile",
+    "modules/core-data/gradle.lockfile",
+    "modules/core-domain/gradle.lockfile",
+    "modules/core-insights/gradle.lockfile",
+    "quality/harness/settings-gradle.lockfile",
+    "quality/harness/import-harness/gradle.lockfile",
+    "quality/harness/ledger-harness/gradle.lockfile",
+    "quality/coverage-tools/gradle.lockfile"
+  ],
+  "verificationMetadata": [
+    "gradle/verification-metadata.xml",
+    "quality/harness/gradle/verification-metadata.xml",
+    "quality/coverage-tools/gradle/verification-metadata.xml"
+  ],
+  "reproducibleTargets": {
+    "android": {
+      "comparison": "normalized-archive-content",
+      "tasks": [
+        ":apps:client:androidApp:assembleDebug"
+      ],
+      "artifacts": [
+        "apps/client/androidApp/build/outputs/apk/debug/*.apk"
+      ]
+    },
+    "windows": {
+      "comparison": "normalized-archive-content",
+      "tasks": [
+        ":apps:client:proguardReleaseJars"
+      ],
+      "artifacts": [
+        "apps/client/build/compose/tmp/main-release/proguard/*.jar"
+      ]
+    }
+  }
+}

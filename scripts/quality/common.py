@@ -5,6 +5,7 @@ import json
 import os
 import platform
 import shlex
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -18,6 +19,7 @@ IGNORED_PARTS = {
     ".idea",
     ".isolated-business-build",
     ".kotlin",
+    "artifacts",
     "build",
     "dist",
     "evidence",
@@ -57,6 +59,39 @@ def sha256_file(path: Path) -> str:
 
 
 def environment_record() -> dict[str, Any]:
+    root = project_root()
+    source: dict[str, Any] = {"projectFingerprint": source_fingerprint(root)}
+    git = shutil.which("git")
+    if git and (root / ".git").exists():
+        revision = subprocess.run(
+            [git, "rev-parse", "HEAD"],
+            cwd=root,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        status = subprocess.run(
+            [git, "status", "--porcelain=v1", "--untracked-files=all"],
+            cwd=root,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        if revision.returncode == 0 and status.returncode == 0:
+            dirty_paths = [line[3:].replace("\\", "/") for line in status.stdout.splitlines() if len(line) >= 4]
+            source.update(
+                {
+                    "gitSha": revision.stdout.strip(),
+                    "dirty": bool(dirty_paths),
+                    "dirtyPaths": dirty_paths,
+                }
+            )
     return {
         "os": platform.platform(),
         "architecture": platform.machine(),
@@ -65,7 +100,28 @@ def environment_record() -> dict[str, Any]:
         "githubRunId": os.environ.get("GITHUB_RUN_ID"),
         "githubRunAttempt": os.environ.get("GITHUB_RUN_ATTEMPT"),
         "githubSha": os.environ.get("GITHUB_SHA"),
+        "source": source,
     }
+
+
+def source_fingerprint(root: Path) -> str:
+    digest = hashlib.sha256()
+    for path in sorted(
+        (
+            candidate
+            for candidate in root.rglob("*")
+            if candidate.is_file() and not any(part in IGNORED_PARTS for part in candidate.parts)
+        ),
+        key=lambda candidate: candidate.relative_to(root).as_posix(),
+    ):
+        relative_path = path.relative_to(root).as_posix()
+        digest.update(relative_path.encode("utf-8"))
+        digest.update(b"\0")
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        digest.update(b"\0")
+    return digest.hexdigest().upper()
 
 
 def artifact_records(paths: Iterable[Path]) -> list[dict[str, Any]]:

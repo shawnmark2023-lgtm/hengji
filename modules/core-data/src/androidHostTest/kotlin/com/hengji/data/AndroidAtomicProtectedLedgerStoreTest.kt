@@ -62,6 +62,12 @@ class AndroidAtomicProtectedLedgerStoreTest {
 }
 
 private object HostLedgerFileOperations : AndroidLedgerFileOperations {
+    override fun isRegularDirectory(directory: File): Boolean =
+        directory.isDirectory && !Files.isSymbolicLink(directory.toPath())
+
+    override fun isRegularFile(file: File): Boolean =
+        file.isFile && !Files.isSymbolicLink(file.toPath())
+
     override fun publishWithoutReplacing(source: File, target: File) {
         Files.move(source.toPath(), target.toPath())
     }

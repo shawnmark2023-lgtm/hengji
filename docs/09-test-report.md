@@ -1,5 +1,36 @@
 # 测试与构建报告
 
+## 2026-07-27 Windows/Android P0 增量
+
+本轮按产品决定只收口 Windows + Android；iOS/macOS 延期，未运行其编译、签名或设备任务，也不把它们作为本轮阻断。环境为 Windows 11、JDK 21.0.2、Gradle 9.3.1、Python 3.12.13、Android API 36 AVD。
+
+| 门禁 | 结果 | 证据与边界 |
+| --- | --- | --- |
+| Desktop Kotlin | 178/178，0 failure/error/skip | client 53、core-domain 17、core-data 77、core-insights 23、connectors 8；client 包含 5 个共享关键 UI 用例和 1 个 Desktop Tab/Enter 用例 |
+| Android host | 61/61，0 failure/error/skip | Android 文件语义改为 `lstat` 判型与受锁保护的原子 rename，覆盖密文账本、Keystore 保护物和 Room 明文退役 |
+| Android API 36 | 共享 UI 52/52；AndroidKeyStore 启动 1/1 | UI 套件中 5 个关键流程与 Desktop 复用；独立 instrumentation 在真实 AndroidKeyStore/no-backup 目录创建并重开受保护账本 |
+| Android 应用冒烟 | 首次冷启动和同一账本重启通过 | 修复 `/data/user/0` 合法路径被 canonical equality 误拒绝，以及 Android/SELinux 拒绝硬链接发布导致的启动失败；磁盘只保留 no-backup 加密账本和 Keystore 包装保护物 |
+| 关键 UI | Windows/Android 通过 | CSV 沙箱来源→自动映射→预览去重→确认→整批撤销；JSON/CSV 导出、清除取消/确认、空账本、JSON 恢复；删除取消/确认、8 秒撤销/超时；360dp/200%、深色、Reduce Motion、语义；Desktop Tab/Enter |
+| 构建 | 通过 | Android lint、Debug APK、未签名 R8 Release APK、Desktop ProGuard Release JAR；MSI/Compose 分发任务仍因本机 WiX ZIP 不可用而失败，不计为通过 |
+| 格式与静态门禁 | 通过 | 格式 163/163；架构 35/35；发布守卫 256/256；可复现/依赖策略 18/18 |
+| 依赖完整性 | 通过 | 11 个必需 lockfile、1,455 个锁定坐标、3 份 verification metadata、3,516 个 SHA-256 校验工件 |
+| 覆盖率 | 通过 | core-domain 行/分支 94.76%/61.90%；core-insights 91.95%/59.39%；connectors 90.95%/50.36%，均达到各自阻断阈值 |
+| 两次隔离构建 | Windows/Android 均通过 | Windows 73 个 Release JAR 的路径、权限和内容规范化比较差异为 0；Android 两次 Debug APK 的原始及规范化 SHA-256 均一致 |
+| 输入与性能 | 通过 | 8/8 畸形导入；100,000 流水 4/4，112 ms、内存增量 43.49 MiB；后者只是开发/CI 内存基线 |
+| 辅助服务 | 通过 | connector gateway 4/4 且 `npm audit` 0 vulnerability；price intelligence 3/3 |
+| 最终应用校验器 | 通过 | 扫描 1,201 个文件，0 error、0 warning |
+
+本轮仍不能关闭的 P0 只有外部证据项：
+
+- `FND-003`：仓库没有 remote；CI 门禁已配置，但没有独立远端 runner 的通过记录。
+- `UX-008` / `QA-005`：自动化已覆盖语义、键盘、重排、主题和 Reduce Motion；Android TalkBack、Windows Narrator、真实硬件键盘与视觉对比度仍需专项设备/辅助技术验收。
+
+这些阻断不会被描述为“已通过”。Android AOSP 镜像不含 TalkBack；未用自动化结果替代真实屏幕阅读器。iOS/macOS 是明确延期范围，不代表已经通过。
+
+---
+
+以下为 2026-07-25 历史基线，保留用于追溯；其中旧提交、旧交付物哈希和旧测试数量不再代表 2026-07-27 的当前状态。
+
 验证日期：2026-07-25（Asia/Shanghai）。环境：Windows 11、JDK 21.0.2、Gradle 9.3.1、Python 3.12.13。本文只记录实际执行结果，不把工程入口、调试签名或未做生产签名的产物等同于商店发布。
 
 ## 自动化结果

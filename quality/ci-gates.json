@@ -50,6 +50,20 @@
       "jobIds": ["static-guards", "malformed-import", "large-ledger"],
       "job": "static-guards / malformed-import / large-ledger",
       "status": "configured"
+    },
+    {
+      "id": "shared-coverage",
+      "workflow": ".github/workflows/beta-quality-gates.yml",
+      "jobIds": ["coverage"],
+      "job": "coverage",
+      "status": "configured"
+    },
+    {
+      "id": "reproducible-android-and-windows",
+      "workflow": ".github/workflows/beta-quality-gates.yml",
+      "jobIds": ["reproducible-artifacts"],
+      "job": "reproducible-artifacts (android / windows)",
+      "status": "configured"
     }
   ]
 }

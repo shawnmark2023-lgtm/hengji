@@ -1,6 +1,8 @@
 package com.hengji.app
 
+import android.content.pm.ApplicationInfo
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -59,7 +61,10 @@ class MainActivity : ComponentActivity() {
                 AndroidStorageState.Opened(opened)
             } catch (error: CancellationException) {
                 throw error
-            } catch (_: Throwable) {
+            } catch (error: Throwable) {
+                if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+                    Log.e("HengjiStorage", "Protected ledger open failed", error)
+                }
                 AndroidStorageState.Failed
             }
         }

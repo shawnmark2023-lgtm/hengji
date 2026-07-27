@@ -151,8 +151,14 @@ private class FakeAndroidPlaintextLedgerReader(
 
 private object HostAndroidPlaintextMigrationFileOperations :
     AndroidPlaintextMigrationFileOperations {
-    override fun linkWithoutReplacing(source: File, target: File) {
-        Files.createLink(target.toPath(), source.toPath())
+    override fun isRegularDirectory(directory: File): Boolean =
+        directory.isDirectory && !Files.isSymbolicLink(directory.toPath())
+
+    override fun isRegularFile(file: File): Boolean =
+        file.isFile && !Files.isSymbolicLink(file.toPath())
+
+    override fun moveWithoutReplacing(source: File, target: File) {
+        Files.move(source.toPath(), target.toPath())
     }
 
     override fun unlink(file: File) {

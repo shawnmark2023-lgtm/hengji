@@ -1,0 +1,6 @@
+# This is a Gradle generated file for dependency locking.
+# Manual edits can break the build and are not advised.
+# This file is expected to be part of source control.
+org.jacoco:org.jacoco.agent:0.8.14=jacocoAgent
+org.jacoco:org.jacoco.cli:0.8.14=jacocoCli
+empty=

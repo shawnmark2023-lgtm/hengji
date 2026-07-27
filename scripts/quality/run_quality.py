@@ -19,13 +19,24 @@ from common import (
 )
 
 
-ALL_GATES = ("architecture", "release-guards", "malformed-import", "large-ledger")
+ALL_GATES = (
+    "formatting",
+    "architecture",
+    "release-guards",
+    "reproducibility",
+    "coverage",
+    "malformed-import",
+    "large-ledger",
+)
 
 
 def python_gate(root: Path, gate: str) -> list[str]:
     script = {
+        "formatting": "check_formatting.py",
         "architecture": "check_architecture.py",
         "release-guards": "check_release_guards.py",
+        "reproducibility": "check_reproducibility.py",
+        "coverage": "check_coverage.py",
     }[gate]
     return [sys.executable, str(root / "scripts" / "quality" / script), "--project", str(root), "--json"]
 
@@ -51,7 +62,7 @@ def gradle_gate(root: Path, gate: str, count: int, max_millis: int, max_memory_m
 def run_gate(root: Path, gate: str, args: argparse.Namespace) -> tuple[dict[str, Any], str]:
     command = (
         python_gate(root, gate)
-        if gate in {"architecture", "release-guards"}
+        if gate in {"formatting", "architecture", "release-guards", "reproducibility", "coverage"}
         else gradle_gate(root, gate, args.benchmark_count, args.max_millis, args.max_memory_mib)
     )
     started_at = utc_now()
@@ -86,14 +97,24 @@ def run_gate(root: Path, gate: str, args: argparse.Namespace) -> tuple[dict[str,
 
 
 def main() -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")
+
     parser = argparse.ArgumentParser(description="Run HENGJI quality gates and emit evidence")
     parser.add_argument("--gates", nargs="+", choices=ALL_GATES, default=list(ALL_GATES))
     parser.add_argument("--benchmark-count", type=int, default=100_000)
     parser.add_argument("--max-millis", type=int, default=20_000)
     parser.add_argument("--max-memory-mib", type=int, default=768)
+    parser.add_argument(
+        "--project",
+        type=Path,
+        help="Project root override, for example an ASCII subst drive on Windows",
+    )
     parser.add_argument("--output-dir", type=Path)
     args = parser.parse_args()
-    root = project_root()
+    root = args.project.absolute() if args.project else project_root()
+    if not (root / "settings.gradle.kts").is_file():
+        parser.error(f"Project root is invalid: {root}")
     output_dir = (args.output_dir or root / "quality" / "evidence").resolve()
 
     records: list[dict[str, Any]] = []

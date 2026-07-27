@@ -164,6 +164,12 @@ private class FakeAndroidKeyProtector : AndroidKeyProtector {
 }
 
 private object JvmVaultFileOperations : AndroidVaultFileOperations {
+    override fun isRegularDirectory(directory: File): Boolean =
+        directory.isDirectory && !Files.isSymbolicLink(directory.toPath())
+
+    override fun isRegularFile(file: File): Boolean =
+        file.isFile && !Files.isSymbolicLink(file.toPath())
+
     override fun publishWithoutReplacing(source: File, target: File) {
         Files.createLink(target.toPath(), source.toPath())
     }

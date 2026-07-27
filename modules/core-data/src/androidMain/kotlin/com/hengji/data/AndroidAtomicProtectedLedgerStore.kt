@@ -16,6 +16,8 @@ private const val ANDROID_LEDGER_FILE = "hengji.ledger.hjenc"
 private const val MAX_ANDROID_PROTECTED_LEDGER_BYTES = 36L * 1024 * 1024
 
 internal interface AndroidLedgerFileOperations {
+    fun isRegularDirectory(directory: File): Boolean
+    fun isRegularFile(file: File): Boolean
     fun publishWithoutReplacing(source: File, target: File)
     fun publishReplacing(source: File, target: File)
     fun syncDirectory(directory: File)
@@ -118,7 +120,7 @@ class AndroidAtomicProtectedLedgerStore internal constructor(
 
     private fun validateRootIfPresent() {
         if (!root.exists()) return
-        if (!root.isDirectory || root.canonicalFile != root) {
+        if (!fileOperations.isRegularDirectory(root)) {
             throw StorageProtectionException("Encrypted ledger root is not a regular directory")
         }
     }
@@ -131,7 +133,7 @@ class AndroidAtomicProtectedLedgerStore internal constructor(
     }
 
     private fun requireRegularFile(file: File, description: String) {
-        if (!file.isFile || file.canonicalFile != file) {
+        if (!fileOperations.isRegularFile(file)) {
             throw StorageProtectionException("$description is not a regular file")
         }
     }
@@ -141,7 +143,7 @@ class AndroidAtomicProtectedLedgerStore internal constructor(
         val lockFile = File(root, ".hengji-ledger.lock").absoluteFile
         if (lockFile.exists()) requireRegularFile(lockFile, "Encrypted ledger lock")
         return RandomAccessFile(lockFile, "rw").use { randomAccess ->
-            if (lockFile.canonicalFile != lockFile) {
+            if (!fileOperations.isRegularFile(lockFile)) {
                 throw StorageProtectionException("Encrypted ledger lock is not a regular file")
             }
             randomAccess.channel.lock().use { block() }
@@ -154,8 +156,15 @@ class AndroidAtomicProtectedLedgerStore internal constructor(
 }
 
 private object AndroidOsLedgerFileOperations : AndroidLedgerFileOperations {
+    override fun isRegularDirectory(directory: File): Boolean =
+        OsConstants.S_ISDIR(Os.lstat(directory.path).st_mode)
+
+    override fun isRegularFile(file: File): Boolean =
+        OsConstants.S_ISREG(Os.lstat(file.path).st_mode)
+
     override fun publishWithoutReplacing(source: File, target: File) {
-        Os.link(source.path, target.path)
+        if (target.exists()) throw ErrnoException("rename", OsConstants.EEXIST)
+        Os.rename(source.path, target.path)
     }
 
     override fun publishReplacing(source: File, target: File) {

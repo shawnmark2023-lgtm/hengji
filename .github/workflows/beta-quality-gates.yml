@@ -29,9 +29,11 @@ jobs:
         run: ./gradlew resolveAllDependencies --dependency-verification strict --no-configuration-cache --stacktrace
       - name: Resolve all locked quality-harness dependencies in strict mode
         run: ./gradlew -p quality/harness resolveAllDependencies --dependency-verification strict --no-configuration-cache --stacktrace
+      - name: Resolve all locked coverage-tool dependencies in strict mode
+        run: ./gradlew -p quality/coverage-tools resolveAllDependencies --dependency-verification strict --no-configuration-cache --stacktrace
 
   static-guards:
-    name: Architecture and release guards
+    name: Format, architecture, release, and reproducibility guards
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -39,13 +41,74 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Run static architecture, secret, and sandbox/production guards
-        run: python scripts/quality/run_quality.py --gates architecture release-guards --output-dir quality-evidence
+      - name: Run static formatting, architecture, release, and supply-chain guards
+        run: python scripts/quality/run_quality.py --gates formatting architecture release-guards reproducibility --output-dir quality-evidence
       - name: Upload static evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: beta-static-evidence
+          path: quality-evidence/
+          if-no-files-found: ignore
+
+  coverage:
+    name: Shared Windows and Android coverage thresholds
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: android-actions/setup-android@v3
+      - name: Enforce committed line and branch thresholds
+        run: python scripts/quality/run_quality.py --gates coverage --output-dir quality-evidence
+      - name: Upload coverage evidence and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shared-coverage-evidence
+          path: |
+            quality-evidence/
+            quality/evidence/coverage/
+          if-no-files-found: ignore
+
+  reproducible-artifacts:
+    name: Reproducible ${{ matrix.target }} artifact
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: android
+          - os: windows-latest
+            target: windows
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: android-actions/setup-android@v3
+        if: matrix.target == 'android'
+      - name: Build twice from one source snapshot and compare normalized archive content
+        run: python scripts/quality/reproducible_build.py --target ${{ matrix.target }} --output quality-evidence/reproducible-${{ matrix.target }}.json
+      - name: Upload reproducibility evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reproducible-${{ matrix.target }}-evidence
           path: quality-evidence/
           if-no-files-found: ignore
 

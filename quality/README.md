@@ -19,13 +19,35 @@ bash scripts/quality/run-quality.sh
 Run only the fast static gates:
 
 ```powershell
-python scripts/quality/run_quality.py --gates architecture release-guards
+python scripts/quality/run_quality.py --gates formatting architecture release-guards reproducibility
 ```
 
-Run the real Kotlin malformed-import and 100,000-row ledger harnesses:
+Run the locked JaCoCo coverage threshold and the real Kotlin malformed-import and
+100,000-row ledger harnesses:
 
 ```powershell
-python scripts/quality/run_quality.py --gates malformed-import large-ledger
+python scripts/quality/run_quality.py --gates coverage malformed-import large-ledger
+```
+
+Android Gradle Plugin rejects non-ASCII Windows project paths. In that case, expose the repository
+through an ASCII junction whose final directory name is non-empty and pass the alias explicitly:
+
+```powershell
+.\scripts\quality\run-quality.ps1 -ProjectRoot C:\Temp\hengji-p0\project
+```
+
+Safely normalize the shared Kotlin/Kotlin DSL, TypeScript, and Python whitespace contract:
+
+```powershell
+python scripts/quality/check_formatting.py --fix
+```
+
+Build a source snapshot twice in an isolated temporary directory and require identical normalized
+Windows or Android archive content:
+
+```powershell
+python scripts/quality/reproducible_build.py --target windows
+python scripts/quality/reproducible_build.py --target android
 ```
 
 The runner uses the checked Gradle Wrapper. If a controlled build environment already provides the
@@ -41,6 +63,9 @@ store approval.
 ## Gate ownership
 
 - `architecture-policy.json`: dependency direction rules for domain and common UI sources.
+- `coverage-policy.json`: per-module line and branch thresholds for shared Windows/Android logic.
+- `coverage-tools/`: independently locked and SHA-256-verified JaCoCo agent and CLI.
+- `reproducibility-policy.json`: pinned Wrapper, lockfile, verification metadata, and artifact targets.
 - `ci-gates.json`: configured CI jobs and their current non-passed repository state.
 - `harness/`: isolated Kotlin executable that consumes the real project modules through a Gradle
   composite build.
@@ -48,3 +73,9 @@ store approval.
 
 The large-ledger harness is a deterministic developer/CI baseline. It is not representative-device
 evidence and cannot by itself close the Beta performance gate.
+
+The reproducibility gate records a dependency-manifest hash. The two-build scripts compare archive
+paths, sizes, permissions, and uncompressed entry content while ignoring ZIP timestamps. They also
+retain the raw container SHA-256 as a diagnostic, but it is explicitly not the pass/fail criterion.
+A local pass does not replace independent clean-runner CI evidence, and a configured CI job is
+still not a passed job until a run publishes evidence.

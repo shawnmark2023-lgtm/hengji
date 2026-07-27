@@ -40,6 +40,10 @@ kotlin {
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
 
+        withDeviceTestBuilder {
+            sourceSetTreeName = "test"
+        }
+
         compilerOptions {
             jvmTarget = JvmTarget.JVM_21
         }
@@ -67,6 +71,7 @@ kotlin {
 
     sourceSets {
         val desktopMain by getting
+        val desktopTest by getting
 
         commonMain.dependencies {
             implementation(project(":modules:core-domain"))
@@ -87,6 +92,7 @@ kotlin {
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
+            implementation("org.jetbrains.compose.ui:ui-test:$composeMultiplatformVersion")
         }
 
         desktopMain.dependencies {
@@ -95,6 +101,10 @@ kotlin {
                     composeMultiplatformVersion,
             )
             implementation(libs.kotlinx.coroutines.swing)
+        }
+
+        desktopTest.dependencies {
+            implementation(compose.desktop.currentOs)
         }
     }
 }
@@ -112,6 +122,8 @@ val hostOnlyDevelopmentConfigurations =
         "desktopDevCompileClasspath",
         "desktopDevResolvableDependenciesMetadata",
         "desktopDevRuntimeClasspath",
+        "desktopTestCompileClasspath",
+        "desktopTestRuntimeClasspath",
     )
 
 configurations.configureEach {

@@ -94,10 +94,10 @@ jobs:
             quality-evidence/
           if-no-files-found: ignore
 
-  apple-compile:
-    name: Apple framework and simulator tests
-    runs-on: macos-latest
-    timeout-minutes: 35
+  android-device-api36:
+    name: Android API 36 instrumentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -108,30 +108,46 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Compile and link Apple frameworks and run simulator tests
+      - name: Enable KVM access
         run: |
-          echo "GATE_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
-          ./gradlew \
-            :apps:client:iosSimulatorArm64Test \
-            :apps:client:linkDebugFrameworkIosSimulatorArm64 \
-            :apps:client:linkReleaseFrameworkIosSimulatorArm64 \
-            :apps:client:linkReleaseFrameworkIosArm64 \
-            --stacktrace
-      - name: Record passed Apple compile evidence
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Record instrumentation start
+        run: echo "GATE_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+      - name: Run API 36 instrumentation
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          disable-animations: true
+          emulator-options: >-
+            -no-window -gpu swiftshader_indirect -no-snapshot -noaudio
+            -no-boot-anim -camera-back none
+          script: ./gradlew :apps:client:androidApp:connectedDebugAndroidTest --stacktrace
+      - name: Record passed API 36 instrumentation evidence
+        if: success()
         run: |
           python scripts/quality/generate_evidence.py \
-            --gate apple-simulator-compile \
+            --gate android-device-api36 \
             --status passed \
-            --command "./gradlew :apps:client:iosSimulatorArm64Test :apps:client:linkDebugFrameworkIosSimulatorArm64 :apps:client:linkReleaseFrameworkIosSimulatorArm64 :apps:client:linkReleaseFrameworkIosArm64 --stacktrace" \
+            --command "./gradlew :apps:client:androidApp:connectedDebugAndroidTest --stacktrace" \
             --started-at "$GATE_STARTED_AT" \
-            --limitation "Kotlin/Native tests and framework links only; Keychain round trips, the Swift host, simulator app launch, device execution, signing, notarization, TestFlight, and App Store approval remain unverified" \
-            --output quality-evidence/apple-simulator-compile.json
-      - name: Upload Apple compile evidence
+            --junit-glob "apps/client/androidApp/build/outputs/androidTest-results/connected/debug/**/TEST-*.xml" \
+            --limitation "GitHub-hosted API 36 emulator only; representative physical-device performance, lock-screen, uninstall/reinstall, backup/restore, OEM behavior, and accessibility remain external validation" \
+            --output quality-evidence/android-device-api36.json
+      - name: Upload API 36 instrumentation evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: apple-simulator-compile-evidence
-          path: quality-evidence/
+          name: android-device-api36-evidence
+          path: |
+            apps/client/androidApp/build/outputs/androidTest-results/connected/
+            apps/client/androidApp/build/reports/androidTests/connected/
+            quality-evidence/
           if-no-files-found: ignore
 
   windows-package:
@@ -172,44 +188,5 @@ jobs:
           name: windows-msi-and-evidence
           path: |
             apps/client/build/compose/binaries/main/msi/*.msi
-            quality-evidence/
-          if-no-files-found: ignore
-
-  macos-package:
-    name: macOS unsigned DMG package
-    needs: desktop-tests
-    runs-on: macos-latest
-    timeout-minutes: 40
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "21"
-          cache: gradle
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Build unsigned DMG
-        run: |
-          echo "GATE_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
-          ./gradlew :apps:client:packageDmg --stacktrace
-      - name: Record passed DMG packaging evidence
-        run: |
-          python scripts/quality/generate_evidence.py \
-            --gate macos-dmg-package \
-            --status passed \
-            --command "./gradlew :apps:client:packageDmg --stacktrace" \
-            --started-at "$GATE_STARTED_AT" \
-            --artifact-glob "apps/client/build/compose/binaries/main/dmg/*.dmg" \
-            --limitation "Unsigned package build only; Keychain round trips, installation, upgrade, Developer ID signing, notarization, and Gatekeeper remain unverified" \
-            --output quality-evidence/macos-dmg-package.json
-      - name: Upload DMG and evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-dmg-and-evidence
-          path: |
-            apps/client/build/compose/binaries/main/dmg/*.dmg
             quality-evidence/
           if-no-files-found: ignore

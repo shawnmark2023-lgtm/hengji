@@ -24,8 +24,15 @@
       "status": "configured"
     },
     {
-      "id": "apple-compile",
+      "id": "android-device-api36",
       "workflow": ".github/workflows/client-quality.yml",
+      "jobIds": ["android-device-api36"],
+      "job": "android-device-api36",
+      "status": "configured"
+    },
+    {
+      "id": "apple-compile",
+      "workflow": ".github/workflows/apple-deferred.yml",
       "jobIds": ["apple-compile"],
       "job": "apple-compile",
       "status": "configured"
@@ -39,7 +46,7 @@
     },
     {
       "id": "macos-dmg-package",
-      "workflow": ".github/workflows/client-quality.yml",
+      "workflow": ".github/workflows/apple-deferred.yml",
       "jobIds": ["macos-package"],
       "job": "macos-package",
       "status": "configured"

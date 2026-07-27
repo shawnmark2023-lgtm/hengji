@@ -114,6 +114,10 @@ Push-Location services\price-intelligence; python -m pytest -q; Pop-Location
 
 无障碍本轮只取得代码审查、公共源码编译和既有单元测试证据。尚未在 macOS/iOS 上运行 VoiceOver，也未在 Android 上运行 TalkBack、在 Windows 上运行 Narrator 或完成仅键盘/高对比度矩阵，因此 `UX-008` 与 `QA-005` 均保持 `PARTIAL`。
 
+2026-07-27 已把 API 36 `connectedDebugAndroidTest` 配置为 GitHub-hosted 模拟器独立作业；成功运行后会上传 JUnit、HTML 报告和带限制说明的证据 JSON。Apple 编译与 DMG 作业迁到仅手动触发的延期工作流，不参与当前 Windows/Android PR 门禁。仓库仍未配置 remote，因此这些状态只能写为 `CONFIGURED_CI`，不能写为独立 runner 已通过。
+
+代表性 Android 实体机、锁屏/重启/卸载/系统恢复、TalkBack、Windows Narrator、硬件键盘和高对比度的固定矩阵与证据模板见 `docs/11-device-accessibility-validation.md`；当前各实体设备行仍为 `NOT_RUN`。
+
 当前主机没有可用的 WiX 工具链；Compose `downloadWix` 尝试下载 WiX 3.11 时连接被重置，因此本轮没有生成 MSI，也没有执行行政解包或真实安装/升级/卸载。旧文档记录的 MSI 文件当前不存在，其大小、哈希与启动结论不作为本次提交的交付证据。
 
 ## 真实 UI 验收

@@ -21,7 +21,7 @@
 | Android 安全生命周期 | 同一实体机锁屏、强制停止、重启、卸载/重装、备份/恢复 | `NOT_RUN` | 每项按预期 fail-closed，不静默创建空账本冒充恢复成功 |
 | Android 无障碍 | TalkBack、200% 字体、深色主题、硬件键盘 | `NOT_RUN` | 关键流程可完成，焦点顺序、控件名称、错误播报和确认/取消均明确 |
 | Windows 无障碍 | Windows 11 Narrator、仅键盘、200% 缩放、高对比度 | `NOT_RUN` | 关键流程可完成，无焦点陷阱，金额/状态/危险操作能被准确读出 |
-| Windows 安装生命周期 | 未签名 MSI 或后续签名候选包 | `NOT_RUN` | 安装、升级、卸载、数据保留/清除策略与文案一致；未签名限制明确 |
+| Windows 安装生命周期 | 未签名 MSI 或后续签名候选包 | `LOCAL_INSTALL_UPGRADE_UNINSTALL_PASSED` / `INSTALLED_LAUNCH_BLOCKED` / `CONFIGURED_CI_STRICT` | 本地每用户安装、同代码版本升级、卸载与隔离数据保留通过；独立 runner 必须再通过已安装入口启动，签名候选包另测 SmartScreen |
 
 ## 3. Android 实体机验收步骤
 

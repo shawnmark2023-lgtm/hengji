@@ -59,7 +59,8 @@
 - [x] Release 免安装包真实启动；最新源码的 `runRelease` 首次启动/重启不重写密文。
 - [x] Desktop client 53/53、全体 Desktop Kotlin 188/188，Tab/Enter 导航自动化通过。
 - [x] MSI 生成、Windows Installer 行政解包，并从解包结果连续两次启动；DPAPI 密钥材料与加密账本创建成功，重开未改写密文且未生成明文数据库。
-- [ ] 代码签名、SmartScreen、真实安装/升级/卸载和数据保留策略验证。
-- [ ] 日常升级不要求管理员权限的分发策略确定。
+- [x] 每用户真实安装、0.0.9→0.1.0 同代码版本升级、卸载清理和隔离数据保留通过；程序目录与默认账本目录分离。
+- [ ] 代码签名、SmartScreen 和已安装位置真实 EXE 启动；本机 Application Control 阻止未签名安装包入口，严格独立 CI 已配置。
+- [x] 日常升级采用 `%LOCALAPPDATA%\Programs\Hengji` 每用户安装，不要求管理员权限；默认加密账本保留在独立 `%LOCALAPPDATA%\Hengji`。
 - [ ] 键盘、屏幕阅读器、高对比度、125%–300% 缩放和触控设备验证。
 - [ ] DPAPI/Credential Locker、协议回调和自动更新验证。

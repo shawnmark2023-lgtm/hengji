@@ -92,7 +92,7 @@
 
 | ID | 状态 | 关键依赖 | 可量化验收 |
 | --- | --- | --- | --- |
-| FND-003 | BLOCKED | Git remote、独立 CI runner | 本地 Windows/Android 各在两个隔离 ASCII 源码副本构建并比较规范化 archive 内容；PR CI 已包含 Desktop、Android host/debug、API 36 instrumentation，以及 Windows MSI 构建、行政解包和加密账本启动/重开作业。仓库无 remote，无法产生独立 runner 通过证据 |
+| FND-003 | BLOCKED | Git remote、独立 CI runner | 本地 Windows/Android 各在两个隔离 ASCII 源码副本构建并比较规范化 archive 内容；PR CI 已包含 Desktop、Android host/debug、API 36 instrumentation，以及 Windows MSI 行政解包/加密账本、每用户安装、版本升级、已安装入口启动和卸载作业。仓库无 remote，无法产生独立 runner 通过证据 |
 | FND-004 | DONE | — | 格式门禁通过；core-domain 行/分支 94.76%/61.90%，core-insights 91.95%/59.39%，connectors 90.95%/50.36%，均达到 CI 阈值 |
 | DAT-004 | DONE_WIN_ANDROID | Apple deferred；系统级抗回滚/密钥丢失演练后续 | v2 envelope 将 active-key alias 纳入认证数据；启动自动发现当前代，轮换先验证旧快照、以新别名加密、CAS 提交并重开校验，提交失败保持旧信封可读；Windows/API 36 受保护账本往返通过 |
 | UX-006 | DONE_WIN_ANDROID | Apple runner deferred | Windows/Android 导入路径和整批撤销已完成；Apple 平台依本轮范围延期 |

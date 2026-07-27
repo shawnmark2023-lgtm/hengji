@@ -56,7 +56,7 @@
   ],
   "limitations": [
     "Windows launcher is unsigned and blocked by this host's Application Control policy.",
-    "No MSI, AAB, production signing, store track, upgrade, uninstall, or SmartScreen evidence.",
+    "This older artifact manifest does not include the newer MSI lifecycle evidence, AAB, production signing, store track, or SmartScreen evidence.",
     "iOS and macOS were explicitly deferred from this P0 pass."
   ]
 }

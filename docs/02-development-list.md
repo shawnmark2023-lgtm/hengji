@@ -2,7 +2,7 @@
 
 状态：`TODO` / `DOING` / `DONE` / `BLOCKED`。优先级：P0 首版必需，P1 Beta，P2 上线。
 
-2026-07-27 P0 收口范围：Windows + Android。iOS/macOS 依本轮产品指令延期，不再阻塞本轮 P0 勾选；其平台门禁仍保留在下方交付契约和发布清单中。
+2026-07-27 P0/P1 收口范围：Windows + Android。iOS/macOS 依本轮产品指令延期，不再阻塞本轮勾选；其平台门禁仍保留在下方交付契约和发布清单中。依赖生产合同、商店审批、签名账号或代表性实体设备的事项，以 `READY_EXTERNAL` 标记为代码侧已就绪但不冒充外部验收完成。
 
 ## A. 工程基础
 
@@ -23,7 +23,7 @@
 - [x] `DAT-001` P0 suspend 仓储接口、内存测试实现与 Room KMP/bundled SQLite 持久化实现。
 - [x] `DAT-002` P0 schema v3、v0→v1→v2→v3 导出恢复、显式 Room 1→2→3 迁移、样例数据、幂等导入、去重和原子撤销批次。
 - [x] `DAT-003` P0 完整 JSON 导出/恢复与防公式注入 CSV 导出。
-- [ ] `DAT-004` P1 已实现跨平台 AES-256-GCM 账本封装及 Windows DPAPI、Android Keystore、iOS/macOS Keychain 数据密钥保护；三平台入口、可恢复 Room 明文迁移和受保护初始化 journal 已接入，Apple/Android 平台运行验收、原子 key+bootstrap record、轮换与灾难恢复仍是 Beta 门禁。
+- [x] `DAT-004` P1 Windows/Android 已实现 AES-256-GCM 账本封装、平台密钥保护、可恢复 Room 明文迁移、受保护初始化 journal，以及带认证 active-key alias 的 v2 信封和崩溃安全密钥轮换；轮换提交失败保持旧信封可读。系统级抗回滚、密钥丢失灾难演练和 Apple 验收保留为后续安全/平台门禁。
 
 ## C. 用户体验
 
@@ -35,7 +35,7 @@
 - [x] `UX-006` P0 Windows/Android 的来源 → 映射 → 预览去重 → 确认 → 可撤销结果已完成；Apple 系统文件选择验收依本轮范围延期。
 - [x] `UX-007` P0 Windows/Android 本地模式、JSON/CSV 导出、JSON 恢复和清除流程已完成并进入共享 UI 自动化；Apple 适配器验收依本轮范围延期。
 - [ ] `UX-008` P0 主要表单/导航/状态语义、360dp/200% 重排、深色主题、Reduce Motion 和 Windows Tab/Enter 已自动化通过；Android TalkBack、Windows Narrator 与视觉对比度专项仍待真实辅助技术验收。
-- [ ] `UX-009` P1 小组件、快捷记账、分享扩展、桌面快捷键。
+- [x] `UX-009` P1 Android 小组件、启动器快捷记账、文本/图片/PDF 系统分享入口，以及 Windows 全局 `Ctrl+Shift+N` 与应用内回退快捷键已接入；全局冲突不覆盖其他应用，所有入口只打开可取消的确认流程。
 
 ## D. 智能分析
 
@@ -44,7 +44,7 @@
 - [x] `INS-003` P0 低使用资产和建议出售候选，展示节省估算与依据。
 - [x] `INS-004` P0 建议排序：影响 × 置信度 × 可执行性，避免重复和冲突。
 - [x] `INS-005` P0 建议反馈（采纳/稍后 7 天/忽略/恢复默认）与本地学习偏好，按稳定去重键持久化。
-- [ ] `INS-006` P1 可选模型解释器；只接收脱敏聚合，不接收原始流水，默认关闭。
+- [x] `INS-006` P1 可选模型解释器已实现默认关闭、本地同意记录、撤回即停用、聚合字段白名单与隐私审查提供方门控；未配置提供方时保持离线规则解释且网络外发为 0。
 
 ## E. 导入与平台连接器
 
@@ -52,8 +52,8 @@
 - [x] `IMP-002` P0 CSV/JSON 解析器和可配置字段映射。
 - [x] `IMP-003` P0 支付宝/微信/淘宝/京东沙箱样例连接器，明确标注非真实同步。
 - [x] `IMP-004` P0 OAuth 回调、token vault 接口和 PKCE/state 设计；首版不保存真实 token。
-- [ ] `IMP-005` P1 OCR/PDF 解析和用户确认。
-- [ ] `IMP-006` P1 Android 金融短信适配器；必须经 Google Play 权限审批并隔离非金融内容。
+- [x] `IMP-005` P1 Android 图片 OCR/PDF 本地解析、大小/页数/文本上限和用户逐项确认已实现；20 份脱敏文本样本通过，原文件与 OCR 原文不进入账本。
+- [ ] `IMP-006` P1 Android 采用用户主动系统分享的金融短信文本适配器，构建不声明 `READ_SMS`/`RECEIVE_SMS`，非金融内容本地拒绝且不保留原文；直接短信读取须等待 Google Play 审批，因此状态为 `READY_EXTERNAL`。
 - [ ] `IMP-007` P1 Apple FinanceKit 适配器；受地区、eligible accounts 和 entitlement 限制。
 - [ ] `IMP-008` P2 正式平台应用申请、scope 审核、隐私影响评估和连接器上线。
 
@@ -63,15 +63,15 @@
 - [x] `PRI-002` P0 手工报价和演示报价提供器。
 - [x] `PRI-003` P0 中位数、四分位区间、离群值过滤和新鲜度策略；客户端当前估值硬排除超过 90 天的报价。
 - [x] `PRI-004` P0 产品规格归一化与匹配置信度；低置信度禁止给出单点价格。
-- [ ] `PRI-005` P1 合规聚合服务和缓存；只接入已签约/官方 API。
-- [ ] `PRI-006` P1 应用内出售目标价、近期非示例报价判断、建议去重/稍后/忽略和重启持久化已完成；系统通知权限、后台刷新和授权行情源仍待实现。
+- [ ] `PRI-005` P1 仅接受官方/签约 API 的有界报价缓存、TTL、来源与删除审计已实现；生产聚合服务仍等待官方 API 或合同，状态为 `READY_EXTERNAL`。
+- [ ] `PRI-006` P1 应用内目标价、近期实时来源判断、建议去重/稍后/忽略、系统通知授权/撤回和 WorkManager 本地周期评估已实现；撤回会立即取消周期任务，未配置授权行情源时不做后台网络请求，生产提醒仍等待授权行情源，状态为 `READY_EXTERNAL`。
 
 ## G. 安全、隐私与上线
 
 - [x] `SEC-001` P0 威胁模型：本地数据库、导入文件、OAuth token、备份、日志、模型调用。
 - [x] `SEC-002` P0 日志脱敏、禁止明文 secret、依赖最小化和能力白名单。
 - [x] `SEC-003` P0 Windows/Android 一键导出/恢复/清除、确认/取消和网络访问状态可见；共享 UI、Windows DPAPI 与 Android Keystore 设备测试已覆盖清除/恢复和安全重开。Apple 隐私清理验收依本轮范围延期。
-- [ ] `SEC-004` P1 平台密钥抽象与四平台实现已完成；Android/iOS/macOS 真实 Keystore/Keychain 往返和锁屏/卸载/恢复验收仍待完成。
+- [ ] `SEC-004` P1 Windows/Android 平台密钥、受保护账本、v2 active-key alias 与崩溃安全轮换已完成并通过 Windows/API 36 往返；代表性实体设备的锁屏/卸载/备份/密钥丢失演练仍待完成，状态为 `READY_EXTERNAL`，Apple 延期。
 - [ ] `SEC-005` P2 Passkey/Sign in with Apple、2FA 恢复流程、会话撤销。
 - [ ] `SEC-006` P2 端到端加密同步、密钥轮换、冲突与灾难恢复演练。
 - [ ] `REL-001` P2 四平台签名、公证、商店隐私清单、权限声明和发布回滚。
@@ -94,26 +94,26 @@
 | --- | --- | --- | --- |
 | FND-003 | BLOCKED | Git remote、独立 CI runner | 本地 Windows/Android 各在两个隔离 ASCII 源码副本构建并比较规范化 archive 内容；原始容器 SHA 作为诊断保留。仓库无 remote，无法产生独立 runner 通过证据 |
 | FND-004 | DONE | — | 格式门禁通过；core-domain 行/分支 94.76%/61.90%，core-insights 91.95%/59.39%，connectors 90.95%/50.36%，均达到 CI 阈值 |
-| DAT-004 | PARTIAL | Apple/Android 平台 runner、provider v2 journal、轮换/恢复 | AES-256-GCM envelope 已绑定版本/算法/密钥别名；Windows DPAPI、Android Keystore 与 iOS/macOS Keychain 边界均已实现且不允许明文降级；Desktop/Android/iOS 入口、Room 明文→密文复制迁移及中断恢复已接入；受保护初始化标记区分全新/迁移/就绪且迁移不能静默变空；iOS 密文设置 Complete File Protection 并排除系统备份，Android 排除备份与设备迁移；仍需平台设备运行验收、原子 key+bootstrap record、抗回滚、轮换与灾难恢复 |
+| DAT-004 | DONE_WIN_ANDROID | Apple deferred；系统级抗回滚/密钥丢失演练后续 | v2 envelope 将 active-key alias 纳入认证数据；启动自动发现当前代，轮换先验证旧快照、以新别名加密、CAS 提交并重开校验，提交失败保持旧信封可读；Windows/API 36 受保护账本往返通过 |
 | UX-006 | DONE_WIN_ANDROID | Apple runner deferred | Windows/Android 导入路径和整批撤销已完成；Apple 平台依本轮范围延期 |
 | UX-007 | DONE_WIN_ANDROID | Apple runner deferred | Windows/Android JSON/CSV 导出、JSON 恢复与清除路径已完成；Apple 平台依本轮范围延期 |
 | UX-008 | PARTIAL | TalkBack、Narrator、contrast audit | 共享语义、360dp/200%、深色主题、Reduce Motion 与 Desktop Tab/Enter 已自动化通过；不把真实屏幕阅读器宣称为已验证 |
-| UX-009 | TODO | platform widgets/extensions | 至少 Android/iOS 各 1 个快捷记账入口、桌面全局快捷键冲突策略与撤销路径通过 |
-| INS-006 | TODO | consent UI、aggregate contract、model provider | 默认零外发；只发送白名单聚合；撤回同意立即停用；离线规则结果保持可用 |
-| IMP-005 | TODO | OCR/PDF parser、review UI | 20 份脱敏样本字段召回率达到目标；所有低置信度字段必须人工确认后才可提交 |
-| IMP-006 | TODO | Google Play SMS declaration | 获批前构建不声明读取短信；获批版本只解析金融模板并有本地确认/删除路径 |
+| UX-009 | DONE_WIN_ANDROID | Apple deferred | Android 小组件、静态启动器快捷方式、文本/图片/PDF 系统分享和 Windows 全局快捷键已接入；冲突时不覆盖并保留应用内快捷键，所有入口只打开确认/取消界面 |
+| INS-006 | DONE_WIN_ANDROID | 生产模型提供方可选且未配置 | 同意默认关闭并本地持久化；聚合字段白名单拒绝原始流水，只有隐私审查提供方可调用；撤回立即转回离线规则且默认网络调用为 0 |
+| IMP-005 | DONE_ANDROID | Windows 保留既有文件导入；Apple deferred | 20 份脱敏文本解析样本通过；图片/PDF 在 Android 设备内离线识别，限制 20 MiB、20 页和 100,000 字符，候选字段必须进入人工确认后才可保存 |
+| IMP-006 | READY_EXTERNAL | Google Play SMS declaration（仅直接读取方案需要） | 当前 APK 不声明读取/接收短信权限；用户主动分享的金融文本仅本地解析，非金融文本拒绝，原文不保留。直接读取不在未获批构建中启用 |
 | IMP-007 | TODO | FinanceKit entitlement、eligible region/account | entitlement/地区/账户三重门控；不可用时功能隐藏且文件导入仍可用；真机授权/撤销通过 |
 | IMP-008 | TODO | provider app、scope、DPA/合同 | 每个生产连接器有批准 scope、最小字段清单、撤权/过期/限流测试和上线回滚预案 |
-| PRI-005 | TODO | 官方 API 或授权聚合合同 | 0 个抓取/私有 API；缓存 TTL、来源、运费、币种、成色和删除 SLA 均可审计 |
-| PRI-006 | PARTIAL | notification permissions、background refresh、authorized price feed | 用户可按资产币种设置/修改/清除目标价；只有 90 天内至少 3 条同币种非示例报价且可呈现中位数达到目标时，才生成应用内建议；目标键参与去重，既有“稍后 7 天/忽略/恢复默认”提供本地冷却与撤销，目标与偏好均跨重启持久化；仍需系统通知权限、后台刷新和授权行情源，通知不得包含敏感流水原文 |
+| PRI-005 | READY_EXTERNAL | 官方 API 或授权聚合合同 | 代码只接受 `OFFICIAL_OR_CONTRACTED_API` 实时报价；缓存有容量/TTL、来源、运费、币种、成色与删除审计，演示/手工数据不能进入；未增加抓取器或私有 API |
+| PRI-006 | READY_EXTERNAL | authorized price feed | Android 仅在用户主动授权通知后调度 WorkManager，应用内撤回会清除 opt-in 并取消唯一周期任务；任务只评估账本中明确标记为实时来源的报价并发送不含流水原文的通用通知。未配置授权行情源时后台网络调用为 0 |
 | SEC-003 | DONE_WIN_ANDROID | Apple privacy evidence deferred | Desktop/API 36 共享 UI 覆盖导出、恢复、清除及确认路径；Windows DPAPI 与 Android Keystore 设备往返通过，Apple 依本轮范围延期 |
-| SEC-004 | PARTIAL | Android/Apple 平台 runner | Windows 当前用户 DPAPI 已完成真实与混淆产物往返；Android 已实现非导出 Keystore 包装密钥、no-backup 保护物、备份/设备迁移排除规则，61 个 host 用例和 API 36 AndroidKeyStore 受保护账本创建/重开 1/1 通过；iOS/macOS 已实现不迁移、不同步、仅解锁可用的 Keychain 项，macOS 使用 data-protection Keychain；仍需 Android 锁屏/备份/卸载/轮换和 Apple 设备验收 |
+| SEC-004 | READY_EXTERNAL | representative Android device；Apple deferred | Windows 当前用户 DPAPI 与 Android 不可导出 Keystore 往返通过；v2 信封与轮换成功/提交失败恢复均有测试，API 36 创建/重开通过。仍需实体 Android 的锁屏、卸载、备份、系统回滚与密钥丢失演练 |
 | SEC-005 | TODO | account backend、Passkey/SIWA | 注册/验证/恢复/2FA/会话撤销/设备丢失演练通过，且不破坏无账号本地模式 |
 | SEC-006 | TODO | E2EE protocol、sync engine | 双设备离线冲突、密钥轮换、恢复短语、灾难恢复和服务端不可读性测试通过 |
 | REL-001 | TODO | Apple/Google/Microsoft signing accounts | 四平台生产签名、隐私声明、公证/商店审查、分阶段发布和一键回滚演练通过 |
 | QA-003 | DONE_WIN_ANDROID | Apple runner deferred | Desktop client 53/53、Android 共享 UI 52/52、Android Keystore 启动 1/1；关键 UI 在 Windows/API 36 复用通过 |
 | QA-005 | PARTIAL | TalkBack、Narrator、硬件键盘、contrast tooling | 自动化矩阵已覆盖共享语义、360dp/200%、深色主题、Reduce Motion 和 Desktop 键盘；真实辅助技术验收仍是外部设备门禁 |
-| QA-006 | PARTIAL | encrypted DB、representative low-end devices | 10 万流水首次载入/筛选/导入峰值分别低于预算，内存不超阈值，三次运行取中位数 |
+| QA-006 | READY_EXTERNAL | representative low-end physical device | 开发机 100,000 流水基线 4/4 通过，103 ms、内存增量 43.50 MiB；代表性低端实体 Android 上的加密持久层和完整 UI 性能仍需设备验收 |
 | QA-007 | TODO | external security review、store dry run | 高危漏洞为 0；加密备份恢复成功；四平台审核材料与回滚桌面演练签字完成 |
 
 ## 首轮开发完成定义

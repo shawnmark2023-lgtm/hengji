@@ -81,8 +81,10 @@ cleanup-only state. Divergent plaintext and encrypted snapshots fail closed and 
 
 Opening a new protected ledger first checks for an existing platform key. If the envelope and migration source are both
 missing while a key still exists, opening fails closed instead of creating an empty ledger that could hide file loss or
-trigger demo reseeding. A crash after first key provisioning but before the initial envelope commit also requires an
-explicit recovery/reset path; a durable initialization journal remains a pre-Beta recovery improvement.
+trigger demo reseeding. A protected initialization journal distinguishes new installation, migration, and ready states.
+Envelope v2 authenticates the active key alias. Key rotation validates the old snapshot, provisions a fresh alias,
+encrypts with that alias, commits through compare-and-swap, verifies the committed envelope, and leaves the old envelope
+readable if the commit loses a race.
 
 The Desktop, Android, and iOS application composition roots select their protected factories and fail closed when a platform
 key, authenticated envelope, or legacy migration cannot be opened. The iOS factory automatically detects the legacy

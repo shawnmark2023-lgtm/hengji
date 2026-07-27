@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_hengji"
+        android:shortcutId="quick_entry"
+        android:shortcutLongLabel="@string/shortcut_quick_entry_long"
+        android:shortcutShortLabel="@string/shortcut_quick_entry_short">
+        <intent
+            android:action="com.hengji.app.action.QUICK_ENTRY"
+            android:targetClass="com.hengji.app.MainActivity"
+            android:targetPackage="com.hengji.app" />
+    </shortcut>
+</shortcuts>

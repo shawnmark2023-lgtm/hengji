@@ -64,7 +64,7 @@
 | T13 | 错误响应回显原始交易或内部堆栈 | 隐私/实现泄露 | 稳定错误码 + request ID；500 使用通用文案 | 集中脱敏日志与响应快照测试 |
 | T14 | 依赖、CI 或签名供应链被篡改 | 恶意发行包 | 锁文件、最小依赖、CI 测试、禁止提交密钥 | SBOM、依赖审查、固定 action SHA、隔离签名 runner |
 | T15 | 日后账户恢复绕过、设备撤销失效 | 云端账本泄露 | 首版无账户/云同步，攻击面不存在 | Passkey、恢复码、设备清单、会话/密钥吊销专项评审 |
-| T16 | 本地数据库、备份或临时文件被离线复制/篡改 | 高敏财务明文泄露、静默数据操纵 | 受保护账本 envelope 使用 AES-256-GCM、随机 96-bit nonce、版本/算法/密钥别名 AAD、大小上限与 fail-closed；平台保护的单调初始化标记区分全新、迁移与就绪，迁移中断不能静默变成空账本；Windows 用当前用户 DPAPI；Android 用不可导出 Keystore AES 密钥和 no-backup 保护物，并排除系统备份/设备迁移；iOS/macOS 用不迁移、不同步、仅解锁可用的 Keychain 项；iOS 密文设置 Complete File Protection 并排除系统备份；三平台入口均只打开受保护仓储 | Android/Apple 设备验收；原子 key+bootstrap record、抗回滚、错钥/轮换、崩溃与灾难恢复 |
+| T16 | 本地数据库、备份或临时文件被离线复制/篡改 | 高敏财务明文泄露、静默数据操纵 | 受保护账本 envelope 使用 AES-256-GCM、随机 96-bit nonce、版本/算法/active-key alias AAD、大小上限与 fail-closed；v2 轮换以新别名加密并通过 envelope CAS 提交，失败保持旧信封可读；平台保护的单调初始化标记区分全新、迁移与就绪；Windows 用当前用户 DPAPI；Android 用不可导出 Keystore AES 密钥和 no-backup 保护物，并排除系统备份/设备迁移；Apple 保护边界保留但本轮延期 | Windows/API 36 往返与轮换单测；实体 Android 锁屏/卸载/备份/系统回滚/密钥丢失演练；Apple 后续验收 |
 | T17 | 过期或旧的撤销动作复活已再次删除的流水 | 用户意图被覆盖、分析结果回滚 | 应用在同一进程内生成严格单调删除 token；恢复必须精确匹配墓碑 token；仅 8 秒窗口可操作；清除/备份恢复会使当前撤销入口失效，重启不恢复短期撤销入口 | UI 时钟边界、同毫秒重复删除、跨重启删除/恢复回归 |
 
 ## 5. OAuth 上线约束

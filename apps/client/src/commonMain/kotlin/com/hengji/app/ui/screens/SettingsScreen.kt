@@ -37,6 +37,8 @@ import com.hengji.app.ui.components.LocalOnlyBadge
 import com.hengji.app.ui.components.ScreenHeader
 import com.hengji.app.ui.components.SectionCard
 import com.hengji.app.ui.components.StatusPill
+import com.hengji.app.application.PriceNotificationControl
+import com.hengji.app.application.ModelExplanationControl
 
 @Composable
 fun SettingsScreen(
@@ -51,6 +53,9 @@ fun SettingsScreen(
     onClearData: () -> Unit = {},
     onOpenImport: () -> Unit = {},
     storageStatus: String = "内存预览 · 关闭后不保留",
+    quickEntryShortcutStatus: String? = null,
+    priceNotificationControl: PriceNotificationControl? = null,
+    modelExplanationControl: ModelExplanationControl? = null,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -122,6 +127,59 @@ fun SettingsScreen(
                 }
             }
         }
+        priceNotificationControl?.let { control ->
+            item {
+                SectionCard(Modifier.fillMaxWidth()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(HengjiSpacing.sm)) {
+                        Text(
+                            "出售目标提醒",
+                            style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier.semantics { heading() },
+                        )
+                        Text(
+                            control.status,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        FilledTonalButton(
+                            onClick = if (control.canRequest) control.request else control.disable,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(if (control.canRequest) "允许系统通知" else "关闭目标提醒")
+                        }
+                        Text(
+                            "后台只读取本机受保护账本，并仅使用授权实时报价判断；不会上传流水，也不会在通知中显示流水原文。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+        modelExplanationControl?.let { control ->
+            item {
+                SectionCard(Modifier.fillMaxWidth()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(HengjiSpacing.sm)) {
+                        Text(
+                            "可选模型解释",
+                            style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier.semantics { heading() },
+                        )
+                        SettingSwitchRow(
+                            title = "允许脱敏聚合解释",
+                            supporting = "只允许白名单聚合；原始流水、商户、备注和导入原文没有外发字段",
+                            checked = control.enabled,
+                            onCheckedChange = control.onEnabledChange,
+                        )
+                        Text(
+                            control.status,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
         item {
             SectionCard(Modifier.fillMaxWidth()) {
                 Column {
@@ -144,6 +202,15 @@ fun SettingsScreen(
                         checked = reduceMotion,
                         onCheckedChange = onReduceMotionChange,
                     )
+                    quickEntryShortcutStatus?.let {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Text(
+                            it,
+                            modifier = Modifier.padding(vertical = HengjiSpacing.sm),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }

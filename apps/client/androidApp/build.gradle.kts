@@ -7,9 +7,14 @@ plugins {
 
 dependencies {
     implementation(project(":apps:client"))
+    implementation(project(":modules:connectors"))
     implementation(project(":modules:core-data"))
+    implementation(project(":modules:core-insights"))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.mlkit.text.recognition.chinese)
+    implementation(libs.androidx.work.runtime)
     androidTestImplementation("androidx.test:runner:1.7.0")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     debugImplementation(libs.compose.ui.tooling)

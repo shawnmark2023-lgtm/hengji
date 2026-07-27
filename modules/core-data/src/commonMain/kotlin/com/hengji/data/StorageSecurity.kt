@@ -10,7 +10,8 @@ import kotlinx.serialization.json.Json
 private const val AES_GCM_NONCE_BYTES = 12
 private const val AES_GCM_TAG_BYTES = 16
 internal const val AES_256_KEY_BYTES = 32
-private const val PROTECTED_LEDGER_FORMAT_VERSION = 1
+private const val LEGACY_PROTECTED_LEDGER_FORMAT_VERSION = 1
+private const val PROTECTED_LEDGER_FORMAT_VERSION = 2
 private const val MAX_PROTECTED_LEDGER_BYTES = 36 * 1024 * 1024
 
 open class StorageProtectionException(
@@ -147,6 +148,7 @@ private data class ProtectedLedgerEnvelope(
     val algorithmId: String,
     val nonceBase64: String,
     val ciphertextBase64: String,
+    val keyAlias: String? = null,
 )
 
 object ProtectedLedgerEnvelopeCodec {
@@ -156,18 +158,24 @@ object ProtectedLedgerEnvelopeCodec {
         ignoreUnknownKeys = false
     }
 
-    fun encode(payload: CipherPayload): String {
+    fun encode(payload: CipherPayload, keyAlias: String? = null): String {
         require(payload.algorithmId == Aes256GcmPayloadCipher.ALGORITHM_ID) {
             "Unsupported encrypted payload algorithm"
         }
         require(payload.nonce.size == AES_GCM_NONCE_BYTES) { "AES-GCM nonce must contain 96 bits" }
         require(payload.ciphertext.size >= AES_GCM_TAG_BYTES) { "AES-GCM ciphertext is truncated" }
+        keyAlias?.let(::requireValidDatabaseKeyAlias)
         return json.encodeToString(
             ProtectedLedgerEnvelope(
-                formatVersion = PROTECTED_LEDGER_FORMAT_VERSION,
+                formatVersion = if (keyAlias == null) {
+                    LEGACY_PROTECTED_LEDGER_FORMAT_VERSION
+                } else {
+                    PROTECTED_LEDGER_FORMAT_VERSION
+                },
                 algorithmId = payload.algorithmId,
                 nonceBase64 = Base64.encode(payload.nonce),
                 ciphertextBase64 = Base64.encode(payload.ciphertext),
+                keyAlias = keyAlias,
             ),
         ).also {
             require(it.encodeToByteArray().size <= MAX_PROTECTED_LEDGER_BYTES) {
@@ -181,9 +189,17 @@ object ProtectedLedgerEnvelopeCodec {
             "Encrypted ledger exceeds the protected payload limit"
         }
         val decoded = json.decodeFromString<ProtectedLedgerEnvelope>(envelope)
-        require(decoded.formatVersion == PROTECTED_LEDGER_FORMAT_VERSION) {
+        require(
+            decoded.formatVersion == LEGACY_PROTECTED_LEDGER_FORMAT_VERSION ||
+                decoded.formatVersion == PROTECTED_LEDGER_FORMAT_VERSION,
+        ) {
             "Unsupported encrypted ledger format version"
         }
+        require(
+            (decoded.formatVersion == LEGACY_PROTECTED_LEDGER_FORMAT_VERSION && decoded.keyAlias == null) ||
+                (decoded.formatVersion == PROTECTED_LEDGER_FORMAT_VERSION && decoded.keyAlias != null),
+        ) { "Encrypted ledger key metadata does not match its format version" }
+        decoded.keyAlias?.let(::requireValidDatabaseKeyAlias)
         require(decoded.algorithmId == Aes256GcmPayloadCipher.ALGORITHM_ID) {
             "Unsupported encrypted payload algorithm"
         }
@@ -196,6 +212,17 @@ object ProtectedLedgerEnvelopeCodec {
         require(nonce.size == AES_GCM_NONCE_BYTES) { "AES-GCM nonce must contain 96 bits" }
         require(ciphertext.size >= AES_GCM_TAG_BYTES) { "AES-GCM ciphertext is truncated" }
         return CipherPayload(decoded.algorithmId, nonce, ciphertext)
+    }
+
+    fun activeKeyAlias(envelope: String, legacyFallbackAlias: String): String {
+        requireValidDatabaseKeyAlias(legacyFallbackAlias)
+        require(envelope.encodeToByteArray().size <= MAX_PROTECTED_LEDGER_BYTES)
+        val decoded = json.decodeFromString<ProtectedLedgerEnvelope>(envelope)
+        require(
+            decoded.formatVersion == LEGACY_PROTECTED_LEDGER_FORMAT_VERSION ||
+                decoded.formatVersion == PROTECTED_LEDGER_FORMAT_VERSION,
+        ) { "Unsupported encrypted ledger format version" }
+        return decoded.keyAlias?.also(::requireValidDatabaseKeyAlias) ?: legacyFallbackAlias
     }
 }
 
@@ -242,10 +269,14 @@ class ProtectedLedgerPayloadCodec(
     }
 
     suspend fun exportEnvelope(snapshot: LedgerSnapshot): String =
-        ProtectedLedgerEnvelopeCodec.encode(export(snapshot))
+        ProtectedLedgerEnvelopeCodec.encode(export(snapshot), keyAlias)
 
-    suspend fun restoreEnvelope(envelope: String): LedgerSnapshot =
-        restore(ProtectedLedgerEnvelopeCodec.decode(envelope))
+    suspend fun restoreEnvelope(envelope: String): LedgerSnapshot {
+        require(ProtectedLedgerEnvelopeCodec.activeKeyAlias(envelope, keyAlias) == keyAlias) {
+            "Encrypted ledger key alias does not match the configured key"
+        }
+        return restore(ProtectedLedgerEnvelopeCodec.decode(envelope))
+    }
 
     private suspend fun <T> withKey(block: suspend (ByteArray) -> T): T {
         val material = keyProvider.loadKey(keyAlias)
@@ -261,7 +292,7 @@ class ProtectedLedgerPayloadCodec(
 
     private fun associatedData(): ByteArray =
         (
-            "hengji|protected-ledger|format=$PROTECTED_LEDGER_FORMAT_VERSION|" +
+            "hengji|protected-ledger|format=$LEGACY_PROTECTED_LEDGER_FORMAT_VERSION|" +
                 "schema=$LEDGER_EXPORT_SCHEMA_VERSION|key=$keyAlias|algorithm=${cipher.algorithmId}"
         ).encodeToByteArray()
 }

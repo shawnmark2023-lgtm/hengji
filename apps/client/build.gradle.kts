@@ -70,7 +70,16 @@ kotlin {
     }
 
     sourceSets {
-        val desktopMain by getting
+        val desktopMain by getting {
+            dependencies {
+                implementation(
+                    "org.jetbrains.compose.desktop:desktop-jvm-$desktopDependencyProfile:" +
+                        composeMultiplatformVersion,
+                )
+                implementation(libs.kotlinx.coroutines.swing)
+                implementation(libs.jna.platform)
+            }
+        }
         val desktopTest by getting
 
         commonMain.dependencies {
@@ -93,14 +102,6 @@ kotlin {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
             implementation("org.jetbrains.compose.ui:ui-test:$composeMultiplatformVersion")
-        }
-
-        desktopMain.dependencies {
-            implementation(
-                "org.jetbrains.compose.desktop:desktop-jvm-$desktopDependencyProfile:" +
-                    composeMultiplatformVersion,
-            )
-            implementation(libs.kotlinx.coroutines.swing)
         }
 
         desktopTest.dependencies {

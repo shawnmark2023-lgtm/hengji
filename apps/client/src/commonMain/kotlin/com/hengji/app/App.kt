@@ -57,6 +57,9 @@ import com.hengji.app.application.UserDocumentPurpose
 import com.hengji.app.application.UserImportDocumentPicker
 import com.hengji.app.application.LedgerExportWriter
 import com.hengji.app.application.PreviewOnlyLedgerExportWriter
+import com.hengji.app.application.QuickEntryRequest
+import com.hengji.app.application.PriceNotificationControl
+import com.hengji.app.application.ModelExplanationControl
 import com.hengji.app.importflow.ImportWizard
 import com.hengji.app.importflow.ImportDocumentFormat
 import com.hengji.app.model.DomainDemoData
@@ -123,9 +126,22 @@ fun HengjiApp(
     userImportDocumentPicker: UserImportDocumentPicker = UnavailableUserImportDocumentPicker,
     ledgerExportWriter: LedgerExportWriter = PreviewOnlyLedgerExportWriter,
     seedDemoData: Boolean = false,
+    quickEntryRequest: QuickEntryRequest? = null,
+    quickEntryShortcutStatus: String? = null,
+    priceNotificationControl: PriceNotificationControl? = null,
+    modelExplanationControl: ModelExplanationControl? = null,
 ) {
     val gateway = remember(repository) { PersistentAppLedgerGateway(repository) }
-    HengjiApp(gateway, userImportDocumentPicker, ledgerExportWriter, seedDemoData)
+    HengjiApp(
+        gateway,
+        userImportDocumentPicker,
+        ledgerExportWriter,
+        seedDemoData,
+        quickEntryRequest,
+        quickEntryShortcutStatus,
+        priceNotificationControl,
+        modelExplanationControl,
+    )
 }
 
 @Composable
@@ -134,6 +150,10 @@ fun HengjiApp(
     userImportDocumentPicker: UserImportDocumentPicker = UnavailableUserImportDocumentPicker,
     ledgerExportWriter: LedgerExportWriter = PreviewOnlyLedgerExportWriter,
     seedDemoData: Boolean = false,
+    quickEntryRequest: QuickEntryRequest? = null,
+    quickEntryShortcutStatus: String? = null,
+    priceNotificationControl: PriceNotificationControl? = null,
+    modelExplanationControl: ModelExplanationControl? = null,
 ) {
     var destination by rememberSaveable { mutableStateOf(AppDestination.Overview) }
     var darkThemeOverride by rememberSaveable { mutableStateOf<Boolean?>(null) }
@@ -154,6 +174,10 @@ fun HengjiApp(
     var insightFeedbackBusyKey by remember { mutableStateOf<String?>(null) }
     var insightFeedbackResetting by remember { mutableStateOf(false) }
     var insightFeedbackStatus by remember { mutableStateOf<String?>(null) }
+    var quickEntryMerchant by rememberSaveable { mutableStateOf("") }
+    var quickEntryAmountMinor by rememberSaveable { mutableStateOf<Long?>(null) }
+    var quickEntryCategory by rememberSaveable { mutableStateOf("其他") }
+    var quickEntryDisclosure by rememberSaveable { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val transactionDeletionCoordinator = remember(gateway) { TransactionDeletionCoordinator(gateway) }
     val importPort = remember(gateway, userImportDocumentPicker) {
@@ -181,6 +205,17 @@ fun HengjiApp(
         } finally {
             storageBusy = false
         }
+    }
+
+    LaunchedEffect(quickEntryRequest?.sequence) {
+        val request = quickEntryRequest ?: return@LaunchedEffect
+        if (request.sequence == 0L) return@LaunchedEffect
+        quickEntryMerchant = request.merchant
+        quickEntryAmountMinor = request.amountMinor
+        quickEntryCategory = request.categoryLabel
+        quickEntryDisclosure = request.sourceDisclosure
+        editingTransactionId = null
+        showAddTransaction = true
     }
 
     LaunchedEffect(pendingTransactionUndo) {
@@ -490,6 +525,9 @@ fun HengjiApp(
                         } else {
                             "内存预览 · 关闭后不保留"
                         },
+                        quickEntryShortcutStatus = quickEntryShortcutStatus,
+                        priceNotificationControl = priceNotificationControl,
+                        modelExplanationControl = modelExplanationControl,
                     )
                     }
                 }
@@ -521,12 +559,19 @@ fun HengjiApp(
         if (showAddTransaction || editingTransaction != null) {
             AddTransactionDialog(
                 title = if (editingTransaction == null) "记一笔消费" else "编辑流水",
-                initialMerchant = editingTransaction?.merchant?.displayName.orEmpty(),
-                initialAmount = editingTransaction?.amount?.minorUnits?.let(::minorUnitsToInput).orEmpty(),
-                initialCategory = editingTransaction?.categoryId?.value?.let(::categoryLabelForId) ?: "餐饮",
+                initialMerchant = editingTransaction?.merchant?.displayName ?: quickEntryMerchant,
+                initialAmount = editingTransaction?.amount?.minorUnits?.let(::minorUnitsToInput)
+                    ?: quickEntryAmountMinor?.let(::minorUnitsToInput).orEmpty(),
+                initialCategory = editingTransaction?.categoryId?.value?.let(::categoryLabelForId)
+                    ?: quickEntryCategory,
+                sourceDisclosure = if (editingTransaction == null) quickEntryDisclosure else null,
                 onDismiss = {
                     showAddTransaction = false
                     editingTransactionId = null
+                    quickEntryMerchant = ""
+                    quickEntryAmountMinor = null
+                    quickEntryCategory = "其他"
+                    quickEntryDisclosure = null
                 },
                 onAdd = { merchant, category, amountMinor ->
                     mutate {
@@ -546,6 +591,10 @@ fun HengjiApp(
                         gateway.upsertTransaction(updated)
                         showAddTransaction = false
                         editingTransactionId = null
+                        quickEntryMerchant = ""
+                        quickEntryAmountMinor = null
+                        quickEntryCategory = "其他"
+                        quickEntryDisclosure = null
                         destination = AppDestination.Ledger
                     }
                 },
@@ -729,6 +778,7 @@ private fun AddTransactionDialog(
     initialMerchant: String,
     initialAmount: String,
     initialCategory: String,
+    sourceDisclosure: String? = null,
     onDismiss: () -> Unit,
     onAdd: (merchant: String, category: String, amountMinor: Long) -> Unit,
 ) {
@@ -754,6 +804,13 @@ private fun AddTransactionDialog(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                sourceDisclosure?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
                 OutlinedTextField(
                     value = merchant,
                     onValueChange = { merchant = it },

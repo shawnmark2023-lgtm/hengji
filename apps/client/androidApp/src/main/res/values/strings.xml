@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">衡记</string>
+    <string name="widget_quick_entry_title">记一笔</string>
+    <string name="widget_quick_entry_supporting">打开确认页，不会直接写账</string>
+    <string name="widget_quick_entry_description">衡记快捷记账小组件</string>
+    <string name="shortcut_quick_entry_short">记一笔</string>
+    <string name="shortcut_quick_entry_long">打开衡记快捷记账确认页</string>
 </resources>

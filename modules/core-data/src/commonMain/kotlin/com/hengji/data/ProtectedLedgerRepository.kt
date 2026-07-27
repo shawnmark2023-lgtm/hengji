@@ -384,8 +384,11 @@ class ProtectedLedgerRepository private constructor(
             plaintextSource: PlaintextLedgerMigrationSource? = null,
         ): ProtectedLedgerOpenResult {
             requireValidDatabaseKeyAlias(keyAlias)
-            val codec = ProtectedLedgerPayloadCodec(keyAlias, keyProvider, cipher)
             val existingEnvelope = store.readEnvelope()
+            val activeKeyAlias = existingEnvelope?.let {
+                ProtectedLedgerEnvelopeCodec.activeKeyAlias(it, keyAlias)
+            } ?: keyAlias
+            val codec = ProtectedLedgerPayloadCodec(activeKeyAlias, keyProvider, cipher)
             val initializationState = initializationJournal.readState()
 
             if (existingEnvelope != null) {

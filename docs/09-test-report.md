@@ -1,5 +1,34 @@
 # 测试与构建报告
 
+## 2026-07-27 Windows/Android P1 收口
+
+本轮继续只收口 Windows + Android；iOS/macOS 延期。P1 代码侧已完成密钥轮换、Android 快捷记账入口和本地 OCR/PDF 导入、聚合解释同意门控、授权报价缓存，以及系统通知的本地周期评估边界。依赖生产合同、Google Play 审批、生产签名或代表性实体设备的事项标记为 `READY_EXTERNAL`，不冒充已经获得外部验收。
+
+| 门禁 | 结果 | 证据与边界 |
+| --- | --- | --- |
+| Desktop 单元测试 | 188/188，0 failure/error/skip | client 53、core-domain 17、core-data 79、core-insights 25、connectors 14；新增覆盖密钥轮换成功/提交冲突、OCR 文本解析、授权报价缓存和模型解释同意撤回 |
+| Android host | 63/63，0 failure/error/skip | 包含共同受保护账本测试及新增轮换路径 |
+| Android API 36 | 2/2 | 真实 AndroidKeyStore 账本创建/重开；清单断言小组件、快捷动作、文本/图片/PDF 分享、`POST_NOTIFICATIONS`，并确认无 `READ_SMS`/`RECEIVE_SMS` |
+| Android 构建 | 通过 | `lintDebug` 0 error/13 warning；Debug APK、未签名 R8 Release APK 构建通过。APK 实际权限包含通知与 WorkManager 所需能力，不含短信读取/接收权限 |
+| Windows 构建 | 通过 | ProGuard Release JAR 构建通过；受保护账本首次创建/同账本重开 smoke 的密文哈希、字节数与写入时间保持一致，磁盘不含明文数据库 |
+| 完整质量门禁 | 通过 | 格式 179/179；架构 38/38；发布守卫 277/277；依赖/可复现策略 18/18；畸形导入 8/8 |
+| 覆盖率 | 通过 | core-domain 行/分支 94.76%/61.90%；core-insights 91.91%/59.05%；connectors 91.83%/52.94%，均达到阻断阈值 |
+| 10 万流水基线 | 4/4 | 106 ms、内存增量 43.46 MiB；这是开发机内存基线，不代表低端实体设备的加密持久层或完整 UI 性能 |
+| 两次隔离构建 | Windows/Android 均通过 | Windows 73 个 Release JAR 路径/权限/内容规范化差异为 0；Android 两次 Debug APK 原始 SHA-256 与规范化内容均一致 |
+
+当前重建产物：
+
+- Android Debug APK：71,238,591 bytes，SHA-256 `0EC8E43B185896E013860409791520098609B29F1D68AF56F911B858356E4015`。
+- Android 未签名 Release APK：50,416,092 bytes，SHA-256 `52C0A7B8D056B2F3D400716DDD265FC50C8EB347393A837CBCFD245FD7245074`。
+- Windows ProGuard Release JAR：30,592,366 bytes，SHA-256 `19A728714E4A2DF81081660ED6ACCB5F80879C9F41BC43B2687C07C5FAB0B13B`。
+
+P1 尚需外部条件而不能在本仓库中宣称完成的事项：
+
+- 直接读取短信方案需要 Google Play 权限审批；当前实现改为用户主动系统分享，未申请敏感短信权限。
+- 生产报价与后台提醒需要官方 API 或授权聚合合同；当前缓存拒绝演示/手工数据冒充实时源，未配置提供方时后台网络调用为 0。
+- Android 锁屏、卸载、系统备份/回滚、密钥丢失和代表性低端实体设备性能仍需设备矩阵；当前只有 API 36 AVD 与 Windows 证据。
+- Android Release APK 尚未生产签名；iOS/macOS 依产品指令延期。
+
 ## 2026-07-27 Windows/Android P0 增量
 
 本轮按产品决定只收口 Windows + Android；iOS/macOS 延期，未运行其编译、签名或设备任务，也不把它们作为本轮阻断。环境为 Windows 11、JDK 21.0.2、Gradle 9.3.1、Python 3.12.13、Android API 36 AVD。

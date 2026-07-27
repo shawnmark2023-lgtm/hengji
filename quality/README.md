@@ -50,15 +50,25 @@ python scripts/quality/reproducible_build.py --target windows
 python scripts/quality/reproducible_build.py --target android
 ```
 
+On Windows, verify an MSI as a separate release stage: administrative extraction, two launches of
+the extracted executable, DPAPI key material, ciphertext preservation across restart, and absence
+of a plaintext `hengji.db`:
+
+```powershell
+.\scripts\quality\verify-windows-msi.ps1 `
+  -MsiPath .\apps\client\build\compose\binaries\main\msi\Hengji-0.1.0.msi `
+  -OutputPath .\quality\evidence\windows-msi-smoke.json
+```
+
 The runner uses the checked Gradle Wrapper. If a controlled build environment already provides the
 same verified Gradle distribution, `HENGJI_GRADLE` may point to that executable; the exact override
 path is preserved in evidence.
 
 Each command writes machine-readable evidence under `quality/evidence/` by default. CI writes the
 same records to an artifact directory. A workflow definition is recorded as `configured`; only a
-successful workflow run may produce `passed` evidence. Packaging evidence proves only that the
-unsigned package was produced and hashed, not signing, notarization, installation, upgrade, or
-store approval.
+successful workflow run may produce `passed` evidence. Windows MSI smoke evidence additionally
+proves administrative extraction and protected-ledger launch/reopen; it does not prove
+machine-wide installation, signing, upgrade, uninstall, SmartScreen reputation, or store approval.
 
 ## Gate ownership
 

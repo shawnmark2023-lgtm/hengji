@@ -1,5 +1,19 @@
 # 测试与构建报告
 
+## 2026-07-27 Windows MSI 发布门禁增量
+
+在提交 `7cc0e579d6c872190ff589f6e3b641022c31a319` 的干净跟踪源码上，Compose Desktop `packageMsi` 已生成 `Hengji-0.1.0.msi`。本机损坏且截断的 Gradle WiX 缓存已隔离，随后使用 WiX 官方发布的便携二进制恢复构建工具链；该下载只进入用户级 Gradle 缓存，没有写入仓库或绕过依赖/源码门禁。
+
+| 门禁 | 结果 | 证据与边界 |
+| --- | --- | --- |
+| MSI 构建 | 通过 | 108,673,852 bytes；SHA-256 `67A1525EE910728A1913D0D56064DFA55E66A7A7385D3AAC853DA13CBC654A02`；Product `Hengji` 0.1.0，Manufacturer `HENGJI`；Authenticode `NotSigned` |
+| Windows Installer 行政解包 | 通过 | `msiexec /a ... /qn` 退出码 0；解包得到 `Hengji/Hengji.exe` |
+| 解包后二进制首次启动 | 通过 | 实际 `Hengji.exe` 保持 2 个进程存活；创建 24,294 bytes 加密信封与 3 个 DPAPI 保护物；没有 `hengji.db`，密文未命中 `asset-headphones` |
+| 同账本重开 | 通过 | 第二次启动同样保持 2 个实际进程存活；信封 SHA-256 `0E8C190033404AD2869A702893C9CA60706B99BC0E67483EDBEBECCE4CD65250`、大小与最后写入时间均未变化 |
+| 可重复门禁 | 通过 | 新增 `scripts/quality/verify-windows-msi.ps1`，CI 的 Windows MSI 作业在构建后执行行政解包、两次启动与受保护存储断言，并上传独立 JSON 证据 |
+
+这项证据关闭“MSI 是否能生成、行政解包、从解包结果运行”的开发门禁，但不等于机器级安装。MSI 与 EXE 均未签名；真实安装、日常升级、卸载、数据保留/清除策略、SmartScreen 信誉和生产签名仍未执行。
+
 ## 2026-07-27 Windows/Android P1 收口
 
 本轮继续只收口 Windows + Android；iOS/macOS 延期。P1 代码侧已完成密钥轮换、Android 快捷记账入口和本地 OCR/PDF 导入、聚合解释同意门控、授权报价缓存，以及系统通知的本地周期评估边界。依赖生产合同、Google Play 审批、生产签名或代表性实体设备的事项标记为 `READY_EXTERNAL`，不冒充已经获得外部验收。
@@ -10,8 +24,8 @@
 | Android host | 63/63，0 failure/error/skip | 包含共同受保护账本测试及新增轮换路径 |
 | Android API 36 | 3/3 | 真实 AndroidKeyStore 账本创建/重开；清单断言小组件、快捷动作、文本/图片/PDF 分享和权限；真实 `MainActivity` Compose 层级通过 Accessibility Test Framework |
 | Android 构建 | 通过 | `lintDebug` 0 error/13 warning；Debug APK、未签名 R8 Release APK 构建通过。APK 实际权限包含通知与 WorkManager 所需能力，不含短信读取/接收权限 |
-| Windows 构建 | 通过 | ProGuard Release JAR 构建通过；受保护账本首次创建/同账本重开 smoke 的密文哈希、字节数与写入时间保持一致，磁盘不含明文数据库 |
-| 完整质量门禁 | 通过 | 格式 179/179；架构 38/38；发布守卫 277/277；依赖/可复现策略 18/18；畸形导入 8/8 |
+| Windows 构建 | 通过 | ProGuard Release JAR 与未签名 MSI 构建通过；MSI 行政解包后的真实 EXE 首次创建/同账本重开 smoke 保持密文哈希、字节数与写入时间一致，磁盘不含明文数据库 |
+| 完整质量门禁 | 通过 | 格式 180/180；架构 38/38；发布守卫 282/282；依赖/可复现策略 18/18；畸形导入 8/8 |
 | 覆盖率 | 通过 | core-domain 行/分支 94.76%/61.90%；core-insights 91.91%/59.05%；connectors 91.83%/52.94%，均达到阻断阈值 |
 | 10 万流水基线 | 4/4 | 106 ms、内存增量 43.46 MiB；这是开发机内存基线，不代表低端实体设备的加密持久层或完整 UI 性能 |
 | 两次隔离构建 | Windows/Android 均通过 | Windows 73 个 Release JAR 路径/权限/内容规范化差异为 0；Android 两次 Debug APK 原始 SHA-256 与规范化内容均一致 |
@@ -21,6 +35,7 @@
 - Android Debug APK：71,238,591 bytes，SHA-256 `0EC8E43B185896E013860409791520098609B29F1D68AF56F911B858356E4015`。
 - Android 未签名 Release APK：50,416,092 bytes，SHA-256 `52C0A7B8D056B2F3D400716DDD265FC50C8EB347393A837CBCFD245FD7245074`。
 - Windows ProGuard Release JAR：30,592,366 bytes，SHA-256 `19A728714E4A2DF81081660ED6ACCB5F80879C9F41BC43B2687C07C5FAB0B13B`。
+- Windows 未签名 MSI：108,673,852 bytes，SHA-256 `67A1525EE910728A1913D0D56064DFA55E66A7A7385D3AAC853DA13CBC654A02`。
 
 P1 尚需外部条件而不能在本仓库中宣称完成的事项：
 
@@ -28,6 +43,7 @@ P1 尚需外部条件而不能在本仓库中宣称完成的事项：
 - 生产报价与后台提醒需要官方 API 或授权聚合合同；当前缓存拒绝演示/手工数据冒充实时源，未配置提供方时后台网络调用为 0。
 - Android 锁屏、卸载、系统备份/回滚、密钥丢失和代表性低端实体设备性能仍需设备矩阵；当前只有 API 36 AVD 与 Windows 证据。
 - Android Release APK 尚未生产签名；iOS/macOS 依产品指令延期。
+- Windows MSI 与 EXE 尚未生产签名；真实安装、升级、卸载、SmartScreen 和数据保留/清除策略仍需发布矩阵。
 
 ## 2026-07-27 Windows/Android P0 增量
 
@@ -47,7 +63,7 @@ P1 尚需外部条件而不能在本仓库中宣称完成的事项：
 | 两次隔离构建 | Windows/Android 均通过 | Windows 73 个 Release JAR 的路径、权限和内容规范化比较差异为 0；Android 两次 Debug APK 的原始及规范化 SHA-256 均一致 |
 | 输入与性能 | 通过 | 8/8 畸形导入；100,000 流水 4/4，112 ms、内存增量 43.49 MiB；后者只是开发/CI 内存基线 |
 | 辅助服务 | 通过 | connector gateway 4/4 且 `npm audit` 0 vulnerability；price intelligence 3/3 |
-| 最终应用校验器 | 通过 | 扫描 865 个文件，0 error、0 warning |
+| 最终应用校验器 | 通过 | 扫描 915 个文件，0 error、0 warning |
 
 本轮仍不能关闭的 P0 只有外部证据项：
 
@@ -118,7 +134,7 @@ Push-Location services\price-intelligence; python -m pytest -q; Pop-Location
 
 代表性 Android 实体机、锁屏/重启/卸载/系统恢复、TalkBack、Windows Narrator、硬件键盘和高对比度的固定矩阵与证据模板见 `docs/11-device-accessibility-validation.md`；当前各实体设备行仍为 `NOT_RUN`。
 
-当前主机没有可用的 WiX 工具链；Compose `downloadWix` 尝试下载 WiX 3.11 时连接被重置，因此本轮没有生成 MSI，也没有执行行政解包或真实安装/升级/卸载。旧文档记录的 MSI 文件当前不存在，其大小、哈希与启动结论不作为本次提交的交付证据。
+当前主机已使用 WiX 官方便携二进制恢复 Compose 所需的 WiX 3.11 工具链；`packageMsi`、Windows Installer 行政解包、解包后实际 EXE 首次启动与同账本重开均已通过，精确证据见本文顶部增量。此结果不包含机器级安装、升级、卸载、SmartScreen 或生产签名。
 
 ## 真实 UI 验收
 
@@ -160,7 +176,7 @@ Push-Location services\price-intelligence; python -m pytest -q; Pop-Location
 - 受平台保护的初始化标记已覆盖“数据密钥落盘后、初始信封提交前崩溃”的新安装恢复，并阻止迁移中断静默变成空账本；但 v1 标记不是数据密钥与 bootstrap record 的单一原子平台事务，也没有系统级抗回滚/重放与完整轮换恢复流程。旧版本遗留的“有密钥、无信封、无标记”仍按 fail-closed 处理。
 - iOS/macOS 原生编译、真机、签名、公证和商店流程需要 macOS + Xcode；Windows 不能提供该证据。
 - 支付/电商/二手平台尚未取得生产 scope 或合同；沙箱和示例报价不是一键实时同步。
-- 当前 Windows 便携包未签名且 MSI 未生成；Android APK 仅为 Debug v2 签名，R8 Release APK 未签名。没有生产发布签名、真实安装/升级/卸载或 SmartScreen/Play 流程证据。
+- 当前 Windows 便携包和 MSI 均未签名；Android APK 仅为 Debug v2 签名，R8 Release APK 未签名。MSI 行政解包与解包后启动已通过，但仍没有生产发布签名、机器级安装/升级/卸载或 SmartScreen/Play 流程证据。
 - iOS 文件适配器尚未在 Xcode、模拟器或真机运行；Windows 上的 Kotlin/Native 交叉编译不能证明 File Provider/iCloud、取消、超限、临时清理和跨重启流程正确。
 - `org.jetbrains.compose.material3:material3:1.11.0-alpha07` 是预发布依赖；升级到稳定兼容版本及回归验证属于 Beta 依赖门禁。
 - 全量 UI 自动化、屏幕阅读器、代表性低端设备性能、渗透测试、账户验证和加密同步仍是后续门禁。

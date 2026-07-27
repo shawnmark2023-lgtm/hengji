@@ -170,16 +170,28 @@ jobs:
         run: |
           "GATE_STARTED_AT=$((Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'))" >> $env:GITHUB_ENV
           .\gradlew.bat :apps:client:packageMsi --stacktrace
-      - name: Record passed MSI packaging evidence
+      - name: Administrative extract and protected-ledger smoke
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem "apps/client/build/compose/binaries/main/msi/*.msi" |
+            Sort-Object FullName |
+            Select-Object -First 1
+          if (-not $msi) {
+            throw "MSI package was not generated"
+          }
+          .\scripts\quality\verify-windows-msi.ps1 `
+            -MsiPath $msi.FullName `
+            -OutputPath "quality-evidence/windows-msi-smoke.json"
+      - name: Record passed MSI packaging and smoke evidence
         shell: pwsh
         run: |
           python scripts/quality/generate_evidence.py `
             --gate windows-msi-package `
             --status passed `
-            --command ".\gradlew.bat :apps:client:packageMsi --stacktrace" `
+            --command ".\gradlew.bat :apps:client:packageMsi --stacktrace; .\scripts\quality\verify-windows-msi.ps1" `
             --started-at "$env:GATE_STARTED_AT" `
             --artifact-glob "apps/client/build/compose/binaries/main/msi/*.msi" `
-            --limitation "Unsigned package build only; installation, upgrade, uninstall, SmartScreen, and signing remain unverified" `
+            --limitation "Unsigned MSI; administrative extraction and extracted launch are verified, while machine-wide installation, upgrade, uninstall, SmartScreen, and signing remain unverified" `
             --output quality-evidence/windows-msi-package.json
       - name: Upload MSI and evidence
         if: always()

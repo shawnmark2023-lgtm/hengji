@@ -7,8 +7,8 @@
 ## 当前已验证基础
 
 - [x] Room KMP/bundled SQLite 跨重启持久化、schema v3、备份/恢复、批次回滚。
-- [x] 自动架构/secret/沙箱门禁、178 个 Desktop Kotlin 测试、61 个 Android host 测试、8 类畸形导入、10 万流水开发基线。
-- [x] Android lint、Debug APK 与未签名 R8 Release 构建；API 36 上共享 UI 52/52、AndroidKeyStore 受保护账本启动 1/1。
+- [x] 自动架构/secret/沙箱门禁、188 个 Desktop Kotlin 测试、63 个 Android host 测试、8 类畸形导入、10 万流水开发基线。
+- [x] Android lint、Debug APK 与未签名 R8 Release 构建；API 36 上平台入口、AndroidKeyStore 受保护账本和 Compose 自动无障碍分析 3/3。
 - [x] Windows/Android 关键 UI 自动化覆盖导入整批回滚、导出、恢复、清除、删除确认与 8 秒撤销、360dp/200%、深色和 Reduce Motion；Windows 另覆盖 Tab/Enter。
 - [x] Windows 73 个 Release JAR 的规范化内容及 Android Debug APK 的两次隔离构建一致。
 - [x] iOS 客户端与数据层 source-set 元数据及 arm64/simulator Kotlin klib 交叉编译；此项不代表 Xcode 链接、真机或签名通过。
@@ -57,8 +57,8 @@
 ## Windows
 
 - [x] Release 免安装包真实启动；最新源码的 `runRelease` 首次启动/重启不重写密文。
-- [x] Desktop client 53/53、全体 Desktop Kotlin 178/178，Tab/Enter 导航自动化通过。
-- [ ] MSI 生成、Windows Installer 行政解包并从解包结果启动。
+- [x] Desktop client 53/53、全体 Desktop Kotlin 188/188，Tab/Enter 导航自动化通过。
+- [x] MSI 生成、Windows Installer 行政解包，并从解包结果连续两次启动；DPAPI 密钥材料与加密账本创建成功，重开未改写密文且未生成明文数据库。
 - [ ] 代码签名、SmartScreen、真实安装/升级/卸载和数据保留策略验证。
 - [ ] 日常升级不要求管理员权限的分发策略确定。
 - [ ] 键盘、屏幕阅读器、高对比度、125%–300% 缩放和触控设备验证。

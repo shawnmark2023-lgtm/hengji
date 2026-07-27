@@ -60,6 +60,22 @@ of a plaintext `hengji.db`:
   -OutputPath .\quality\evidence\windows-msi-smoke.json
 ```
 
+Verify a real per-user install, lower-to-higher package upgrade, installed executable launch,
+uninstall cleanup, and user-data retention with two packages that share one upgrade UUID:
+
+```powershell
+.\scripts\quality\verify-windows-msi-lifecycle.ps1 `
+  -BaselineMsiPath .\build\release-lifecycle\Hengji-0.0.9.msi `
+  -UpgradeMsiPath .\build\release-lifecycle\Hengji-0.1.0.msi `
+  -OutputPath .\quality\evidence\windows-msi-lifecycle.json
+```
+
+The lifecycle script refuses to run when any Hengji product, install directory, or Start Menu
+shortcut already exists. Its default mode requires the installed executable to launch. The
+`-SkipExecutableLaunch` switch is only for a host where Application Control blocks unsigned
+executables; it still verifies install, upgrade, uninstall, shortcut cleanup, and an isolated data
+retention probe, and records the skipped launch as a limitation.
+
 The runner uses the checked Gradle Wrapper. If a controlled build environment already provides the
 same verified Gradle distribution, `HENGJI_GRADLE` may point to that executable; the exact override
 path is preserved in evidence.
@@ -67,8 +83,9 @@ path is preserved in evidence.
 Each command writes machine-readable evidence under `quality/evidence/` by default. CI writes the
 same records to an artifact directory. A workflow definition is recorded as `configured`; only a
 successful workflow run may produce `passed` evidence. Windows MSI smoke evidence additionally
-proves administrative extraction and protected-ledger launch/reopen; it does not prove
-machine-wide installation, signing, upgrade, uninstall, SmartScreen reputation, or store approval.
+proves administrative extraction and protected-ledger launch/reopen. Strict lifecycle evidence
+proves per-user install, package upgrade, installed launch, uninstall cleanup, and data retention;
+it does not prove signing, SmartScreen reputation, historical schema migration, or store approval.
 
 ## Gate ownership
 

@@ -165,11 +165,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Build unsigned MSI
+      - name: Build baseline and current unsigned MSI
         shell: pwsh
         run: |
           "GATE_STARTED_AT=$((Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'))" >> $env:GITHUB_ENV
-          .\gradlew.bat :apps:client:packageMsi --stacktrace
+          .\gradlew.bat :apps:client:packageMsi --stacktrace "-Phengji.packageVersion=0.0.9"
+          New-Item -ItemType Directory -Force "quality-evidence/msi-baseline" | Out-Null
+          Copy-Item `
+            "apps/client/build/compose/binaries/main/msi/Hengji-0.0.9.msi" `
+            "quality-evidence/msi-baseline/Hengji-0.0.9.msi"
+          .\gradlew.bat :apps:client:packageMsi --stacktrace "-Phengji.packageVersion=0.1.0"
       - name: Administrative extract and protected-ledger smoke
         shell: pwsh
         run: |
@@ -182,16 +187,24 @@ jobs:
           .\scripts\quality\verify-windows-msi.ps1 `
             -MsiPath $msi.FullName `
             -OutputPath "quality-evidence/windows-msi-smoke.json"
-      - name: Record passed MSI packaging and smoke evidence
+      - name: Install, upgrade, launch, and uninstall
+        shell: pwsh
+        run: |
+          .\scripts\quality\verify-windows-msi-lifecycle.ps1 `
+            -BaselineMsiPath "quality-evidence/msi-baseline/Hengji-0.0.9.msi" `
+            -UpgradeMsiPath "apps/client/build/compose/binaries/main/msi/Hengji-0.1.0.msi" `
+            -OutputPath "quality-evidence/windows-msi-lifecycle.json"
+      - name: Record passed MSI packaging and lifecycle evidence
         shell: pwsh
         run: |
           python scripts/quality/generate_evidence.py `
             --gate windows-msi-package `
             --status passed `
-            --command ".\gradlew.bat :apps:client:packageMsi --stacktrace; .\scripts\quality\verify-windows-msi.ps1" `
+            --command ".\gradlew.bat :apps:client:packageMsi; verify-windows-msi.ps1; verify-windows-msi-lifecycle.ps1" `
             --started-at "$env:GATE_STARTED_AT" `
+            --artifact "quality-evidence/msi-baseline/Hengji-0.0.9.msi" `
             --artifact-glob "apps/client/build/compose/binaries/main/msi/*.msi" `
-            --limitation "Unsigned MSI; administrative extraction and extracted launch are verified, while machine-wide installation, upgrade, uninstall, SmartScreen, and signing remain unverified" `
+            --limitation "Unsigned per-user MSI; same-code version upgrade is verified, while historical application schema migration, SmartScreen, and production signing remain unverified" `
             --output quality-evidence/windows-msi-package.json
       - name: Upload MSI and evidence
         if: always()

@@ -121,6 +121,26 @@ def check(root: Path) -> dict[str, Any]:
         if "interface TokenVault" not in content or "DisabledTokenVault" not in content:
             add_issue(issues, "TOKEN-VAULT-PORT", token_vault, "Token vault or fail-closed prototype implementation is missing")
 
+    desktop_build = root / "apps" / "client" / "build.gradle.kts"
+    if not desktop_build.is_file():
+        add_issue(issues, "WINDOWS-PACKAGING", desktop_build, "Desktop packaging configuration is missing")
+    else:
+        content = desktop_build.read_text(encoding="utf-8")
+        required_packaging = {
+            "per-user installation": r"perUserInstall\s*=\s*true",
+            "install/data directory separation": r'installationPath\s*=\s*"Programs/Hengji"',
+            "stable upgrade UUID": r'upgradeUuid\s*=\s*"b2248acb-5ced-48a7-b69f-3b4f34571acf"',
+            "version override": r'gradleProperty\("hengji\.packageVersion"\)',
+        }
+        for requirement, pattern in required_packaging.items():
+            if not re.search(pattern, content):
+                add_issue(
+                    issues,
+                    "WINDOWS-PACKAGING",
+                    desktop_build,
+                    f"Windows packaging must preserve {requirement}",
+                )
+
     ci_state = root / "quality" / "ci-gates.json"
     if not ci_state.is_file():
         add_issue(issues, "CI-TRUTH", ci_state, "Configured CI truth registry is missing")

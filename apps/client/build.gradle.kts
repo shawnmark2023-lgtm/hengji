@@ -22,12 +22,26 @@ val desktopDependencyProfile =
             },
         ).get()
 val composeMultiplatformVersion = libs.versions.compose.asProvider().get()
+val desktopPackageVersion =
+    providers.gradleProperty("hengji.packageVersion")
+        .orElse("0.1.0")
+        .get()
+val desktopPackageVersionParts = desktopPackageVersion.split(".").map(String::toIntOrNull)
 
 check(
     desktopDependencyProfile in
         setOf("windows-x64", "macos-arm64", "macos-x64", "linux-arm64", "linux-x64"),
 ) {
     "Unsupported desktop dependency profile: $desktopDependencyProfile"
+}
+check(
+    desktopPackageVersionParts.size == 3 &&
+        desktopPackageVersionParts.all { it != null } &&
+        desktopPackageVersionParts[0] in 0..255 &&
+        desktopPackageVersionParts[1] in 0..255 &&
+        desktopPackageVersionParts[2] in 0..65535,
+) {
+    "hengji.packageVersion must be a three-part MSI version: major 0..255, minor 0..255, build 0..65535"
 }
 
 cryptography {
@@ -148,12 +162,14 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Dmg)
             packageName = "Hengji"
-            packageVersion = "0.1.0"
+            packageVersion = desktopPackageVersion
             description = "Local-first spending value manager"
             vendor = "HENGJI"
 
             windows {
+                installationPath = "Programs/Hengji"
                 menuGroup = "HENGJI"
+                perUserInstall = true
                 upgradeUuid = "b2248acb-5ced-48a7-b69f-3b4f34571acf"
             }
 

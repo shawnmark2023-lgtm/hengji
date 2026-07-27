@@ -34,7 +34,7 @@
 - [x] `UX-005` P0 二手比价界面与资产详情手工报价入口；保存后即时重算区间、残值和成本指标，严格区分示例/手工/实时来源。
 - [x] `UX-006` P0 Windows/Android 的来源 → 映射 → 预览去重 → 确认 → 可撤销结果已完成；Apple 系统文件选择验收依本轮范围延期。
 - [x] `UX-007` P0 Windows/Android 本地模式、JSON/CSV 导出、JSON 恢复和清除流程已完成并进入共享 UI 自动化；Apple 适配器验收依本轮范围延期。
-- [ ] `UX-008` P0 主要表单/导航/状态语义、360dp/200% 重排、深色主题、Reduce Motion 和 Windows Tab/Enter 已自动化通过；Android TalkBack、Windows Narrator 与视觉对比度专项仍待真实辅助技术验收。
+- [ ] `UX-008` P0 主要表单/导航/状态语义、360dp/200% 重排、深色主题、Reduce Motion、Windows Tab/Enter 和 Android Compose Accessibility Test Framework 已自动化通过；Android TalkBack、Windows Narrator 与真实硬件键盘仍待辅助技术验收。
 - [x] `UX-009` P1 Android 小组件、启动器快捷记账、文本/图片/PDF 系统分享入口，以及 Windows 全局 `Ctrl+Shift+N` 与应用内回退快捷键已接入；全局冲突不覆盖其他应用，所有入口只打开可取消的确认流程。
 
 ## D. 智能分析
@@ -82,7 +82,7 @@
 - [x] `QA-002` P0 重复、公式注入、文件上限、BOM/Unicode、错列、空值、嵌套 JSON 和回滚矩阵通过。
 - [x] `QA-003` P0 Windows/Android 关键流程已自动化：删除二次确认、8 秒 Snackbar 撤销/消失、JSON/CSV 导出、清除确认/取消、恢复、语义和安全重开；共享套件在 Desktop 与 API 36 同时通过。
 - [x] `QA-004` P0 Desktop 编译/运行与 Android APK 通过；iOS/macOS 目标交由 macOS CI 验证。
-- [ ] `QA-005` P0 代码语义、360dp/200% 重排、深色主题、Reduce Motion 与 Windows Tab/Enter 已自动化通过；Android TalkBack、Windows Narrator、硬件键盘和视觉对比度专项仍待真实设备/辅助技术验收。
+- [ ] `QA-005` P0 代码语义、360dp/200% 重排、深色主题、Reduce Motion、Windows Tab/Enter 与 Android 自动标签/触摸目标/对比度/遍历检查已通过；TalkBack、Narrator 和真实硬件键盘仍待实体设备/辅助技术验收。
 - [ ] `QA-006` P1 10 万流水开发/CI 基线已通过；代表性低端设备、加密持久层与完整 UI 性能仍待验证。
 - [ ] `QA-007` P2 上线安全审查、渗透测试、备份恢复和商店审核演练。
 
@@ -97,7 +97,7 @@
 | DAT-004 | DONE_WIN_ANDROID | Apple deferred；系统级抗回滚/密钥丢失演练后续 | v2 envelope 将 active-key alias 纳入认证数据；启动自动发现当前代，轮换先验证旧快照、以新别名加密、CAS 提交并重开校验，提交失败保持旧信封可读；Windows/API 36 受保护账本往返通过 |
 | UX-006 | DONE_WIN_ANDROID | Apple runner deferred | Windows/Android 导入路径和整批撤销已完成；Apple 平台依本轮范围延期 |
 | UX-007 | DONE_WIN_ANDROID | Apple runner deferred | Windows/Android JSON/CSV 导出、JSON 恢复与清除路径已完成；Apple 平台依本轮范围延期 |
-| UX-008 | PARTIAL | TalkBack、Narrator、contrast audit | 共享语义、360dp/200%、深色主题、Reduce Motion 与 Desktop Tab/Enter 已自动化通过；不把真实屏幕阅读器宣称为已验证 |
+| UX-008 | PARTIAL | TalkBack、Narrator、hardware keyboard | 共享语义、360dp/200%、深色主题、Reduce Motion、Desktop Tab/Enter 与 Android Compose Accessibility Test Framework 已自动化通过；不把自动分析宣称为真实屏幕阅读器验收 |
 | UX-009 | DONE_WIN_ANDROID | Apple deferred | Android 小组件、静态启动器快捷方式、文本/图片/PDF 系统分享和 Windows 全局快捷键已接入；冲突时不覆盖并保留应用内快捷键，所有入口只打开确认/取消界面 |
 | INS-006 | DONE_WIN_ANDROID | 生产模型提供方可选且未配置 | 同意默认关闭并本地持久化；聚合字段白名单拒绝原始流水，只有隐私审查提供方可调用；撤回立即转回离线规则且默认网络调用为 0 |
 | IMP-005 | DONE_ANDROID | Windows 保留既有文件导入；Apple deferred | 20 份脱敏文本解析样本通过；图片/PDF 在 Android 设备内离线识别，限制 20 MiB、20 页和 100,000 字符，候选字段必须进入人工确认后才可保存 |
@@ -111,8 +111,8 @@
 | SEC-005 | TODO | account backend、Passkey/SIWA | 注册/验证/恢复/2FA/会话撤销/设备丢失演练通过，且不破坏无账号本地模式 |
 | SEC-006 | TODO | E2EE protocol、sync engine | 双设备离线冲突、密钥轮换、恢复短语、灾难恢复和服务端不可读性测试通过 |
 | REL-001 | TODO | Apple/Google/Microsoft signing accounts | 四平台生产签名、隐私声明、公证/商店审查、分阶段发布和一键回滚演练通过 |
-| QA-003 | DONE_WIN_ANDROID | Apple runner deferred | Desktop client 53/53、Android 共享 UI 52/52、Android Keystore 启动 1/1；关键 UI 在 Windows/API 36 复用通过 |
-| QA-005 | PARTIAL | TalkBack、Narrator、硬件键盘、contrast tooling | 自动化矩阵已覆盖共享语义、360dp/200%、深色主题、Reduce Motion 和 Desktop 键盘；固定实体设备/辅助技术矩阵与证据模板已写入 `docs/11-device-accessibility-validation.md`，尚未执行 |
+| QA-003 | DONE_WIN_ANDROID | Apple runner deferred | Desktop client 53/53、Android 共享 UI 52/52、API 36 instrumentation 3/3（平台入口、Keystore 启动、自动无障碍）；关键 UI 在 Windows/API 36 复用通过 |
+| QA-005 | PARTIAL | TalkBack、Narrator、真实硬件键盘 | 自动化矩阵已覆盖共享语义、360dp/200%、深色主题、Reduce Motion、Desktop 键盘和 Android Accessibility Test Framework；固定实体设备/辅助技术矩阵与证据模板已写入 `docs/11-device-accessibility-validation.md`，尚未执行 |
 | QA-006 | READY_EXTERNAL | representative low-end physical device | 开发机 100,000 流水基线 4/4 通过，103 ms、内存增量 43.50 MiB；实体机型号、环境、场景、指标和证据模板已固定，尚无代表性低端 Android 的加密持久层与完整 UI 性能结果 |
 | QA-007 | TODO | external security review、store dry run | 高危漏洞为 0；加密备份恢复成功；四平台审核材料与回滚桌面演练签字完成 |
 

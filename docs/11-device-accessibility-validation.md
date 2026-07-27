@@ -7,7 +7,7 @@
 
 这份清单用于关闭 `SEC-004`、`UX-008`、`QA-005` 和 `QA-006` 中不能由当前 Windows 主机或 GitHub 模拟器替代的设备门禁。它不改变以下事实：
 
-- API 36 模拟器 instrumentation 已在本地通过 2/2，并已配置为独立 CI 作业。
+- API 36 模拟器 instrumentation 已在本地通过 3/3，其中真实 `MainActivity` Compose 层级通过 Accessibility Test Framework，并已配置为独立 CI 作业。
 - 代表性低端 Android 实体机、TalkBack、Windows Narrator、锁屏、卸载和系统备份/恢复尚无通过证据。
 - 测试只使用一次性脱敏账本、脱敏导入文件和测试账号；不得使用真实金融数据。
 - 卸载、清除数据和恢复演练会删除测试数据，只能在已明确标记的测试设备和测试目录执行。
@@ -16,7 +16,7 @@
 
 | 运行面 | 最低覆盖 | 当前状态 | 关闭条件 |
 | --- | --- | --- | --- |
-| Android 自动化 | GitHub-hosted API 36 x86_64 模拟器 | `CONFIGURED_CI` | 独立 runner 执行 `connectedDebugAndroidTest`，证据 JSON 与 JUnit 均上传 |
+| Android 自动化 | GitHub-hosted API 36 x86_64 模拟器 | `LOCAL_PASSED_3_OF_3` / `CONFIGURED_CI` | 本地覆盖平台入口、Keystore 启动和 Compose 自动无障碍；独立 runner 执行后证据 JSON 与 JUnit 均上传 |
 | Android 实体机 | 一台仍受安全更新支持、4–6 GiB RAM 的非旗舰机 | `NOT_RUN` | Debug 或内部签名包冷启动、重开、导入、加密账本和 10 万流水场景完成 |
 | Android 安全生命周期 | 同一实体机锁屏、强制停止、重启、卸载/重装、备份/恢复 | `NOT_RUN` | 每项按预期 fail-closed，不静默创建空账本冒充恢复成功 |
 | Android 无障碍 | TalkBack、200% 字体、深色主题、硬件键盘 | `NOT_RUN` | 关键流程可完成，焦点顺序、控件名称、错误播报和确认/取消均明确 |

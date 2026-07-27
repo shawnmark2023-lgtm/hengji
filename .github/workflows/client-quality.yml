@@ -95,7 +95,7 @@ jobs:
           if-no-files-found: ignore
 
   android-device-api36:
-    name: Android API 36 instrumentation
+    name: Android API 36 instrumentation and accessibility
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -137,7 +137,7 @@ jobs:
             --command "./gradlew :apps:client:androidApp:connectedDebugAndroidTest --stacktrace" \
             --started-at "$GATE_STARTED_AT" \
             --junit-glob "apps/client/androidApp/build/outputs/androidTest-results/connected/debug/**/TEST-*.xml" \
-            --limitation "GitHub-hosted API 36 emulator only; representative physical-device performance, lock-screen, uninstall/reinstall, backup/restore, OEM behavior, and accessibility remain external validation" \
+            --limitation "GitHub-hosted API 36 emulator with automated Compose accessibility checks only; representative physical-device performance, lock-screen, uninstall/reinstall, backup/restore, OEM behavior, TalkBack, hardware-keyboard, and user accessibility remain external validation" \
             --output quality-evidence/android-device-api36.json
       - name: Upload API 36 instrumentation evidence
         if: always()

@@ -17,6 +17,8 @@ dependencies {
     implementation(libs.androidx.work.runtime)
     androidTestImplementation("androidx.test:runner:1.7.0")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4.accessibility)
     debugImplementation(libs.compose.ui.tooling)
 }
 

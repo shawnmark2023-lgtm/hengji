@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | Desktop 单元测试 | 188/188，0 failure/error/skip | client 53、core-domain 17、core-data 79、core-insights 25、connectors 14；新增覆盖密钥轮换成功/提交冲突、OCR 文本解析、授权报价缓存和模型解释同意撤回 |
 | Android host | 63/63，0 failure/error/skip | 包含共同受保护账本测试及新增轮换路径 |
-| Android API 36 | 2/2 | 真实 AndroidKeyStore 账本创建/重开；清单断言小组件、快捷动作、文本/图片/PDF 分享、`POST_NOTIFICATIONS`，并确认无 `READ_SMS`/`RECEIVE_SMS` |
+| Android API 36 | 3/3 | 真实 AndroidKeyStore 账本创建/重开；清单断言小组件、快捷动作、文本/图片/PDF 分享和权限；真实 `MainActivity` Compose 层级通过 Accessibility Test Framework |
 | Android 构建 | 通过 | `lintDebug` 0 error/13 warning；Debug APK、未签名 R8 Release APK 构建通过。APK 实际权限包含通知与 WorkManager 所需能力，不含短信读取/接收权限 |
 | Windows 构建 | 通过 | ProGuard Release JAR 构建通过；受保护账本首次创建/同账本重开 smoke 的密文哈希、字节数与写入时间保持一致，磁盘不含明文数据库 |
 | 完整质量门禁 | 通过 | 格式 179/179；架构 38/38；发布守卫 277/277；依赖/可复现策略 18/18；畸形导入 8/8 |
@@ -37,7 +37,7 @@ P1 尚需外部条件而不能在本仓库中宣称完成的事项：
 | --- | --- | --- |
 | Desktop Kotlin | 178/178，0 failure/error/skip | client 53、core-domain 17、core-data 77、core-insights 23、connectors 8；client 包含 5 个共享关键 UI 用例和 1 个 Desktop Tab/Enter 用例 |
 | Android host | 61/61，0 failure/error/skip | Android 文件语义改为 `lstat` 判型与受锁保护的原子 rename，覆盖密文账本、Keystore 保护物和 Room 明文退役 |
-| Android API 36 | 共享 UI 52/52；AndroidKeyStore 启动 1/1 | UI 套件中 5 个关键流程与 Desktop 复用；独立 instrumentation 在真实 AndroidKeyStore/no-backup 目录创建并重开受保护账本 |
+| Android API 36 | 共享 UI 52/52；instrumentation 3/3 | UI 套件中 5 个关键流程与 Desktop 复用；独立 instrumentation 覆盖平台入口、真实 AndroidKeyStore/no-backup 创建重开和 Compose 自动无障碍分析 |
 | Android 应用冒烟 | 首次冷启动和同一账本重启通过 | 修复 `/data/user/0` 合法路径被 canonical equality 误拒绝，以及 Android/SELinux 拒绝硬链接发布导致的启动失败；磁盘只保留 no-backup 加密账本和 Keystore 包装保护物 |
 | 关键 UI | Windows/Android 通过 | CSV 沙箱来源→自动映射→预览去重→确认→整批撤销；JSON/CSV 导出、清除取消/确认、空账本、JSON 恢复；删除取消/确认、8 秒撤销/超时；360dp/200%、深色、Reduce Motion、语义；Desktop Tab/Enter |
 | 构建 | 通过 | Android lint、Debug APK、未签名 R8 Release APK、Desktop ProGuard Release JAR；MSI/Compose 分发任务仍因本机 WiX ZIP 不可用而失败，不计为通过 |
@@ -52,7 +52,7 @@ P1 尚需外部条件而不能在本仓库中宣称完成的事项：
 本轮仍不能关闭的 P0 只有外部证据项：
 
 - `FND-003`：仓库没有 remote；CI 门禁已配置，但没有独立远端 runner 的通过记录。
-- `UX-008` / `QA-005`：自动化已覆盖语义、键盘、重排、主题和 Reduce Motion；Android TalkBack、Windows Narrator、真实硬件键盘与视觉对比度仍需专项设备/辅助技术验收。
+- `UX-008` / `QA-005`：自动化已覆盖语义、键盘、重排、主题、Reduce Motion，以及 Android Accessibility Test Framework 的标签、触摸目标、对比度和遍历检查；TalkBack、Windows Narrator 与真实硬件键盘仍需专项设备/辅助技术验收。
 
 这些阻断不会被描述为“已通过”。Android AOSP 镜像不含 TalkBack；未用自动化结果替代真实屏幕阅读器。iOS/macOS 是明确延期范围，不代表已经通过。
 
@@ -112,9 +112,9 @@ Push-Location services\price-intelligence; python -m pytest -q; Pop-Location
 
 本轮最新源码另以独立 `HENGJI_DATA_DIR` 连续两次执行实际 `:apps:client:runRelease`。两次均启动 Desktop 主进程；24,147 bytes 的信封 SHA-256 均为 `6FF0D6537BBF75B38ECF1E53E66DA18D389234BE4DFD4101B920E1E156B96B36`，写入时间不变，没有 `hengji.db`，DPAPI vault 同时存在主数据密钥、全新初始化与就绪标记。该证据验证本轮初始化 journal 的正常首次启动/重开路径，但不是新的便携 ZIP，也不覆盖崩溃注入或系统级回滚攻击。
 
-无障碍本轮只取得代码审查、公共源码编译和既有单元测试证据。尚未在 macOS/iOS 上运行 VoiceOver，也未在 Android 上运行 TalkBack、在 Windows 上运行 Narrator 或完成仅键盘/高对比度矩阵，因此 `UX-008` 与 `QA-005` 均保持 `PARTIAL`。
+无障碍本轮取得代码审查、公共源码编译、语义/布局自动化，以及 API 36 上真实 `MainActivity` 的 Compose Accessibility Test Framework 证据。该自动分析不会操作或聆听屏幕阅读器；尚未在 Android 上运行 TalkBack、在 Windows 上运行 Narrator 或完成真实硬件键盘矩阵，因此 `UX-008` 与 `QA-005` 均保持 `PARTIAL`。Apple 无障碍依产品指令延期。
 
-2026-07-27 已把 API 36 `connectedDebugAndroidTest` 配置为 GitHub-hosted 模拟器独立作业；成功运行后会上传 JUnit、HTML 报告和带限制说明的证据 JSON。Apple 编译与 DMG 作业迁到仅手动触发的延期工作流，不参与当前 Windows/Android PR 门禁。仓库仍未配置 remote，因此这些状态只能写为 `CONFIGURED_CI`，不能写为独立 runner 已通过。
+2026-07-27 已把 API 36 `connectedDebugAndroidTest` 配置为 GitHub-hosted 模拟器独立作业；本地 API 36 AVD 已通过 3/3，CI 成功运行后会上传 JUnit、HTML 报告和带限制说明的证据 JSON。Apple 编译与 DMG 作业迁到仅手动触发的延期工作流，不参与当前 Windows/Android PR 门禁。仓库仍未配置 remote，因此 CI 状态只能写为 `CONFIGURED_CI`，不能写为独立 runner 已通过。
 
 代表性 Android 实体机、锁屏/重启/卸载/系统恢复、TalkBack、Windows Narrator、硬件键盘和高对比度的固定矩阵与证据模板见 `docs/11-device-accessibility-validation.md`；当前各实体设备行仍为 `NOT_RUN`。
 

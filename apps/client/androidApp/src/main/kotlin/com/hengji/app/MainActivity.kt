@@ -7,6 +7,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -20,7 +21,6 @@ import com.hengji.data.ProtectedLedgerOpenOutcome
 import com.hengji.data.ProtectedLedgerOpenResult
 import com.hengji.data.openAndroidProtectedLedger
 import com.hengji.app.application.PriceNotificationControl
-import com.hengji.app.application.ModelExplanationControl
 import com.hengji.app.application.QuickEntryRequest
 import com.hengji.connectors.LocalDocumentKind
 import com.hengji.connectors.ReviewedDocumentParseResult
@@ -36,8 +36,7 @@ class MainActivity : ComponentActivity() {
     private var quickEntrySequence = 0L
     private var notificationStatus by mutableStateOf("系统通知默认关闭；仅在你主动允许后安排本地评估。")
     private var notificationCanRequest by mutableStateOf(true)
-    private var modelExplanationEnabled by mutableStateOf(false)
-    private var modelExplanationStatus by mutableStateOf("默认关闭；当前未配置经过隐私评审的模型提供方，网络外发为 0。")
+    private var systemReduceMotion by mutableStateOf(false)
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
@@ -55,7 +54,7 @@ class MainActivity : ComponentActivity() {
         val exportWriter = AndroidLedgerExportWriter(this)
         handleLaunchIntent(intent)
         refreshNotificationStatus()
-        refreshModelExplanationStatus()
+        refreshSystemReduceMotion()
         enableEdgeToEdge()
         setContent {
             when (val state = storageState) {
@@ -76,11 +75,7 @@ class MainActivity : ComponentActivity() {
                         request = ::requestPriceNotificationPermission,
                         disable = ::disablePriceNotifications,
                     ),
-                    modelExplanationControl = ModelExplanationControl(
-                        enabled = modelExplanationEnabled,
-                        status = modelExplanationStatus,
-                        onEnabledChange = ::updateModelExplanationConsent,
-                    ),
+                    systemReduceMotion = systemReduceMotion,
                 )
 
                 AndroidStorageState.Failed -> AndroidStorageStartupStatus(
@@ -92,6 +87,12 @@ class MainActivity : ComponentActivity() {
             }
         }
         openProtectedLedger()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshNotificationStatus()
+        refreshSystemReduceMotion()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -110,7 +111,7 @@ class MainActivity : ComponentActivity() {
                 AndroidStorageState.Opened(opened)
             } catch (error: CancellationException) {
                 throw error
-            } catch (error: Throwable) {
+            } catch (error: Exception) {
                 if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
                     Log.e("HengjiStorage", "Protected ledger open failed", error)
                 }
@@ -137,13 +138,15 @@ class MainActivity : ComponentActivity() {
                         publishRejectedDocument("分享内容没有可读取的文件")
                     } else {
                         lifecycleScope.launch {
-                            val text = runCatching {
+                            val text = try {
                                 withContext(Dispatchers.IO) {
                                     AndroidOnDeviceDocumentTextExtractor(applicationContext)
                                         .extract(uri, requireNotNull(intent.type))
                                 }
-                            }.getOrElse { error ->
-                                publishRejectedDocument(error.message ?: "本机 OCR/PDF 解析失败")
+                            } catch (error: CancellationException) {
+                                throw error
+                            } catch (_: Exception) {
+                                publishRejectedDocument("本机 OCR/PDF 解析失败")
                                 return@launch
                             }
                             publishDocumentText(text, documentKind)
@@ -164,14 +167,11 @@ class MainActivity : ComponentActivity() {
 
     private fun publishSharedText(text: String) {
         quickEntrySequence += 1
-        val parsed = runCatching {
-            ReviewedDocumentTextParser().parse(
-                text = text,
-                sourceKind = LocalDocumentKind.USER_SHARED_FINANCIAL_SMS,
-            )
-        }.getOrElse {
-            ReviewedDocumentParseResult.Rejected("分享内容超过本地解析上限或格式无效")
-        }
+        val parsed = parseReviewedDocument(
+            text = text,
+            sourceKind = LocalDocumentKind.USER_SHARED_FINANCIAL_SMS,
+            rejectionReason = "分享内容超过本地解析上限或格式无效",
+        )
         quickEntryRequest = when (parsed) {
             is ReviewedDocumentParseResult.Candidate -> QuickEntryRequest(
                 sequence = quickEntrySequence,
@@ -193,14 +193,11 @@ class MainActivity : ComponentActivity() {
         documentKind: LocalDocumentKind,
     ) {
         quickEntrySequence += 1
-        val parsed = runCatching {
-            ReviewedDocumentTextParser().parse(
-                text = text,
-                sourceKind = documentKind,
-            )
-        }.getOrElse {
-            ReviewedDocumentParseResult.Rejected("OCR 文本超过本地解析上限或格式无效")
-        }
+        val parsed = parseReviewedDocument(
+            text = text,
+            sourceKind = documentKind,
+            rejectionReason = "OCR 文本超过本地解析上限或格式无效",
+        )
         quickEntryRequest = when (parsed) {
             is ReviewedDocumentParseResult.Candidate -> QuickEntryRequest(
                 sequence = quickEntrySequence,
@@ -223,6 +220,19 @@ class MainActivity : ComponentActivity() {
             sequence = quickEntrySequence,
             sourceDisclosure = "$reason。原文件未写入账本，你仍可手动记账。",
         )
+    }
+
+    private fun parseReviewedDocument(
+        text: String,
+        sourceKind: LocalDocumentKind,
+        rejectionReason: String,
+    ): ReviewedDocumentParseResult = try {
+        ReviewedDocumentTextParser().parse(
+            text = text,
+            sourceKind = sourceKind,
+        )
+    } catch (_: IllegalArgumentException) {
+        ReviewedDocumentParseResult.Rejected(rejectionReason)
     }
 
     private fun requestPriceNotificationPermission() {
@@ -262,38 +272,33 @@ class MainActivity : ComponentActivity() {
             PriceTargetNotificationWorker.schedule(applicationContext)
             notificationStatus = "系统通知已允许；每 6 小时以内由系统择机进行一次本地评估。"
             notificationCanRequest = false
+        } else {
+            PriceTargetNotificationWorker.cancel(applicationContext)
+            notificationCanRequest = true
+            notificationStatus = if (optedIn) {
+                getSharedPreferences(NOTIFICATION_PREFERENCES, MODE_PRIVATE)
+                    .edit()
+                    .putBoolean(KEY_NOTIFICATION_OPT_IN, false)
+                    .apply()
+                "系统通知权限已撤回；本地后台评估已取消。"
+            } else {
+                "系统通知默认关闭；仅在你主动允许后安排本地评估。"
+            }
         }
     }
 
-    private fun updateModelExplanationConsent(enabled: Boolean) {
-        modelExplanationEnabled = enabled
-        getSharedPreferences(MODEL_EXPLANATION_PREFERENCES, MODE_PRIVATE)
-            .edit()
-            .putBoolean(KEY_MODEL_EXPLANATION_CONSENT, enabled)
-            .apply()
-        modelExplanationStatus = if (enabled) {
-            "已记录本机同意；因未配置隐私评审提供方，仍使用离线规则解释且网络外发为 0。"
-        } else {
-            "同意已撤回并立即停用；离线规则解释保持可用。"
-        }
-    }
-
-    private fun refreshModelExplanationStatus() {
-        modelExplanationEnabled = getSharedPreferences(MODEL_EXPLANATION_PREFERENCES, MODE_PRIVATE)
-            .getBoolean(KEY_MODEL_EXPLANATION_CONSENT, false)
-        modelExplanationStatus = if (modelExplanationEnabled) {
-            "已记录本机同意；因未配置隐私评审提供方，仍使用离线规则解释且网络外发为 0。"
-        } else {
-            "默认关闭；当前未配置经过隐私评审的模型提供方，网络外发为 0。"
-        }
+    private fun refreshSystemReduceMotion() {
+        systemReduceMotion = Settings.Global.getFloat(
+            contentResolver,
+            Settings.Global.ANIMATOR_DURATION_SCALE,
+            1f,
+        ) == 0f
     }
 
     companion object {
         const val ACTION_QUICK_ENTRY = "com.hengji.app.action.QUICK_ENTRY"
         private const val NOTIFICATION_PREFERENCES = "hengji-price-notification-consent"
         private const val KEY_NOTIFICATION_OPT_IN = "enabled"
-        private const val MODEL_EXPLANATION_PREFERENCES = "hengji-model-explanation-consent"
-        private const val KEY_MODEL_EXPLANATION_CONSENT = "enabled"
     }
 }
 

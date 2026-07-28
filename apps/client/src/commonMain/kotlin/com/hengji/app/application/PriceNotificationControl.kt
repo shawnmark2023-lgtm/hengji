@@ -6,3 +6,6 @@ data class PriceNotificationControl(
     val request: () -> Unit,
     val disable: () -> Unit,
 )
+
+fun PriceNotificationControl.shouldDisplay(hasAuthorizedLiveQuotes: Boolean): Boolean =
+    hasAuthorizedLiveQuotes || !canRequest

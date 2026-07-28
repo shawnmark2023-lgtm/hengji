@@ -27,6 +27,7 @@ import com.hengji.app.theme.HengjiTheme
 import com.hengji.data.ProtectedLedgerOpenOutcome
 import com.hengji.data.ProtectedLedgerOpenResult
 import com.hengji.data.openIosProtectedLedger
+import kotlinx.coroutines.CancellationException
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlin.experimental.ExperimentalNativeApi
 import kotlin.native.ref.WeakReference
@@ -34,6 +35,7 @@ import platform.Foundation.NSApplicationSupportDirectory
 import platform.Foundation.NSSearchPathForDirectoriesInDomains
 import platform.Foundation.NSUserDomainMask
 import platform.UIKit.UIViewController
+import platform.UIKit.UIAccessibilityIsReduceMotionEnabled
 
 @OptIn(ExperimentalForeignApi::class, ExperimentalNativeApi::class)
 fun MainViewController(): UIViewController {
@@ -66,12 +68,13 @@ fun MainViewController(): UIViewController {
         }
         LaunchedEffect(openingAttempt) {
             storageState = IosStorageState.Loading
-            storageState = runCatching {
-                openIosProtectedLedger(appDirectory)
-            }.fold(
-                onSuccess = IosStorageState::Opened,
-                onFailure = { IosStorageState.Failed },
-            )
+            storageState = try {
+                IosStorageState.Opened(openIosProtectedLedger(appDirectory))
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                IosStorageState.Failed
+            }
         }
         when (val state = storageState) {
             IosStorageState.Loading -> IosStorageStartupStatus(
@@ -83,6 +86,7 @@ fun MainViewController(): UIViewController {
                 userImportDocumentPicker = importDocumentPicker,
                 ledgerExportWriter = ledgerExportWriter,
                 seedDemoData = state.result.outcome == ProtectedLedgerOpenOutcome.CREATED_EMPTY,
+                systemReduceMotion = UIAccessibilityIsReduceMotionEnabled(),
             )
 
             IosStorageState.Failed -> IosStorageStartupStatus(

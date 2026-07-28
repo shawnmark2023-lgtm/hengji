@@ -51,12 +51,16 @@ class AuthorizedQuoteCache(
         require(provider.provenance == QuoteProvenance.OFFICIAL_OR_CONTRACTED_API) {
             "Demo and manual providers cannot populate the authorized cache"
         }
+        require(fetchedAtEpochMillis >= 0)
         require(ttlMillis in 60_000L..maxTtlMillis)
+        require(fetchedAtEpochMillis <= Long.MAX_VALUE - ttlMillis) {
+            "Quote cache expiry exceeds the supported epoch range"
+        }
         val batch = CachedQuoteBatch(
             cacheKey = cacheKey,
             providerId = provider.providerId,
             fetchedAtEpochMillis = fetchedAtEpochMillis,
-            expiresAtEpochMillis = Math.addExact(fetchedAtEpochMillis, ttlMillis),
+            expiresAtEpochMillis = fetchedAtEpochMillis + ttlMillis,
             quotes = quotes,
         )
         batches.remove(cacheKey)

@@ -36,6 +36,21 @@ class AuthorizedQuoteCacheTest {
         assertEquals(0, cache.delete("phone:CNY", 2).removedQuoteCount)
     }
 
+    @Test
+    fun `expiry rejects epoch overflow without a JVM-only arithmetic API`() {
+        val cache = AuthorizedQuoteCache()
+
+        assertFailsWith<IllegalArgumentException> {
+            cache.put(
+                cacheKey = "phone:CNY",
+                provider = OfficialProvider(),
+                quotes = listOf(officialQuote()),
+                fetchedAtEpochMillis = Long.MAX_VALUE - 59_999L,
+                ttlMillis = 60_000L,
+            )
+        }
+    }
+
     private fun officialQuote() = MarketQuote(
         providerId = "contracted-market",
         title = "Phone 256G",

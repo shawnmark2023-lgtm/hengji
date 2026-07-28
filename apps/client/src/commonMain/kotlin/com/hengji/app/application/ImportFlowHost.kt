@@ -40,7 +40,7 @@ fun rememberImportFlowHost(
                 }
             } catch (error: CancellationException) {
                 throw error
-            } catch (error: Throwable) {
+            } catch (error: Exception) {
                 ImportFlowEvent.OperationFailed(
                     requestId = command.requestId,
                     title = when (command) {

@@ -101,13 +101,13 @@ class IosImportDocumentPicker(
                 }
             }
 
-            runCatching {
+            try {
                 presenter.presentViewController(
                     viewControllerToPresent = picker,
                     animated = true,
                     completion = null,
                 )
-            }.onFailure { failure ->
+            } catch (failure: Exception) {
                 complete(Result.failure(failure))
             }
         }
@@ -138,7 +138,7 @@ class IosImportDocumentPicker(
 
     private fun readBoundedCoordinated(url: NSURL, maximumBytes: Int): ByteArray {
         var result: ByteArray? = null
-        var accessorFailure: Throwable? = null
+        var accessorFailure: Exception? = null
 
         NSFileCoordinator(filePresenter = null).coordinateReadingItemAtURL(
             url = url,
@@ -163,7 +163,7 @@ class IosImportDocumentPicker(
                 } finally {
                     check(handle.closeAndReturnError(error = null)) { "无法安全关闭所选文件" }
                 }
-            } catch (failure: Throwable) {
+            } catch (failure: Exception) {
                 accessorFailure = failure
             }
         }
@@ -182,14 +182,17 @@ class IosImportDocumentPicker(
         ) {
             if (completed) return
             completed = true
-            complete(
-                runCatching {
-                    require(didPickDocumentsAtURLs.size == 1) { "请选择一个文件" }
+            val result: Result<NSURL?> = try {
+                require(didPickDocumentsAtURLs.size == 1) { "请选择一个文件" }
+                Result.success(
                     requireNotNull(didPickDocumentsAtURLs.single() as? NSURL) {
                         "所选文件地址无效"
-                    }
-                },
-            )
+                    },
+                )
+            } catch (failure: Exception) {
+                Result.failure(failure)
+            }
+            complete(result)
         }
 
         override fun documentPicker(

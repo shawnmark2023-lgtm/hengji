@@ -106,13 +106,13 @@ class IosLedgerExportWriter(
                     continuation = continuation,
                 )
                 picker.delegate = delegate
-                runCatching {
+                try {
                     presenter.presentViewController(
                         viewControllerToPresent = picker,
                         animated = true,
                         completion = null,
                     )
-                }.onFailure { failure ->
+                } catch (failure: Exception) {
                     fail(picker = picker, failure = failure)
                 }
             }
@@ -191,7 +191,7 @@ class IosLedgerExportWriter(
             check(data.writeToFile(path = filePath, atomically = true)) {
                 "Unable to write the temporary ledger export"
             }
-        } catch (failure: Throwable) {
+        } catch (failure: Exception) {
             removeTemporaryExport(directoryPath)
             throw failure
         }
@@ -237,14 +237,17 @@ class IosLedgerExportWriter(
             controller: UIDocumentPickerViewController,
             didPickDocumentsAtURLs: List<*>,
         ) {
-            onPicked(
-                runCatching {
-                    require(didPickDocumentsAtURLs.size == 1) { "请选择一个导出位置" }
+            val result: Result<NSURL> = try {
+                require(didPickDocumentsAtURLs.size == 1) { "请选择一个导出位置" }
+                Result.success(
                     requireNotNull(didPickDocumentsAtURLs.single() as? NSURL) {
                         "导出位置无效"
-                    }
-                },
-            )
+                    },
+                )
+            } catch (failure: Exception) {
+                Result.failure(failure)
+            }
+            onPicked(result)
         }
 
         override fun documentPickerWasCancelled(controller: UIDocumentPickerViewController) {

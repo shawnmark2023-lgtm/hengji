@@ -13,6 +13,7 @@ import com.hengji.app.importflow.ImportDocumentFormat
 import java.io.ByteArrayOutputStream
 import kotlin.coroutines.resume
 import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -30,15 +31,17 @@ class AndroidImportDocumentPicker(
             return@registerForActivityResult
         }
         activity.lifecycleScope.launch {
-            val result = runCatching {
-                withContext(Dispatchers.IO) {
+            try {
+                val document = withContext(Dispatchers.IO) {
                     readDocument(uri, request.format, request.purpose)
                 }
+                request.continuation.resume(document)
+            } catch (error: CancellationException) {
+                request.continuation.cancel(error)
+                throw error
+            } catch (error: Exception) {
+                request.continuation.resumeWith(Result.failure(error))
             }
-            result.fold(
-                onSuccess = { request.continuation.resume(it) },
-                onFailure = { request.continuation.resumeWith(Result.failure(it)) },
-            )
         }
     }
 

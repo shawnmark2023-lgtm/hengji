@@ -22,7 +22,7 @@
 | T02 工作树卫生 | `DONE_LOCAL` | `*.egg-info/` 已忽略，生成目录已移除；证据、缓存与构建产物保持 ignored |
 | T03 进度清单校准 | `DONE_LOCAL` | `docs/02-development-list.md` 使用 `DONE_WIN_ANDROID`、`READY_EXTERNAL`、Apple deferred 边界；本报告只记录本轮实跑 |
 | T04 静态工程门禁 | `DONE_LOCAL` | 全部门禁退出码 0，结果见第 4 节 |
-| T05 Desktop 工程验收 | `DONE_LOCAL` | 188/188 测试、ProGuard Release、Release uber JAR 通过 |
+| T05 Desktop 工程验收 | `DONE_LOCAL` | 193/193 测试、ProGuard Release、Release uber JAR 通过 |
 | T06 Windows 安装包验收 | `DONE_LOCAL` / `READY_EXTERNAL` | 本机 MSI 全生命周期和受保护账本通过；签名、SmartScreen、组织 Application Control 签名候选包为外部事项 |
 | T07 Android 构建验收 | `DONE_LOCAL` | host、lint、Debug/R8 Release/AndroidTest APK 与权限检查通过 |
 | T08 Android API 36 设备验收 | `DONE_LOCAL_AVD` / `READY_EXTERNAL` | 本轮官方 API 36 x86_64 AVD 3/3；没有冒充真机，实体设备矩阵仍外部 |
@@ -39,7 +39,7 @@
 
 - Windows 11 `10.0.26200`，JDK 21.0.2，Gradle 9.3.1，Node 22.23.0，npm 10.9.8，Python 3.12.13。
 - Android SDK API 36、Build Tools 36.0.0、Platform Tools 37.0.1；官方 Emulator 36.6.11 与 Google APIs API 36 x86_64 r7。
-- 中文工作树通过同一源码的 ASCII 盘符运行主 Gradle 构建；复合 quality harness 要求非空目录名，因此畸形导入与 10 万流水在精确 ASCII 隔离源码副本执行。
+- 中文工作树通过同一源码的 ASCII 盘符运行主 Gradle 构建；quality harness 已为 Windows 驱动器根目录显式设置 composite build 名称，可在同一 `subst` 源码上直接执行，不再需要复制源码。
 - 所有计数均来自本轮 JUnit、门禁 JSON 或命令退出码；旧报告只用于历史追溯。
 - 仓库无 remote；GitHub Actions 只验证配置与不可变引用，不能标记为远端 `passed`。
 
@@ -49,7 +49,7 @@
 
 ```powershell
 python scripts\quality\run_quality.py --project T:\ `
-  --gates formatting architecture release-guards reproducibility supply-chain-inventory coverage `
+  --gates formatting architecture release-guards apple-readiness reproducibility supply-chain-inventory coverage `
   --output-dir T:\quality\evidence\final-static
 ```
 
@@ -57,24 +57,25 @@ python scripts\quality\run_quality.py --project T:\ `
 
 | 门禁 | 结果 |
 | --- | --- |
-| formatting | 183 files：159 Kotlin、19 Python、5 TypeScript |
-| architecture | 38/38 |
-| release guards | 293/293 |
+| formatting | 187 files：162 Kotlin、20 Python、5 TypeScript |
+| architecture | 39/39 |
+| release guards | 299/299 |
+| Apple readiness | 13 files、42 条静态不变量 |
 | reproducibility | 18/18；1,519 locked coordinates；3,639 verified artifacts |
 | supply-chain inventory | 352/352；280 components；276 scan packages；64 Action refs |
 | core-domain coverage | line 94.7619%，branch 61.9048% |
 | core-insights coverage | line 91.9054%，branch 59.0517% |
-| connectors coverage | line 91.8317%，branch 52.9412% |
+| connectors coverage | line 91.8619%，branch 53.2338% |
 
-ASCII 隔离副本：
+同一 ASCII `subst` 源码：
 
 ```powershell
-python scripts\quality\run_quality.py --project <ascii-source-copy> `
+python scripts\quality\run_quality.py --project T:\ `
   --gates malformed-import large-ledger
 ```
 
 - 畸形导入 8/8：未闭合引号、错列、重复表头、嵌套 JSON、行数超限、文件超限、必填空值、BOM/Unicode。
-- 100,000 流水 4/4：106 ms，内存增量 43.30 MiB，金额聚合使用 minor-unit `Long`；仅为开发机内存基线。
+- 100,000 流水 4/4：97 ms，内存增量 43.82 MiB，金额聚合使用 minor-unit `Long`；仅为开发机内存基线。
 
 ### 4.2 Desktop 与 Windows
 
@@ -84,7 +85,7 @@ python scripts\quality\run_quality.py --project <ascii-source-copy> `
   --dependency-verification strict --no-configuration-cache --no-daemon --console=plain
 ```
 
-- Desktop 188/188，0 failure/error/skip：client 53、core-domain 17、core-data 79、core-insights 25、connectors 14。
+- Desktop 193/193，0 failure/error/skip：client 57、core-domain 17、core-data 79、core-insights 25、connectors 15。
 - ProGuard Release 与 Release uber JAR 通过。
 
 ```powershell
@@ -101,7 +102,7 @@ python scripts\quality\run_quality.py --project <ascii-source-copy> `
 ### 4.3 Android
 
 ```powershell
-.\gradlew.bat :modules:core-data:androidHostTest `
+.\gradlew.bat :modules:core-data:testAndroidHostTest `
   :apps:client:androidApp:lintDebug `
   :apps:client:androidApp:assembleDebug `
   :apps:client:androidApp:assembleRelease `

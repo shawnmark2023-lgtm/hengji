@@ -44,7 +44,7 @@
 - [x] `INS-003` P0 低使用资产和建议出售候选，展示节省估算与依据。
 - [x] `INS-004` P0 建议排序：影响 × 置信度 × 可执行性，避免重复和冲突。
 - [x] `INS-005` P0 建议反馈（采纳/稍后 7 天/忽略/恢复默认）与本地学习偏好，按稳定去重键持久化。
-- [x] `INS-006` P1 可选模型解释器已实现默认关闭、本地同意记录、撤回即停用、聚合字段白名单与隐私审查提供方门控；未配置提供方时保持离线规则解释且网络外发为 0。
+- [ ] `INS-006` P1 离线确定性解释、聚合字段白名单和提供方隐私门控仍保留；未配置已审查的生产模型提供方时，发布界面不展示无效的模型同意开关，网络外发为 0。提供方合同、字段清单、保留策略和重新同意流程完成后再启用，状态为 `READY_EXTERNAL`。
 
 ## E. 导入与平台连接器
 
@@ -93,13 +93,13 @@
 | ID | 状态 | 关键依赖 | 可量化验收 |
 | --- | --- | --- | --- |
 | FND-003 | BLOCKED | Git remote、独立 CI runner | 本地 Windows/Android 各在两个隔离 ASCII 源码副本构建并比较规范化 archive 内容；280 组件 CycloneDX 1.6 SBOM、276 包许可证/漏洞扫描、64 处 Action SHA 固定通过。PR CI 已包含 Desktop、Android host/debug、API 36 instrumentation、供应链审计，以及 Windows MSI 行政解包/加密账本、每用户安装、版本升级、已安装入口启动和卸载作业。仓库无 remote，无法产生独立 runner 通过证据 |
-| FND-004 | DONE | — | 格式门禁通过；core-domain 行/分支 94.76%/61.90%，core-insights 91.91%/59.05%，connectors 91.83%/52.94%，均达到 CI 阈值 |
+| FND-004 | DONE | — | 格式门禁通过；core-domain 行/分支 94.76%/61.90%，core-insights 91.91%/59.05%，connectors 91.86%/53.23%，均达到 CI 阈值 |
 | DAT-004 | DONE_WIN_ANDROID | Apple deferred；系统级抗回滚/密钥丢失演练后续 | v2 envelope 将 active-key alias 纳入认证数据；启动自动发现当前代，轮换先验证旧快照、以新别名加密、CAS 提交并重开校验，提交失败保持旧信封可读；Windows/API 36 受保护账本往返通过 |
 | UX-006 | DONE_WIN_ANDROID | Apple runner deferred | Windows/Android 导入路径和整批撤销已完成；Apple 平台依本轮范围延期 |
 | UX-007 | DONE_WIN_ANDROID | Apple runner deferred | Windows/Android JSON/CSV 导出、JSON 恢复与清除路径已完成；Apple 平台依本轮范围延期 |
 | UX-008 | PARTIAL | TalkBack、Narrator、hardware keyboard | 共享语义、360dp/200%、深色主题、Reduce Motion、Desktop Tab/Enter 与 Android Compose Accessibility Test Framework 已自动化通过；不把自动分析宣称为真实屏幕阅读器验收 |
 | UX-009 | DONE_WIN_ANDROID | Apple deferred | Android 小组件、静态启动器快捷方式、文本/图片/PDF 系统分享和 Windows 全局快捷键已接入；冲突时不覆盖并保留应用内快捷键，所有入口只打开确认/取消界面 |
-| INS-006 | DONE_WIN_ANDROID | 生产模型提供方可选且未配置 | 同意默认关闭并本地持久化；聚合字段白名单拒绝原始流水，只有隐私审查提供方可调用；撤回立即转回离线规则且默认网络调用为 0 |
+| INS-006 | READY_EXTERNAL | 已审查的生产模型提供方、字段/保留清单、重新同意文案 | 当前发布界面移除无提供方支撑的模型同意开关；离线规则解释继续可用，聚合字段白名单拒绝原始流水，默认网络调用为 0。只有完成隐私审查并配置提供方后才重新暴露入口 |
 | IMP-005 | DONE_ANDROID | Windows 保留既有文件导入；Apple deferred | 20 份脱敏文本解析样本通过；图片/PDF 在 Android 设备内识别，限制 20 MiB、20 页和 100,000 字符，候选字段必须进入人工确认后才可保存；合并清单断言不含 `INTERNET`，阻断 ML Kit 诊断/使用指标外发 |
 | IMP-006 | READY_EXTERNAL | Google Play SMS declaration（仅直接读取方案需要） | 当前 APK 不声明读取/接收短信权限；用户主动分享的金融文本仅本地解析，非金融文本拒绝，原文不保留。直接读取不在未获批构建中启用 |
 | IMP-007 | TODO | FinanceKit entitlement、eligible region/account | entitlement/地区/账户三重门控；不可用时功能隐藏且文件导入仍可用；真机授权/撤销通过 |
@@ -111,9 +111,9 @@
 | SEC-005 | TODO | account backend、Passkey/SIWA | 注册/验证/恢复/2FA/会话撤销/设备丢失演练通过，且不破坏无账号本地模式 |
 | SEC-006 | TODO | E2EE protocol、sync engine | 双设备离线冲突、密钥轮换、恢复短语、灾难恢复和服务端不可读性测试通过 |
 | REL-001 | TODO | Apple/Google/Microsoft signing accounts | 四平台生产签名、隐私声明、公证/商店审查、分阶段发布和一键回滚演练通过 |
-| QA-003 | DONE_WIN_ANDROID | Apple runner deferred | Desktop client 53/53、Android 共享 UI 52/52、API 36 instrumentation 3/3（平台入口、Keystore 启动、自动无障碍）；关键 UI 在 Windows/API 36 复用通过 |
+| QA-003 | DONE_WIN_ANDROID | Apple runner deferred | Desktop client 57/57、Android 共享 UI 52/52、API 36 instrumentation 历史基线 3/3（平台入口、Keystore 启动、自动无障碍）；本轮 Apple 质量重构后的共享 UI 由 Desktop 复用测试覆盖，API 36 未复跑 |
 | QA-005 | PARTIAL | TalkBack、Narrator、真实硬件键盘 | 自动化矩阵已覆盖共享语义、360dp/200%、深色主题、Reduce Motion、Desktop 键盘和 Android Accessibility Test Framework；固定实体设备/辅助技术矩阵与证据模板已写入 `docs/11-device-accessibility-validation.md`，尚未执行 |
-| QA-006 | READY_EXTERNAL | representative low-end physical device | 开发机 100,000 流水基线 4/4 通过，106 ms、内存增量 43.30 MiB；实体机型号、环境、场景、指标和证据模板已固定，尚无代表性低端 Android 的加密持久层与完整 UI 性能结果 |
+| QA-006 | READY_EXTERNAL | representative low-end physical device | 开发机 100,000 流水基线 4/4 通过，97 ms、内存增量 43.82 MiB；实体机型号、环境、场景、指标和证据模板已固定，尚无代表性低端 Android 的加密持久层与完整 UI 性能结果 |
 | QA-007 | TODO | external security review、store dry run | 高危漏洞为 0；加密备份恢复成功；四平台审核材料与回滚桌面演练签字完成 |
 
 ## 首轮开发完成定义
@@ -145,7 +145,7 @@
 | PRI-001..004 | domain / Python service | 来源、运费、四分位、离群值、新鲜度；低置信度单点隐藏测试通过 |
 | SEC-001..002 | threat model / CI | 威胁模型、secret guard、脱敏 token、生产 fail-closed 测试通过 |
 | QA-001 | domain tests | 金额、退款、零使用、残值、跨期、溢出和低置信度边界通过 |
-| QA-004 | Gradle / Android SDK | Desktop 编译运行；Android lint、Debug APK 与未签名 R8 Release 构建通过，Debug APK 已保留；iOS arm64/simulator arm64 Kotlin klib 通过；Apple 原生仍仅配置 CI、未声称通过 |
+| QA-004 | Gradle / Android SDK | Desktop 编译运行；Android lint、Debug APK 与未签名 R8 Release 构建通过，Debug APK 已保留；历史 iOS arm64/simulator arm64 Kotlin klib 曾通过，本轮源码在 Windows 上完成 common metadata 可移植性修复后被 Application Control 阻断于 Kotlin/Native DLL，Apple 原生仍需 macOS/Xcode 验证 |
 | FND-002 | quality gates | 自动依赖方向与禁止依赖扫描通过，机器可读证据写入 `quality/evidence` |
 | UX-003 | application gateway | 流水写入、确认删除和 8 秒撤销会同步刷新首页、列表与洞察；墓碑与成功恢复状态均跨重启持久化，旧 token 不能复活再次删除的记录 |
 | QA-002 | export/import guards | 完整导出/恢复、公式中和及 8 类畸形输入契约通过 |

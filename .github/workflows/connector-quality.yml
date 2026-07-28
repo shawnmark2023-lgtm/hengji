@@ -102,7 +102,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Run shared release guards
-        run: python scripts/quality/run_quality.py --gates release-guards --output-dir quality-evidence
+        run: python scripts/quality/run_quality.py --gates release-guards apple-readiness --output-dir quality-evidence
       - name: Upload release-guard evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

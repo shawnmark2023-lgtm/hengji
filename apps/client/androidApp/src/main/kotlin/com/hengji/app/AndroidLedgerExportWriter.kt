@@ -9,6 +9,7 @@ import com.hengji.app.application.LedgerExportWriter
 import com.hengji.app.application.PreparedLedgerExport
 import kotlin.coroutines.resume
 import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -28,14 +29,15 @@ class AndroidLedgerExportWriter(
             return@registerForActivityResult
         }
         activity.lifecycleScope.launch {
-            val result = runCatching {
+            try {
                 withContext(Dispatchers.IO) { write(uri, request.export.bytes) }
-                uri.toString()
+                request.continuation.resume(uri.toString())
+            } catch (error: CancellationException) {
+                request.continuation.cancel(error)
+                throw error
+            } catch (error: Exception) {
+                request.continuation.resumeWith(Result.failure(error))
             }
-            result.fold(
-                onSuccess = { request.continuation.resume(it) },
-                onFailure = { request.continuation.resumeWith(Result.failure(it)) },
-            )
         }
     }
 

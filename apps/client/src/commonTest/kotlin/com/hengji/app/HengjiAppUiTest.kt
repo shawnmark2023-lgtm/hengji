@@ -15,6 +15,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
@@ -46,7 +47,6 @@ import com.hengji.domain.TransactionKind
 import kotlinx.datetime.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotEquals
 
 @OptIn(ExperimentalTestApi::class)
 class HengjiAppUiTest {
@@ -135,7 +135,8 @@ class HengjiAppUiTest {
         setHengjiContent(gatewayWith())
 
         navigateTo("设置")
-        onNodeWithText("打开导入中心").performScrollTo().performClick()
+        onNode(hasScrollToNodeAction()).performScrollToNode(hasText("打开导入中心"))
+        onNodeWithText("打开导入中心").performClick()
         waitUntilExactlyOneExists(hasText("CSV 沙箱样例"))
 
         onNodeWithText("CSV 沙箱样例").performClick()
@@ -177,17 +178,24 @@ class HengjiAppUiTest {
         onNodeWithText("恢复备份").performScrollTo().assertIsDisplayed()
         onNodeWithText("清除数据").performScrollTo().assertIsDisplayed()
 
-        onNode(hasScrollToNodeAction()).performScrollToNode(hasText("深色外观"))
-        val darkThemeSwitch = onNode(hasText("深色外观") and hasClickAction())
-        val initialDarkThemeState =
-            darkThemeSwitch.fetchSemanticsNode().config[SemanticsProperties.ToggleableState]
-        darkThemeSwitch.performClick()
-        assertNotEquals(
-            initialDarkThemeState,
-            darkThemeSwitch.fetchSemanticsNode().config[SemanticsProperties.ToggleableState],
-        )
-        val reduceMotionSwitch = onNode(hasText("减少动态效果") and hasClickAction())
+        onNode(hasScrollToNodeAction()).performScrollToNode(hasText("跟随系统"))
+        onNode(hasText("跟随系统") and hasClickAction()).assertIsSelected()
+        onNode(hasScrollToNodeAction()).performScrollToNode(hasText("进一步减少动态效果"))
+        onNode(hasText("深色") and hasClickAction()).performClick()
+        waitForIdle()
+        onNode(hasText("深色") and hasClickAction()).assertIsSelected()
+        onNode(hasScrollToNodeAction()).performScrollToNode(hasText("跟随系统"))
+        onNode(hasText("跟随系统") and hasClickAction()).performClick()
+        waitForIdle()
+        onNode(hasText("跟随系统") and hasClickAction()).assertIsSelected()
+        val reduceMotionSwitch = onNode(hasText("进一步减少动态效果") and hasClickAction())
         reduceMotionSwitch.performScrollTo().assertIsOff().performClick().assertIsOn()
+
+        onNode(hasScrollToNodeAction()).performScrollToNode(hasText("查看隐私说明"))
+        onNodeWithText("查看隐私说明").performClick()
+        waitUntilExactlyOneExists(hasText("隐私说明"))
+        onNodeWithText("本地优先").assertIsDisplayed()
+        onNodeWithText("完成").performClick()
     }
 
     @Test

@@ -19,7 +19,7 @@ bash scripts/quality/run-quality.sh
 Run only the fast static gates:
 
 ```powershell
-python scripts/quality/run_quality.py --gates formatting architecture release-guards reproducibility supply-chain-inventory
+python scripts/quality/run_quality.py --gates formatting architecture release-guards apple-readiness reproducibility supply-chain-inventory
 ```
 
 Run the locked JaCoCo coverage threshold and the real Kotlin malformed-import and

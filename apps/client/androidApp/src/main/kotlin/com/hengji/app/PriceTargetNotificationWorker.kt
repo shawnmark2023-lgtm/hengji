@@ -9,32 +9,30 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.CoroutineWorker
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import androidx.work.Worker
 import androidx.work.WorkerParameters
 import com.hengji.data.openAndroidProtectedLedger
 import com.hengji.insights.PriceTargetAnalyzer
 import java.util.concurrent.TimeUnit
 import kotlin.time.Clock
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CancellationException
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
 class PriceTargetNotificationWorker(
     appContext: Context,
     workerParams: WorkerParameters,
-) : Worker(appContext, workerParams) {
-    override fun doWork(): Result = runCatching {
+) : CoroutineWorker(appContext, workerParams) {
+    override suspend fun doWork(): Result = try {
         if (
             android.os.Build.VERSION.SDK_INT >= 33 &&
             applicationContext.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
             return Result.success()
         }
-        val snapshot = runBlocking {
-            openAndroidProtectedLedger(applicationContext).repository.snapshot()
-        }
+        val snapshot = openAndroidProtectedLedger(applicationContext).repository.snapshot()
         val liveQuotes = snapshot.marketQuotes.filter { it.isLiveSource }
         val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
         val insights = PriceTargetAnalyzer.analyze(snapshot.assets, liveQuotes, today)
@@ -63,7 +61,9 @@ class PriceTargetNotificationWorker(
             )
             .apply()
         Result.success()
-    }.getOrElse {
+    } catch (error: CancellationException) {
+        throw error
+    } catch (_: Exception) {
         Result.retry()
     }
 

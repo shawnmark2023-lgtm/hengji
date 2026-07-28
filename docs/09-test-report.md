@@ -9,7 +9,7 @@
 | 静态工程 | 通过 | 格式 183、架构 38、发布守卫 293、依赖复现 18、供应链清单 352；`git diff --check` 通过 |
 | 覆盖率 | 通过 | core-domain 94.76%/61.90%，core-insights 91.91%/59.05%，connectors 91.83%/52.94% |
 | 输入/性能 | 通过 | 畸形导入 8/8；100,000 流水 4/4，106 ms、43.30 MiB；后者仅为开发机内存基线 |
-| Desktop | 通过 | Kotlin 188/188；ProGuard Release 与 Release uber JAR 通过 |
+| Desktop | 通过 | Kotlin 193/193；ProGuard Release 与 Release uber JAR 通过 |
 | Windows MSI | 通过（发布边界保留） | 行政解包、连续启动、DPAPI 密文、0.0.9→0.1.0 安装升级、两次已安装 EXE 启动、卸载与数据保留通过；MSI/EXE 未签名，SmartScreen 未验收 |
 | Android host/build | 通过 | host 63/63；lint 0 error/13 warning；Debug、R8 Release、AndroidTest APK 通过 |
 | Android API 36 | 通过 | 官方 Google APIs x86_64 AVD instrumentation 3/3；真实 AndroidKeyStore 创建/重开、平台权限与 Compose Accessibility Test Framework |
@@ -54,7 +54,7 @@
 
 | 门禁 | 结果 | 证据与边界 |
 | --- | --- | --- |
-| Desktop 单元测试 | 188/188，0 failure/error/skip | client 53、core-domain 17、core-data 79、core-insights 25、connectors 14；新增覆盖密钥轮换成功/提交冲突、OCR 文本解析、授权报价缓存和模型解释同意撤回 |
+| Desktop 单元测试 | 193/193，0 failure/error/skip | client 57、core-domain 17、core-data 79、core-insights 25、connectors 15；新增覆盖主题/Reduce Motion、通知同意撤回入口、密钥轮换、OCR 文本解析和授权报价缓存溢出边界 |
 | Android host | 63/63，0 failure/error/skip | 包含共同受保护账本测试及新增轮换路径 |
 | Android API 36 | 3/3 | 真实 AndroidKeyStore 账本创建/重开；清单断言小组件、快捷动作、文本/图片/PDF 分享和权限；真实 `MainActivity` Compose 层级通过 Accessibility Test Framework |
 | Android 构建 | 通过 | `lintDebug` 0 error/13 warning；Debug APK、未签名 R8 Release APK 构建通过。APK 实际权限包含通知与 WorkManager 所需能力，不含 `INTERNET` 或短信读取/接收权限；这会阻断 ML Kit 诊断/使用指标外发，未来授权行情联网必须单独重新审查 |
@@ -215,3 +215,12 @@ Push-Location services\price-intelligence; python -m pytest -q; Pop-Location
 - iOS 文件适配器尚未在 Xcode、模拟器或真机运行；Windows 上的 Kotlin/Native 交叉编译不能证明 File Provider/iCloud、取消、超限、临时清理和跨重启流程正确。
 - `org.jetbrains.compose.material3:material3:1.11.0-alpha07` 是预发布依赖；升级到稳定兼容版本及回归验证属于 Beta 依赖门禁。
 - 全量 UI 自动化、屏幕阅读器、代表性低端设备性能、渗透测试、账户验证和加密同步仍是后续门禁。
+
+## 2026-07-28 Apple 标准代码审计增量
+
+本轮不再执行攻击性测试，只进行 Apple 应用质量静态审计、代码优化和正常工程回归。完整发现、源码位置、官方标准映射、命令、工件哈希和未验证边界见 `docs/14-apple-standards-code-audit.md`。
+
+- 关闭发布 UI 占位/未配置入口、不可逆主题、系统 Reduce Motion 未合并、隐私说明/Privacy Manifest 缺失、破坏性动作弱提示、宽泛异常边界和阻塞 Worker 等问题。
+- `compileIosMainKotlinMetadata` 发现并修复 `commonMain` 的 JVM-only `Math.addExact`；重跑继续进入 iOS metadata 后，被本机 Application Control 阻断 Kotlin/Native 临时 DLL。不能据此声称 Apple 编译通过。
+- Desktop Kotlin 193/193；Android host 63/63，lint、Debug/R8 Release/AndroidTest APK 通过；财务应用校验器 0 error/0 warning。
+- Apple readiness 13 files/42 checks；供应链 276 包 0 vulnerability/0 license violation；Connector 4/4，Price 3/3。

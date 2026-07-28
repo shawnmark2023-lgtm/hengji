@@ -14,6 +14,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +42,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.hengji.app.application.AppLedgerGateway
+import com.hengji.app.application.AppAppearanceMode
 import com.hengji.app.application.AssetSaleTargetEditor
 import com.hengji.app.application.DemoDataSeedPolicy
 import com.hengji.app.application.InsightFeedbackReducer
@@ -59,7 +61,8 @@ import com.hengji.app.application.LedgerExportWriter
 import com.hengji.app.application.PreviewOnlyLedgerExportWriter
 import com.hengji.app.application.QuickEntryRequest
 import com.hengji.app.application.PriceNotificationControl
-import com.hengji.app.application.ModelExplanationControl
+import com.hengji.app.application.shouldReduceMotion
+import com.hengji.app.application.shouldDisplay
 import com.hengji.app.importflow.ImportWizard
 import com.hengji.app.importflow.ImportDocumentFormat
 import com.hengji.app.model.DomainDemoData
@@ -129,7 +132,7 @@ fun HengjiApp(
     quickEntryRequest: QuickEntryRequest? = null,
     quickEntryShortcutStatus: String? = null,
     priceNotificationControl: PriceNotificationControl? = null,
-    modelExplanationControl: ModelExplanationControl? = null,
+    systemReduceMotion: Boolean = false,
 ) {
     val gateway = remember(repository) { PersistentAppLedgerGateway(repository) }
     HengjiApp(
@@ -140,7 +143,7 @@ fun HengjiApp(
         quickEntryRequest,
         quickEntryShortcutStatus,
         priceNotificationControl,
-        modelExplanationControl,
+        systemReduceMotion,
     )
 }
 
@@ -153,11 +156,11 @@ fun HengjiApp(
     quickEntryRequest: QuickEntryRequest? = null,
     quickEntryShortcutStatus: String? = null,
     priceNotificationControl: PriceNotificationControl? = null,
-    modelExplanationControl: ModelExplanationControl? = null,
+    systemReduceMotion: Boolean = false,
 ) {
     var destination by rememberSaveable { mutableStateOf(AppDestination.Overview) }
-    var darkThemeOverride by rememberSaveable { mutableStateOf<Boolean?>(null) }
-    var reduceMotion by rememberSaveable { mutableStateOf(false) }
+    var appearanceMode by rememberSaveable { mutableStateOf(AppAppearanceMode.SYSTEM) }
+    var reduceMotionOverride by rememberSaveable { mutableStateOf(false) }
     var showAddTransaction by rememberSaveable { mutableStateOf(false) }
     var showAddAsset by rememberSaveable { mutableStateOf(false) }
     var manualQuoteAssetId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -200,8 +203,8 @@ fun HengjiApp(
             snapshot = loaded
         } catch (error: CancellationException) {
             throw error
-        } catch (error: Throwable) {
-            storageError = error.message ?: "无法打开本机账本"
+        } catch (_: Exception) {
+            storageError = "无法打开本机受保护账本；原有文件保持不变，请重试。"
         } finally {
             storageBusy = false
         }
@@ -238,8 +241,8 @@ fun HengjiApp(
                 snapshot = gateway.snapshot()
             } catch (error: CancellationException) {
                 throw error
-            } catch (error: Throwable) {
-                storageError = error.message ?: "本机账本操作未完成"
+            } catch (_: Exception) {
+                storageError = "本机账本操作未完成；本次更改没有确认写入，请重试。"
             } finally {
                 storageBusy = false
             }
@@ -271,9 +274,9 @@ fun HengjiApp(
                 }
             } catch (error: CancellationException) {
                 throw error
-            } catch (error: Throwable) {
+            } catch (_: Exception) {
                 transactionPendingDeletionId = null
-                storageError = error.message ?: "删除未完成：记录已变化或存在关联退款。"
+                storageError = "删除未完成：记录已变化或存在关联退款。"
             } finally {
                 storageBusy = false
             }
@@ -298,9 +301,9 @@ fun HengjiApp(
                 }
             } catch (error: CancellationException) {
                 throw error
-            } catch (error: Throwable) {
+            } catch (_: Exception) {
                 pendingTransactionUndo = null
-                storageError = error.message ?: "撤销失败：流水已再次变化或撤销窗口已过期。"
+                storageError = "撤销失败：流水已再次变化或撤销窗口已过期。"
             } finally {
                 storageBusy = false
             }
@@ -326,8 +329,8 @@ fun HengjiApp(
                 insightFeedbackStatus = successMessage
             } catch (error: CancellationException) {
                 throw error
-            } catch (error: Throwable) {
-                storageError = error.message ?: "建议反馈未能保存到本机"
+            } catch (_: Exception) {
+                storageError = "建议反馈未能保存到本机；原账本保持不变。"
             } finally {
                 insightFeedbackBusyKey = null
                 insightFeedbackResetting = false
@@ -339,7 +342,11 @@ fun HengjiApp(
     val currentSnapshot = snapshot
     val today = remember(currentSnapshot) { currentLocalDate() }
     val nowEpochMillis = remember(currentSnapshot) { Clock.System.now().toEpochMilliseconds() }
-    val darkTheme = darkThemeOverride ?: isSystemInDarkTheme()
+    val darkTheme = appearanceMode.resolve(isSystemInDarkTheme())
+    val reduceMotion = shouldReduceMotion(
+        systemRequestsReduction = systemReduceMotion,
+        userRequestsAdditionalReduction = reduceMotionOverride,
+    )
 
     if (currentSnapshot == null) {
         HengjiTheme(darkTheme = darkTheme) {
@@ -466,10 +473,11 @@ fun HengjiApp(
                         },
                     )
                     AppDestination.Settings -> SettingsScreen(
-                        darkTheme = darkTheme,
-                        onDarkThemeChange = { darkThemeOverride = it },
-                        reduceMotion = reduceMotion,
-                        onReduceMotionChange = { reduceMotion = it },
+                        appearanceMode = appearanceMode,
+                        onAppearanceModeChange = { appearanceMode = it },
+                        reduceMotion = reduceMotionOverride,
+                        systemReduceMotion = systemReduceMotion,
+                        onReduceMotionChange = { reduceMotionOverride = it },
                         dataActionStatus = dataActionStatus,
                         onExportData = {
                             mutate {
@@ -526,8 +534,12 @@ fun HengjiApp(
                             "内存预览 · 关闭后不保留"
                         },
                         quickEntryShortcutStatus = quickEntryShortcutStatus,
-                        priceNotificationControl = priceNotificationControl,
-                        modelExplanationControl = modelExplanationControl,
+                        priceNotificationControl = priceNotificationControl?.takeIf { control ->
+                            control.shouldDisplay(
+                                hasAuthorizedLiveQuotes =
+                                    currentSnapshot.marketQuotes.any { quote -> quote.isLiveSource },
+                            )
+                        },
                     )
                     }
                 }
@@ -618,6 +630,9 @@ fun HengjiApp(
                     TextButton(
                         enabled = !storageBusy,
                         onClick = { deleteTransaction(transaction.id.value) },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error,
+                        ),
                     ) {
                         Text("确认删除")
                     }
@@ -750,6 +765,9 @@ fun HengjiApp(
                                 dataActionStatus = "本机账本已清除"
                             }
                         },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error,
+                        ),
                     ) { Text("确认清除") }
                 },
                 dismissButton = {

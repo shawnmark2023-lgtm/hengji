@@ -30,27 +30,23 @@ import com.hengji.app.theme.HengjiTheme
 import com.hengji.data.ProtectedLedgerOpenOutcome
 import com.hengji.data.openDesktopProtectedLedger
 import com.hengji.app.application.QuickEntryRequest
-import com.hengji.app.application.ModelExplanationControl
 import java.io.File
-import java.util.prefs.Preferences
 import kotlinx.coroutines.runBlocking
 
 fun main() {
-    val opening = runCatching {
-        runBlocking {
-            openDesktopProtectedLedger(desktopDataDirectory().toPath())
-        }
+    val opening = try {
+        Result.success(
+            runBlocking {
+                openDesktopProtectedLedger(desktopDataDirectory().toPath())
+            },
+        )
+    } catch (error: Exception) {
+        Result.failure(error)
     }
     application {
         var quickEntrySequence by remember { mutableStateOf(0L) }
         var quickEntryShortcutStatus by remember {
             mutableStateOf("应用内快捷记账：Ctrl+Shift+N。")
-        }
-        val consentPreferences = remember {
-            Preferences.userRoot().node("com/hengji/model-explanation")
-        }
-        var modelExplanationEnabled by remember {
-            mutableStateOf(consentPreferences.getBoolean("enabled", false))
         }
         DisposableEffect(Unit) {
             val hotkey = if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) {
@@ -96,18 +92,6 @@ fun main() {
                         seedDemoData = opened.outcome == ProtectedLedgerOpenOutcome.CREATED_EMPTY,
                         quickEntryRequest = QuickEntryRequest(quickEntrySequence),
                         quickEntryShortcutStatus = quickEntryShortcutStatus,
-                        modelExplanationControl = ModelExplanationControl(
-                            enabled = modelExplanationEnabled,
-                            status = if (modelExplanationEnabled) {
-                                "已记录本机同意；未配置隐私评审提供方，仍保持零外发并使用离线规则。"
-                            } else {
-                                "默认关闭；离线规则解释保持可用。"
-                            },
-                            onEnabledChange = { enabled ->
-                                consentPreferences.putBoolean("enabled", enabled)
-                                modelExplanationEnabled = enabled
-                            },
-                        ),
                     )
                 },
                 onFailure = {

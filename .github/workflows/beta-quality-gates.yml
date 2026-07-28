@@ -44,7 +44,7 @@ jobs:
       - name: Run static formatting, architecture, release, and supply-chain guards
         run: >-
           python scripts/quality/run_quality.py
-          --gates formatting architecture release-guards reproducibility supply-chain-inventory
+          --gates formatting architecture release-guards apple-readiness reproducibility supply-chain-inventory
           --output-dir quality-evidence
       - name: Upload static evidence
         if: always()

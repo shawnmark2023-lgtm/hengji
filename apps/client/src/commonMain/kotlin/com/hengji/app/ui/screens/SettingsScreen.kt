@@ -11,18 +11,26 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -38,13 +46,14 @@ import com.hengji.app.ui.components.ScreenHeader
 import com.hengji.app.ui.components.SectionCard
 import com.hengji.app.ui.components.StatusPill
 import com.hengji.app.application.PriceNotificationControl
-import com.hengji.app.application.ModelExplanationControl
+import com.hengji.app.application.AppAppearanceMode
 
 @Composable
 fun SettingsScreen(
-    darkTheme: Boolean,
-    onDarkThemeChange: (Boolean) -> Unit,
+    appearanceMode: AppAppearanceMode,
+    onAppearanceModeChange: (AppAppearanceMode) -> Unit,
     reduceMotion: Boolean = false,
+    systemReduceMotion: Boolean = false,
     onReduceMotionChange: (Boolean) -> Unit = {},
     dataActionStatus: String? = null,
     onExportData: () -> Unit = {},
@@ -55,8 +64,9 @@ fun SettingsScreen(
     storageStatus: String = "内存预览 · 关闭后不保留",
     quickEntryShortcutStatus: String? = null,
     priceNotificationControl: PriceNotificationControl? = null,
-    modelExplanationControl: ModelExplanationControl? = null,
 ) {
+    var showPrivacyNotice by rememberSaveable { mutableStateOf(false) }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(HengjiSpacing.lg),
@@ -111,11 +121,23 @@ fun SettingsScreen(
                             }
                         },
                         second = {
-                            OutlinedButton(onClick = onClearData, modifier = Modifier.fillMaxWidth()) {
+                            OutlinedButton(
+                                onClick = onClearData,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.error,
+                                ),
+                            ) {
                                 Text("清除数据")
                             }
                         },
                     )
+                    OutlinedButton(
+                        onClick = { showPrivacyNotice = true },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("查看隐私说明")
+                    }
                     dataActionStatus?.let {
                         Text(
                             it,
@@ -156,30 +178,6 @@ fun SettingsScreen(
                 }
             }
         }
-        modelExplanationControl?.let { control ->
-            item {
-                SectionCard(Modifier.fillMaxWidth()) {
-                    Column(verticalArrangement = Arrangement.spacedBy(HengjiSpacing.sm)) {
-                        Text(
-                            "可选模型解释",
-                            style = MaterialTheme.typography.titleLarge,
-                            modifier = Modifier.semantics { heading() },
-                        )
-                        SettingSwitchRow(
-                            title = "允许脱敏聚合解释",
-                            supporting = "只允许白名单聚合；原始流水、商户、备注和导入原文没有外发字段",
-                            checked = control.enabled,
-                            onCheckedChange = control.onEnabledChange,
-                        )
-                        Text(
-                            control.status,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-        }
         item {
             SectionCard(Modifier.fillMaxWidth()) {
                 Column {
@@ -189,16 +187,40 @@ fun SettingsScreen(
                         modifier = Modifier.semantics { heading() },
                     )
                     Spacer(Modifier.height(HengjiSpacing.sm))
-                    SettingSwitchRow(
-                        title = "深色外观",
-                        supporting = "在所有共享界面使用高对比深色主题",
-                        checked = darkTheme,
-                        onCheckedChange = onDarkThemeChange,
+                    Text(
+                        "外观",
+                        style = MaterialTheme.typography.titleMedium,
                     )
+                    Text(
+                        "默认跟随系统；手动选择后仍可随时恢复系统设置。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Column(Modifier.selectableGroup()) {
+                        AppearanceChoiceRow(
+                            title = "跟随系统",
+                            selected = appearanceMode == AppAppearanceMode.SYSTEM,
+                            onClick = { onAppearanceModeChange(AppAppearanceMode.SYSTEM) },
+                        )
+                        AppearanceChoiceRow(
+                            title = "浅色",
+                            selected = appearanceMode == AppAppearanceMode.LIGHT,
+                            onClick = { onAppearanceModeChange(AppAppearanceMode.LIGHT) },
+                        )
+                        AppearanceChoiceRow(
+                            title = "深色",
+                            selected = appearanceMode == AppAppearanceMode.DARK,
+                            onClick = { onAppearanceModeChange(AppAppearanceMode.DARK) },
+                        )
+                    }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     SettingSwitchRow(
-                        title = "减少动态效果",
-                        supporting = "本次使用关闭衡记自定义加载动画；系统界面仍遵循设备设置",
+                        title = "进一步减少动态效果",
+                        supporting = if (systemReduceMotion) {
+                            "系统已要求减少动态效果；衡记不会允许应用内设置覆盖该选择"
+                        } else {
+                            "额外关闭衡记自定义加载动画；系统辅助功能设置始终优先"
+                        },
                         checked = reduceMotion,
                         onCheckedChange = onReduceMotionChange,
                     )
@@ -223,7 +245,8 @@ fun SettingsScreen(
                         modifier = Modifier.semantics { heading() },
                     )
                     Text(
-                        "所有外部记录先进入预览区，经你确认后才会写入主账本。",
+                        "所有外部记录先进入预览区，经你确认后才会写入主账本。" +
+                            "当前版本只提供系统文件选择器，不包含自动同步或平台账户授权。",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -231,13 +254,7 @@ fun SettingsScreen(
                         onClick = onOpenImport,
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text("打开导入中心") }
-                    ConnectorRow("CSV / JSON 文件", "可用 · 本机解析", true)
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    ConnectorRow("支付宝 / 微信账单文件", "沙箱映射 · 非自动同步", true)
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    ConnectorRow("平台官方 OAuth", "等待平台真实 scope 与审核", false)
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    ConnectorRow("Apple FinanceKit", "Beta · 受地区与 entitlement 限制", false)
+                    ConnectorRow("CSV / JSON 文件", "系统选择器授权 · 本机解析")
                 }
             }
         }
@@ -254,12 +271,39 @@ fun SettingsScreen(
                 )
                 Spacer(Modifier.width(HengjiSpacing.xs))
                 Text(
-                    "衡记 0.1.0 · Local-first preview",
+                    "衡记 0.1.0 · Local-first",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
+    }
+
+    if (showPrivacyNotice) {
+        PrivacyNoticeDialog(onDismiss = { showPrivacyNotice = false })
+    }
+}
+
+@Composable
+private fun AppearanceChoiceRow(
+    title: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .selectable(
+                selected = selected,
+                role = Role.RadioButton,
+                onClick = onClick,
+            )
+            .padding(vertical = HengjiSpacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = selected, onClick = null)
+        Spacer(Modifier.width(HengjiSpacing.sm))
+        Text(title, style = MaterialTheme.typography.bodyLarge)
     }
 }
 
@@ -319,7 +363,6 @@ private fun ResponsiveActionPair(
 private fun ConnectorRow(
     name: String,
     status: String,
-    enabled: Boolean,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -332,9 +375,9 @@ private fun ConnectorRow(
         }
         Spacer(Modifier.width(HengjiSpacing.md))
         StatusPill(
-            text = if (enabled) "可用" else "未启用",
-            containerColor = if (enabled) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-            contentColor = if (enabled) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+            text = "本机",
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
         )
     }
 }

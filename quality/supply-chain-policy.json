@@ -1,0 +1,201 @@
+{
+  "schemaVersion": 1,
+  "application": {
+    "name": "hengji",
+    "version": "0.1.0",
+    "license": "LicenseRef-Proprietary"
+  },
+  "runtimePlatforms": {
+    "windows": {
+      "lockfile": "apps/client/gradle-windows-x64.lockfile",
+      "configurations": [
+        "desktopMainRuntimeClasspath",
+        "desktopRuntimeClasspath"
+      ]
+    },
+    "android": {
+      "lockfile": "apps/client/androidApp/gradle.lockfile",
+      "configurations": [
+        "releaseRuntimeClasspath"
+      ]
+    }
+  },
+  "npmProjects": [
+    {
+      "name": "hengji-connector-gateway",
+      "packageLock": "services/connector-gateway/package-lock.json"
+    }
+  ],
+  "pythonProjects": [
+    {
+      "name": "hengji-price-intelligence",
+      "pyproject": "services/price-intelligence/pyproject.toml"
+    }
+  ],
+  "pythonPackageLicenses": {
+    "setuptools": "MIT"
+  },
+  "allowedLicenses": [
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "CC0-1.0",
+    "EPL-1.0",
+    "EPL-2.0",
+    "ISC",
+    "LGPL-2.1-only",
+    "LGPL-2.1-or-later",
+    "MIT",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "Unlicense",
+    "Zlib"
+  ],
+  "licenseOverrides": [
+    {
+      "name": "com.google.android.gms:play-services-base",
+      "version": "18.5.0",
+      "ecosystem": "Maven",
+      "license": "LicenseRef-Google-ML-Kit-Terms",
+      "source": "https://developers.google.com/ml-kit/terms",
+      "effectiveUntil": "2027-07-27",
+      "reason": "Transitive ML Kit runtime governed by the reviewed Google ML Kit Terms of Service."
+    },
+    {
+      "name": "com.google.android.gms:play-services-basement",
+      "version": "18.4.0",
+      "ecosystem": "Maven",
+      "license": "LicenseRef-Google-ML-Kit-Terms",
+      "source": "https://developers.google.com/ml-kit/terms",
+      "effectiveUntil": "2027-07-27",
+      "reason": "Transitive ML Kit runtime governed by the reviewed Google ML Kit Terms of Service."
+    },
+    {
+      "name": "com.google.android.gms:play-services-mlkit-text-recognition-chinese",
+      "version": "16.0.1",
+      "ecosystem": "Maven",
+      "license": "LicenseRef-Google-ML-Kit-Terms",
+      "source": "https://developers.google.com/ml-kit/terms",
+      "effectiveUntil": "2027-07-27",
+      "reason": "ML Kit Chinese text recognition runtime governed by the reviewed Google ML Kit Terms of Service."
+    },
+    {
+      "name": "com.google.android.gms:play-services-mlkit-text-recognition-common",
+      "version": "19.1.0",
+      "ecosystem": "Maven",
+      "license": "LicenseRef-Google-ML-Kit-Terms",
+      "source": "https://developers.google.com/ml-kit/terms",
+      "effectiveUntil": "2027-07-27",
+      "reason": "Transitive ML Kit runtime governed by the reviewed Google ML Kit Terms of Service."
+    },
+    {
+      "name": "com.google.android.gms:play-services-tasks",
+      "version": "18.2.0",
+      "ecosystem": "Maven",
+      "license": "LicenseRef-Google-ML-Kit-Terms",
+      "source": "https://developers.google.com/ml-kit/terms",
+      "effectiveUntil": "2027-07-27",
+      "reason": "Transitive ML Kit runtime governed by the reviewed Google ML Kit Terms of Service."
+    },
+    {
+      "name": "com.google.android.odml:image",
+      "version": "1.0.0-beta1",
+      "ecosystem": "Maven",
+      "license": "LicenseRef-Google-ML-Kit-Terms",
+      "source": "https://developers.google.com/ml-kit/terms",
+      "effectiveUntil": "2027-07-27",
+      "reason": "Transitive ML Kit runtime governed by the reviewed Google ML Kit Terms of Service."
+    },
+    {
+      "name": "com.google.mlkit:common",
+      "version": "18.11.0",
+      "ecosystem": "Maven",
+      "license": "LicenseRef-Google-ML-Kit-Terms",
+      "source": "https://developers.google.com/ml-kit/terms",
+      "effectiveUntil": "2027-07-27",
+      "reason": "Transitive ML Kit runtime governed by the reviewed Google ML Kit Terms of Service."
+    },
+    {
+      "name": "com.google.mlkit:text-recognition-bundled-common",
+      "version": "17.0.0",
+      "ecosystem": "Maven",
+      "license": "LicenseRef-Google-ML-Kit-Terms",
+      "source": "https://developers.google.com/ml-kit/terms",
+      "effectiveUntil": "2027-07-27",
+      "reason": "Transitive ML Kit runtime governed by the reviewed Google ML Kit Terms of Service."
+    },
+    {
+      "name": "com.google.mlkit:text-recognition-chinese",
+      "version": "16.0.1",
+      "ecosystem": "Maven",
+      "license": "LicenseRef-Google-ML-Kit-Terms",
+      "source": "https://developers.google.com/ml-kit/terms",
+      "effectiveUntil": "2027-07-27",
+      "reason": "ML Kit Chinese text recognition runtime governed by the reviewed Google ML Kit Terms of Service."
+    },
+    {
+      "name": "com.google.mlkit:vision-common",
+      "version": "17.3.0",
+      "ecosystem": "Maven",
+      "license": "LicenseRef-Google-ML-Kit-Terms",
+      "source": "https://developers.google.com/ml-kit/terms",
+      "effectiveUntil": "2027-07-27",
+      "reason": "Transitive ML Kit runtime governed by the reviewed Google ML Kit Terms of Service."
+    },
+    {
+      "name": "com.google.mlkit:vision-interfaces",
+      "version": "16.3.0",
+      "ecosystem": "Maven",
+      "license": "LicenseRef-Google-ML-Kit-Terms",
+      "source": "https://developers.google.com/ml-kit/terms",
+      "effectiveUntil": "2027-07-27",
+      "reason": "Transitive ML Kit runtime governed by the reviewed Google ML Kit Terms of Service."
+    }
+  ],
+  "osvScanner": {
+    "version": "2.3.8",
+    "releaseBaseUrl": "https://github.com/google/osv-scanner/releases/download/v2.3.8",
+    "artifacts": {
+      "linux-amd64": {
+        "name": "osv-scanner_linux_amd64",
+        "sha256": "bc98e15319ed0d515e3f9235287ba53cdc5535d576d24fd573978ecfe9ab92dc"
+      },
+      "windows-amd64": {
+        "name": "osv-scanner_windows_amd64.exe",
+        "sha256": "cb04e79dd9698a7bc821bbfdddec916a416d1409fda79c927c509d37d00c9716"
+      }
+    }
+  },
+  "githubActions": {
+    "actions/checkout": {
+      "ref": "11d5960a326750d5838078e36cf38b85af677262",
+      "version": "v4.4.0"
+    },
+    "actions/setup-java": {
+      "ref": "c1e323688fd81a25caa38c78aa6df2d33d3e20d9",
+      "version": "v4.8.0"
+    },
+    "actions/setup-node": {
+      "ref": "49933ea5288caeca8642d1e84afbd3f7d6820020",
+      "version": "v4.4.0"
+    },
+    "actions/setup-python": {
+      "ref": "a26af69be951a213d495a4c3e4e4022e16d87065",
+      "version": "v5.6.0"
+    },
+    "actions/upload-artifact": {
+      "ref": "ea165f8d65b6e75b540449e92b4886f43607fa02",
+      "version": "v4.6.2"
+    },
+    "android-actions/setup-android": {
+      "ref": "9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407",
+      "version": "v3.2.2"
+    },
+    "reactivecircus/android-emulator-runner": {
+      "ref": "a421e43855164a8197daf9d8d40fe71c6996bb0d",
+      "version": "v2.38.0"
+    }
+  }
+}

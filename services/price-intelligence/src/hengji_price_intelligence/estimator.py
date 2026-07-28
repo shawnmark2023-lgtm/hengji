@@ -63,7 +63,7 @@ def _remove_outliers(quotes: list[MarketQuote]) -> list[MarketQuote]:
 def _confidence(quotes: list[MarketQuote], as_of: datetime, half_life_days: int) -> float:
     if not quotes:
         return 0.0
-    freshness_scores = []
+    freshness_scores: list[float] = []
     for quote in quotes:
         age_days = max(0.0, (as_of - quote.observed_at).total_seconds() / 86_400)
         freshness_scores.append(math.exp(-math.log(2) * age_days / half_life_days))

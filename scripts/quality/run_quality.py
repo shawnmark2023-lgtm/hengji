@@ -24,10 +24,19 @@ ALL_GATES = (
     "architecture",
     "release-guards",
     "reproducibility",
+    "supply-chain-inventory",
     "coverage",
     "malformed-import",
     "large-ledger",
 )
+PYTHON_GATES = {
+    "formatting",
+    "architecture",
+    "release-guards",
+    "reproducibility",
+    "supply-chain-inventory",
+    "coverage",
+}
 
 
 def python_gate(root: Path, gate: str) -> list[str]:
@@ -36,6 +45,7 @@ def python_gate(root: Path, gate: str) -> list[str]:
         "architecture": "check_architecture.py",
         "release-guards": "check_release_guards.py",
         "reproducibility": "check_reproducibility.py",
+        "supply-chain-inventory": "check_supply_chain.py",
         "coverage": "check_coverage.py",
     }[gate]
     return [sys.executable, str(root / "scripts" / "quality" / script), "--project", str(root), "--json"]
@@ -62,7 +72,7 @@ def gradle_gate(root: Path, gate: str, count: int, max_millis: int, max_memory_m
 def run_gate(root: Path, gate: str, args: argparse.Namespace) -> tuple[dict[str, Any], str]:
     command = (
         python_gate(root, gate)
-        if gate in {"formatting", "architecture", "release-guards", "reproducibility", "coverage"}
+        if gate in PYTHON_GATES
         else gradle_gate(root, gate, args.benchmark_count, args.max_millis, args.max_memory_mib)
     )
     started_at = utc_now()

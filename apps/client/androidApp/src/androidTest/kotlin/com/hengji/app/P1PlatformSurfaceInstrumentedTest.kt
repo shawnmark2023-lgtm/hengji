@@ -22,6 +22,7 @@ class P1PlatformSurfaceInstrumentedTest {
         )
         val permissions = packageInfo.requestedPermissions.orEmpty().toSet()
         assertTrue(Manifest.permission.POST_NOTIFICATIONS in permissions)
+        assertFalse(Manifest.permission.INTERNET in permissions)
         assertFalse(Manifest.permission.READ_SMS in permissions)
         assertFalse(Manifest.permission.RECEIVE_SMS in permissions)
 

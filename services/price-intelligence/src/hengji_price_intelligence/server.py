@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any
+from typing import cast
 
 from .contracts import EstimateRequest
 from .estimator import estimate_price
@@ -39,7 +39,7 @@ class PriceRequestHandler(BaseHTTPRequestHandler):
         # Do not write raw URLs, quote payloads, or financial values to logs.
         return
 
-    def _read_json(self) -> dict[str, Any]:
+    def _read_json(self) -> dict[str, object]:
         if self.headers.get_content_type() != "application/json":
             raise RequestError(HTTPStatus.UNSUPPORTED_MEDIA_TYPE, "UNSUPPORTED_MEDIA_TYPE", "Content-Type must be application/json")
         raw_length = self.headers.get("Content-Length")
@@ -52,12 +52,15 @@ class PriceRequestHandler(BaseHTTPRequestHandler):
         if length < 0 or length > MAX_REQUEST_BYTES:
             raise RequestError(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "BODY_TOO_LARGE", "Request exceeds 65536 bytes")
         try:
-            value = json.loads(self.rfile.read(length).decode("utf-8"))
+            value: object = json.loads(self.rfile.read(length).decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as error:
             raise RequestError(HTTPStatus.BAD_REQUEST, "INVALID_JSON", "Request body is not valid UTF-8 JSON") from error
         if not isinstance(value, dict):
             raise RequestError(HTTPStatus.BAD_REQUEST, "INVALID_JSON_OBJECT", "Request body must be a JSON object")
-        return value
+        untyped_value = cast(dict[object, object], value)
+        if not all(isinstance(key, str) for key in untyped_value):
+            raise RequestError(HTTPStatus.BAD_REQUEST, "INVALID_JSON_OBJECT", "Request object keys must be strings")
+        return cast(dict[str, object], untyped_value)
 
     def _write_error(self, status: HTTPStatus, code: str, message: str) -> None:
         self._write_json(status, {"error": {"code": code, "message": message}})

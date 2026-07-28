@@ -39,4 +39,5 @@ P1 采用三种状态：
 3. Android lint、debug/release APK 与 Desktop 混淆发布构建通过。
 4. Android 受保护账本启动/重开设备测试通过。
 5. 财务应用专项校验器通过。
-6. 文档按 `DONE_WIN_ANDROID`、`READY_EXTERNAL`、`DEFERRED_APPLE` 精确更新，不把外部依赖配置写成已验证。
+6. Windows/Android CycloneDX SBOM、许可证策略与漏洞扫描通过，构建工具和 GitHub Actions 也纳入固定版本门禁。
+7. 文档按 `DONE_WIN_ANDROID`、`READY_EXTERNAL`、`DEFERRED_APPLE` 精确更新，不把外部依赖配置写成已验证。

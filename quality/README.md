@@ -19,7 +19,7 @@ bash scripts/quality/run-quality.sh
 Run only the fast static gates:
 
 ```powershell
-python scripts/quality/run_quality.py --gates formatting architecture release-guards reproducibility
+python scripts/quality/run_quality.py --gates formatting architecture release-guards reproducibility supply-chain-inventory
 ```
 
 Run the locked JaCoCo coverage threshold and the real Kotlin malformed-import and
@@ -36,10 +36,42 @@ through an ASCII junction whose final directory name is non-empty and pass the a
 .\scripts\quality\run-quality.ps1 -ProjectRoot C:\Temp\hengji-p0\project
 ```
 
+A bare substituted drive root such as `T:\` is suitable for the main build but not for the composite
+quality harness, which requires a non-empty project directory name. Use an ASCII directory or an
+exact isolated source copy for `malformed-import` and `large-ledger`.
+
 Safely normalize the shared Kotlin/Kotlin DSL, TypeScript, and Python whitespace contract:
 
 ```powershell
 python scripts/quality/check_formatting.py --fix
+```
+
+Generate the deterministic Windows/Android CycloneDX 1.6 SBOM, then run the checksum-pinned
+OSV Scanner against the exact runtime and build-tool inventory:
+
+```powershell
+python scripts/quality/install_osv_scanner.py --output .tools/osv-scanner.exe
+python scripts/quality/verify_supply_chain.py `
+  --scanner .tools/osv-scanner.exe `
+  --output-dir quality/evidence/supply-chain
+```
+
+The inventory contains Windows and Android release runtime dependencies plus Node/Python build
+tools. iOS/macOS are explicitly marked deferred. Google ML Kit artifacts whose registry metadata
+reports a non-standard license are recorded with `LicenseRef-Google-ML-Kit-Terms`; their exact
+package versions, official terms URL, and review expiry are policy-bound. A dependency upgrade or
+expired exception requires a new review. The scanner binary version and SHA-256 are pinned, and all
+GitHub Actions must use policy-approved full commit SHAs.
+
+The connector package also owns the pinned strict Python type checker used by the price service:
+
+```powershell
+cd services\connector-gateway
+npm ci --ignore-scripts
+npm run typecheck
+npm run typecheck:price
+npm test
+npm audit --audit-level=high
 ```
 
 Build a source snapshot twice in an isolated temporary directory and require identical normalized
@@ -93,6 +125,8 @@ it does not prove signing, SmartScreen reputation, historical schema migration, 
 - `coverage-policy.json`: per-module line and branch thresholds for shared Windows/Android logic.
 - `coverage-tools/`: independently locked and SHA-256-verified JaCoCo agent and CLI.
 - `reproducibility-policy.json`: pinned Wrapper, lockfile, verification metadata, and artifact targets.
+- `supply-chain-policy.json`: release runtime scope, license policy and exceptions, pinned scanner,
+  and immutable GitHub Action references.
 - `ci-gates.json`: configured CI jobs and their current non-passed repository state.
 - `harness/`: isolated Kotlin executable that consumes the real project modules through a Gradle
   composite build.

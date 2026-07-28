@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
-from typing import Any
+from typing import cast
 
 
 class Provenance(StrEnum):
@@ -51,7 +51,7 @@ class MarketQuote:
         return self.price_minor + self.shipping_minor
 
     @classmethod
-    def from_dict(cls, value: dict[str, Any]) -> MarketQuote:
+    def from_dict(cls, value: dict[str, object]) -> MarketQuote:
         return cls(
             provider_id=_string(value, "providerId", 64),
             title=_string(value, "title", 256),
@@ -89,16 +89,23 @@ class EstimateRequest:
             raise ValueError("freshness_half_life_days must be between 1 and 365")
 
     @classmethod
-    def from_dict(cls, value: dict[str, Any]) -> EstimateRequest:
-        raw_quotes = value.get("quotes")
-        if not isinstance(raw_quotes, list):
+    def from_dict(cls, value: dict[str, object]) -> EstimateRequest:
+        raw_quotes_value = value.get("quotes")
+        if not isinstance(raw_quotes_value, list):
             raise ValueError("quotes must be an array")
-        if not all(isinstance(item, dict) for item in raw_quotes):
-            raise ValueError("each quote must be an object")
+        raw_quotes = cast(list[object], raw_quotes_value)
+        quotes: list[MarketQuote] = []
+        for item in raw_quotes:
+            if not isinstance(item, dict):
+                raise ValueError("each quote must be an object")
+            untyped_quote = cast(dict[object, object], item)
+            if not all(isinstance(key, str) for key in untyped_quote):
+                raise ValueError("each quote key must be a string")
+            quotes.append(MarketQuote.from_dict(cast(dict[str, object], untyped_quote)))
         return cls(
             currency=_string(value, "currency", 3),
             as_of=_timestamp(value, "asOf"),
-            quotes=tuple(MarketQuote.from_dict(item) for item in raw_quotes),
+            quotes=tuple(quotes),
             minimum_match_confidence=_optional_number(value, "minimumMatchConfidence", 0.55),
             freshness_half_life_days=_optional_integer(value, "freshnessHalfLifeDays", 30),
         )
@@ -134,14 +141,14 @@ class PriceEstimate:
         }
 
 
-def _string(value: dict[str, Any], field: str, maximum: int) -> str:
+def _string(value: dict[str, object], field: str, maximum: int) -> str:
     result = value.get(field)
     if not isinstance(result, str) or not result or len(result) > maximum:
         raise ValueError(f"{field} must be a non-empty string no longer than {maximum} characters")
     return result
 
 
-def _optional_string(value: dict[str, Any], field: str, maximum: int) -> str | None:
+def _optional_string(value: dict[str, object], field: str, maximum: int) -> str | None:
     result = value.get(field)
     if result is None:
         return None
@@ -150,40 +157,40 @@ def _optional_string(value: dict[str, Any], field: str, maximum: int) -> str | N
     return result
 
 
-def _integer(value: dict[str, Any], field: str) -> int:
+def _integer(value: dict[str, object], field: str) -> int:
     result = value.get(field)
     if not isinstance(result, int) or isinstance(result, bool):
         raise ValueError(f"{field} must be an integer")
     return result
 
 
-def _optional_integer(value: dict[str, Any], field: str, default: int) -> int:
+def _optional_integer(value: dict[str, object], field: str, default: int) -> int:
     if field not in value:
         return default
     return _integer(value, field)
 
 
-def _number(value: dict[str, Any], field: str) -> float:
+def _number(value: dict[str, object], field: str) -> float:
     result = value.get(field)
     if not isinstance(result, (int, float)) or isinstance(result, bool):
         raise ValueError(f"{field} must be a number")
     return float(result)
 
 
-def _optional_number(value: dict[str, Any], field: str, default: float) -> float:
+def _optional_number(value: dict[str, object], field: str, default: float) -> float:
     if field not in value:
         return default
     return _number(value, field)
 
 
-def _boolean(value: dict[str, Any], field: str) -> bool:
+def _boolean(value: dict[str, object], field: str) -> bool:
     result = value.get(field)
     if not isinstance(result, bool):
         raise ValueError(f"{field} must be a boolean")
     return result
 
 
-def _timestamp(value: dict[str, Any], field: str) -> datetime:
+def _timestamp(value: dict[str, object], field: str) -> datetime:
     raw = _string(value, field, 64)
     try:
         parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))

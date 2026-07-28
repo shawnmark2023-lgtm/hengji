@@ -1,5 +1,35 @@
 # 测试与构建报告
 
+## 2026-07-28 Windows/Android 全量工程与安全验收
+
+本轮在当前未提交源码状态上重新执行所有本机可运行门禁；iOS/macOS 不在范围内。结论为 **Windows/Android 本地代码与工程验收通过**，不等同于 Beta、生产、签名或商店发布。完整命令、工件哈希、安全发现与未验证边界见 `docs/13-engineering-security-acceptance.md`。
+
+| 门禁 | 本轮结果 | 关键证据 |
+| --- | --- | --- |
+| 静态工程 | 通过 | 格式 183、架构 38、发布守卫 293、依赖复现 18、供应链清单 352；`git diff --check` 通过 |
+| 覆盖率 | 通过 | core-domain 94.76%/61.90%，core-insights 91.91%/59.05%，connectors 91.83%/52.94% |
+| 输入/性能 | 通过 | 畸形导入 8/8；100,000 流水 4/4，106 ms、43.30 MiB；后者仅为开发机内存基线 |
+| Desktop | 通过 | Kotlin 188/188；ProGuard Release 与 Release uber JAR 通过 |
+| Windows MSI | 通过（发布边界保留） | 行政解包、连续启动、DPAPI 密文、0.0.9→0.1.0 安装升级、两次已安装 EXE 启动、卸载与数据保留通过；MSI/EXE 未签名，SmartScreen 未验收 |
+| Android host/build | 通过 | host 63/63；lint 0 error/13 warning；Debug、R8 Release、AndroidTest APK 通过 |
+| Android API 36 | 通过 | 官方 Google APIs x86_64 AVD instrumentation 3/3；真实 AndroidKeyStore 创建/重开、平台权限与 Compose Accessibility Test Framework |
+| Android 权限 | 通过 | Debug/Release APK 均不含 `INTERNET`、`READ_SMS`、`RECEIVE_SMS` |
+| 辅助服务 | 通过 | connector 4/4、TypeScript 与价格服务严格 Pyright 0 error/0 warning、price pytest 3/3、隔离 wheel 构建、npm audit 0 |
+| 供应链 | 通过 | CycloneDX 1.6：280 组件；OSV Scanner 2.3.8：276 包、0 已知漏洞、0 许可证违规；64 个 Action 引用均为完整 SHA |
+| 财务应用校验器 | 通过 | 0 error、0 warning |
+
+本轮重建工件：
+
+- Android Debug APK：71,238,563 bytes，SHA-256 `63DF0AD1B53FFAF053CA872A537C469465C4E3A8962DF9338605C465335D5294`。
+- Android 未签名 Release APK：50,416,072 bytes，SHA-256 `B218B9EE61DE2EEEA63C006AC39DBE09804262CD99C53033960B2EAD10942C87`。
+- Android instrumentation APK：4,430,821 bytes，SHA-256 `311FF1325379DBF90866EF028B624078B721785DA90AE644AAF3C4D427471718`。
+- Windows ProGuard Release JAR：30,592,366 bytes，SHA-256 `19A728714E4A2DF81081660ED6ACCB5F80879C9F41BC43B2687C07C5FAB0B13B`。
+- Windows 未签名 MSI 0.1.0：108,695,964 bytes，SHA-256 `837D1DEB11E1CC9A4F32D98C5F37D3A71881D1CCF23C3BC70F518ECE5B1386F3`。
+- 价格服务 wheel：8,195 bytes，SHA-256 `8DADB21902D4550B8556623F55E3D8981D1FABE1D7284A33427C2A3021A69095`。
+- CycloneDX 1.6 SBOM：193,049 bytes，SHA-256 `0600986717420E3B8FD41F717831F018E07A3F88F8C44574B21CC68991856358`。
+
+2026-07-27 及更早章节保留为历史证据；其中旧工件哈希、组件数及 Application Control 结果不再代表本轮当前状态。
+
 ## 2026-07-27 Windows MSI 发布门禁增量
 
 在提交 `d319eb6ba7b60909ad2f74e809888fc491533344` 的干净跟踪源码上，Compose Desktop `packageMsi` 已生成每用户安装的 `Hengji-0.0.9.msi` 与 `Hengji-0.1.0.msi`。本机损坏且截断的 Gradle WiX 缓存已隔离，随后使用 WiX 官方发布的便携二进制恢复构建工具链；该下载只进入用户级 Gradle 缓存，没有写入仓库或绕过依赖/源码门禁。程序安装目录固定为 `%LOCALAPPDATA%\Programs\Hengji`，与既有默认加密数据目录 `%LOCALAPPDATA%\Hengji` 分离。
@@ -27,9 +57,10 @@
 | Desktop 单元测试 | 188/188，0 failure/error/skip | client 53、core-domain 17、core-data 79、core-insights 25、connectors 14；新增覆盖密钥轮换成功/提交冲突、OCR 文本解析、授权报价缓存和模型解释同意撤回 |
 | Android host | 63/63，0 failure/error/skip | 包含共同受保护账本测试及新增轮换路径 |
 | Android API 36 | 3/3 | 真实 AndroidKeyStore 账本创建/重开；清单断言小组件、快捷动作、文本/图片/PDF 分享和权限；真实 `MainActivity` Compose 层级通过 Accessibility Test Framework |
-| Android 构建 | 通过 | `lintDebug` 0 error/13 warning；Debug APK、未签名 R8 Release APK 构建通过。APK 实际权限包含通知与 WorkManager 所需能力，不含短信读取/接收权限 |
+| Android 构建 | 通过 | `lintDebug` 0 error/13 warning；Debug APK、未签名 R8 Release APK 构建通过。APK 实际权限包含通知与 WorkManager 所需能力，不含 `INTERNET` 或短信读取/接收权限；这会阻断 ML Kit 诊断/使用指标外发，未来授权行情联网必须单独重新审查 |
 | Windows 构建 | 通过 | ProGuard Release JAR 与未签名 MSI 构建通过；MSI 行政解包后的真实 EXE 首次创建/同账本重开 smoke 保持密文哈希、字节数与写入时间一致，磁盘不含明文数据库 |
 | 完整质量门禁 | 通过 | 格式 180/180；架构 38/38；发布守卫 283/283；依赖/可复现策略 18/18；畸形导入 8/8 |
+| 供应链 | 通过 | CycloneDX 1.6 SBOM 共 278 个组件；Windows 137、Android release 211 个运行坐标，去重后 270 个 Maven 组件；连同 Node/Python 构建工具共 274 个包经 OSV Scanner 2.3.8 审计为 0 已知漏洞、0 许可证违规。11 个 ML Kit 非标准条款组件采用精确版本、官方条款 URL 与 2027-07-27 复审日期；64 处 GitHub Action 引用固定到完整提交 SHA |
 | 覆盖率 | 通过 | core-domain 行/分支 94.76%/61.90%；core-insights 91.91%/59.05%；connectors 91.83%/52.94%，均达到阻断阈值 |
 | 10 万流水基线 | 4/4 | 106 ms、内存增量 43.46 MiB；这是开发机内存基线，不代表低端实体设备的加密持久层或完整 UI 性能 |
 | 两次隔离构建 | Windows/Android 均通过 | Windows 73 个 Release JAR 路径/权限/内容规范化差异为 0；Android 两次 Debug APK 原始 SHA-256 与规范化内容均一致 |
@@ -122,7 +153,7 @@ Push-Location services\connector-gateway; npm test; npm audit --audit-level=high
 Push-Location services\price-intelligence; python -m pytest -q; Pop-Location
 ```
 
-依赖锁由 Gradle 内建 dependency locking 生成并以 `STRICT` 模式执行；verification metadata 校验依赖和插件工件的 SHA-256。`apps/client` 的发行桌面依赖按 `windows-x64`、`linux-x64`、`linux-arm64`、`macos-x64`、`macos-arm64` 分档，避免 `desktop-jvm-*` 与 Skiko 原生运行时在不同宿主间互相污染锁状态。Compose Hot Reload 自动创建的宿主开发配置不参与版本锁，但下载工件仍受 verification metadata 约束；它们不是发行或测试运行时。校验元数据证明内容完整性，不证明发布者身份，也不替代 SBOM、许可证或漏洞审查。当前只在 Windows 完成严格解析及实际 Desktop/Android/iOS 交叉编译；仓库已配置 Linux/macOS CI，但尚无本轮远端通过记录，因此 `FND-003` 仍保持 `PARTIAL`。
+依赖锁由 Gradle 内建 dependency locking 生成并以 `STRICT` 模式执行；verification metadata 校验依赖和插件工件的 SHA-256。`apps/client` 的发行桌面依赖按 `windows-x64`、`linux-x64`、`linux-arm64`、`macos-x64`、`macos-arm64` 分档，避免 `desktop-jvm-*` 与 Skiko 原生运行时在不同宿主间互相污染锁状态。Compose Hot Reload 自动创建的宿主开发配置不参与版本锁，但下载工件仍受 verification metadata 约束；它们不是发行或测试运行时。校验元数据证明内容完整性，不证明发布者身份；Windows/Android 发行范围另由 CycloneDX SBOM、OSV 许可证/漏洞审计和 GitHub Action SHA 门禁覆盖。当前只在 Windows 完成严格解析及实际 Desktop/Android/iOS 交叉编译；仓库已配置 Linux/macOS CI，但尚无本轮远端通过记录，因此 `FND-003` 仍保持 `PARTIAL`。
 
 本工作树路径包含中文字符，Android Gradle Plugin 9.1.1 会在 Windows 配置阶段直接拒绝该项目路径；因此本轮 Gradle 构建通过映射到同一工作树的 ASCII 盘符执行，quality harness 在同一源码状态的 ASCII 隔离副本执行。原工作树 finance-app validator 检查 253 个源码/文档文件，0 error/0 warning；隔离副本通过架构/发布守卫、畸形导入、10 万流水与 `git diff --check`。这条宿主路径限制不应通过关闭 AGP 检查来掩盖。
 

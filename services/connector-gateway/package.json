@@ -10,11 +10,13 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck:price": "pyright --project ../price-intelligence/pyproject.toml",
     "test": "npm run build && node --test dist/test/oauth-state.test.js dist/test/server.test.js",
     "start": "node dist/src/server.js"
   },
   "devDependencies": {
     "@types/node": "24.0.14",
+    "pyright": "1.1.403",
     "typescript": "5.8.3"
   }
 }

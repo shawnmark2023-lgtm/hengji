@@ -25,6 +25,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -44,9 +46,16 @@ import com.hengji.domain.Money
 import com.hengji.domain.Transaction
 import com.hengji.domain.TransactionId
 import com.hengji.domain.TransactionKind
+import com.hengji.insights.PersonalInsightModelAnswer
+import com.hengji.insights.PersonalInsightModelContext
+import com.hengji.insights.PersonalInsightModelProvider
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class HengjiAppUiTest {
@@ -178,20 +187,21 @@ class HengjiAppUiTest {
         onNodeWithText("恢复备份").performScrollTo().assertIsDisplayed()
         onNodeWithText("清除数据").performScrollTo().assertIsDisplayed()
 
-        onNode(hasScrollToNodeAction()).performScrollToNode(hasText("跟随系统"))
+        val verticalPage = SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange)
+        onNode(verticalPage).performScrollToNode(hasText("跟随系统"))
         onNode(hasText("跟随系统") and hasClickAction()).assertIsSelected()
-        onNode(hasScrollToNodeAction()).performScrollToNode(hasText("进一步减少动态效果"))
+        onNode(verticalPage).performScrollToNode(hasText("进一步减少动态效果"))
         onNode(hasText("深色") and hasClickAction()).performClick()
         waitForIdle()
         onNode(hasText("深色") and hasClickAction()).assertIsSelected()
-        onNode(hasScrollToNodeAction()).performScrollToNode(hasText("跟随系统"))
+        onNode(verticalPage).performScrollToNode(hasText("跟随系统"))
         onNode(hasText("跟随系统") and hasClickAction()).performClick()
         waitForIdle()
         onNode(hasText("跟随系统") and hasClickAction()).assertIsSelected()
         val reduceMotionSwitch = onNode(hasText("进一步减少动态效果") and hasClickAction())
         reduceMotionSwitch.performScrollTo().assertIsOff().performClick().assertIsOn()
 
-        onNode(hasScrollToNodeAction()).performScrollToNode(hasText("查看隐私说明"))
+        onNode(verticalPage).performScrollToNode(hasText("查看隐私说明"))
         onNodeWithText("查看隐私说明").performClick()
         waitUntilExactlyOneExists(hasText("隐私说明"))
         onNodeWithText("本地优先").assertIsDisplayed()
@@ -222,6 +232,47 @@ class HengjiAppUiTest {
         ).assertIsDisplayed()
     }
 
+    @Test
+    fun compactPagesCanBeChangedWithAHorizontalSwipe() = runComposeUiTest {
+        setHengjiContent(
+            gateway = gatewayWith(transaction("swipe", "滑动测试商户")),
+            widthDp = 390,
+            heightDp = 760,
+        )
+
+        onNode(SemanticsMatcher.keyIsDefined(SemanticsProperties.HorizontalScrollAxisRange))
+            .performTouchInput { swipeLeft() }
+        waitUntilExactlyOneExists(
+            SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "流水"),
+        )
+        onNodeWithText("滑动测试商户").assertIsDisplayed()
+    }
+
+    @Test
+    fun modelEnhancementRequiresConsentAndReceivesOnlyOpaqueAggregateContext() = runComposeUiTest {
+        val provider = RecordingPersonalInsightModelProvider()
+        val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+        val gateway = gatewayWith(transaction("model-test", "模型隐私商户", bookedOn = today))
+        setHengjiContent(gateway = gateway, modelProvider = provider)
+
+        navigateTo("洞察")
+        onNodeWithText("同意并开启本次会话").performScrollTo().performClick()
+        waitUntil { provider.calls == 1 }
+        val verticalPage = SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange)
+        onNode(verticalPage).performScrollToNode(hasText("为你整理的本期重点"))
+        onNodeWithText("为你整理的本期重点").assertIsDisplayed()
+
+        val observed = provider.observedContext
+        assertTrue(observed.candidates.all { it.candidateKey.startsWith("candidate-") })
+        assertTrue(!observed.toString().contains("模型隐私商户"))
+        assertTrue(!observed.toString().contains("model-test"))
+        onNode(verticalPage).performScrollToNode(hasText("关闭模型增强"))
+        onNodeWithText("关闭模型增强").performClick()
+        onNode(verticalPage).performScrollToNode(hasText("同意并开启本次会话"))
+        onNodeWithText("同意并开启本次会话").assertIsDisplayed()
+        onNodeWithText("为你整理的本期重点").assertDoesNotExist()
+    }
+
     private fun ComposeUiTest.setHengjiContent(
         gateway: PreviewLedgerGateway,
         picker: UserImportDocumentPicker = UserImportDocumentPicker { _, _ -> null },
@@ -229,6 +280,7 @@ class HengjiAppUiTest {
         widthDp: Int = 900,
         heightDp: Int = 700,
         fontScale: Float = 1f,
+        modelProvider: PersonalInsightModelProvider? = null,
     ) {
         setContent {
             CompositionLocalProvider(LocalDensity provides Density(1f, fontScale)) {
@@ -237,6 +289,7 @@ class HengjiAppUiTest {
                         gateway = gateway,
                         userImportDocumentPicker = picker,
                         ledgerExportWriter = writer,
+                        personalInsightModelProvider = modelProvider,
                     )
                 }
             }
@@ -276,11 +329,15 @@ class HengjiAppUiTest {
         marketQuotes = emptyList(),
     )
 
-    private fun transaction(id: String, merchant: String) = Transaction(
+    private fun transaction(
+        id: String,
+        merchant: String,
+        bookedOn: LocalDate = LocalDate(2026, 7, 25),
+    ) = Transaction(
         id = TransactionId(id),
         kind = TransactionKind.EXPENSE,
         amount = Money(1_299, CurrencyCode.CNY),
-        bookedOn = LocalDate(2026, 7, 25),
+        bookedOn = bookedOn,
         categoryId = CategoryId("dining"),
         merchant = Merchant(merchant),
     )
@@ -320,6 +377,26 @@ class HengjiAppUiTest {
                 mediaType = mediaType,
             )
             return null
+        }
+    }
+
+    private class RecordingPersonalInsightModelProvider : PersonalInsightModelProvider {
+        override val providerId: String = "自动化隐私模型"
+        override val privacyReviewed: Boolean = true
+        var calls: Int = 0
+        lateinit var observedContext: PersonalInsightModelContext
+
+        override suspend fun generate(context: PersonalInsightModelContext): PersonalInsightModelAnswer {
+            calls += 1
+            observedContext = context
+            val candidate = context.candidates.first()
+            return PersonalInsightModelAnswer(
+                candidateKey = candidate.candidateKey,
+                headline = "为你整理的本期重点",
+                summary = "这段个性化表达只使用经过区间化的本机证据。",
+                evidenceCodes = candidate.evidenceCodes,
+                actionLabel = "查看本机明细",
+            )
         }
     }
 

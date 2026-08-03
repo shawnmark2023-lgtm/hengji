@@ -22,3 +22,12 @@ object MIGRATION_2_3 : Migration(2, 3) {
         connection.execSQL("ALTER TABLE assets ADD COLUMN saleTargetMinor INTEGER")
     }
 }
+
+object MIGRATION_3_4 : Migration(3, 4) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL(
+            "ALTER TABLE insight_preferences " +
+                "ADD COLUMN feedbackTypeByKeyJson TEXT NOT NULL DEFAULT '{}'",
+        )
+    }
+}

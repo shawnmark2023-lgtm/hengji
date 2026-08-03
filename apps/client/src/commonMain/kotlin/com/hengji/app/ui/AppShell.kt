@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -27,18 +29,16 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.paneTitle
@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import com.hengji.app.navigation.AppDestination
 import com.hengji.app.theme.HengjiSpacing
 import com.hengji.app.ui.components.BrandBlock
+import com.hengji.app.ui.components.GlassSurface
 import com.hengji.app.ui.components.LocalOnlyBadge
 
 @Composable
@@ -57,8 +58,9 @@ fun AdaptiveAppShell(
     onDestinationChange: (AppDestination) -> Unit,
     onAddTransaction: () -> Unit,
     paneTitle: String = destination.label,
+    allowPageSwipe: Boolean = true,
     modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
+    content: @Composable (AppDestination) -> Unit,
 ) {
     BoxWithConstraints(modifier.fillMaxSize()) {
         val effectiveWidth = maxWidth / LocalDensity.current.fontScale.coerceAtLeast(1f)
@@ -68,6 +70,7 @@ fun AdaptiveAppShell(
                 onDestinationChange = onDestinationChange,
                 onAddTransaction = onAddTransaction,
                 paneTitle = paneTitle,
+                allowPageSwipe = allowPageSwipe,
                 content = content,
             )
             effectiveWidth < 1080.dp -> RailShell(
@@ -94,54 +97,129 @@ private fun CompactShell(
     onDestinationChange: (AppDestination) -> Unit,
     onAddTransaction: () -> Unit,
     paneTitle: String,
-    content: @Composable () -> Unit,
+    allowPageSwipe: Boolean,
+    content: @Composable (AppDestination) -> Unit,
 ) {
-    Scaffold(
-        bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface,
-                tonalElevation = 0.dp,
+    val destinations = AppDestination.entries
+    val pagerState = rememberPagerState(
+        initialPage = destinations.indexOf(destination).coerceAtLeast(0),
+        pageCount = { destinations.size },
+    )
+    LaunchedEffect(destination, allowPageSwipe) {
+        if (allowPageSwipe) {
+            val target = destinations.indexOf(destination).coerceAtLeast(0)
+            if (pagerState.currentPage != target) pagerState.scrollToPage(target)
+        }
+    }
+    LaunchedEffect(pagerState.currentPage, allowPageSwipe) {
+        if (allowPageSwipe) {
+            val page = destinations[pagerState.currentPage]
+            if (page != destination) onDestinationChange(page)
+        }
+    }
+
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        if (allowPageSwipe) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+                key = { destinations[it].name },
+                beyondViewportPageCount = 0,
+            ) { pageIndex ->
+                val page = destinations[pageIndex]
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 96.dp)
+                        .semantics { this.paneTitle = if (page == destination) paneTitle else page.label },
+                ) {
+                    content(page)
+                }
+            }
+        } else {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .padding(bottom = 96.dp)
+                    .semantics { this.paneTitle = paneTitle },
             ) {
-                AppDestination.entries.forEach { item ->
-                    NavigationBarItem(
+                content(destination)
+            }
+        }
+
+        GlassSurface(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(horizontal = HengjiSpacing.sm, vertical = HengjiSpacing.sm),
+            shape = RoundedCornerShape(28.dp),
+            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 6.dp),
+        ) {
+            Row(Modifier.fillMaxWidth()) {
+                destinations.forEach { item ->
+                    CompactDockItem(
+                        item = item,
                         selected = item == destination,
                         onClick = { onDestinationChange(item) },
-                        icon = {
-                            Icon(
-                                imageVector = item.icon,
-                                contentDescription = null,
-                            )
-                        },
-                        label = { Text(item.label) },
-                        colors = NavigationBarItemDefaults.colors(
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                        ),
+                        modifier = Modifier.weight(1f),
                     )
                 }
             }
-        },
-        floatingActionButton = {
+        }
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = HengjiSpacing.lg, bottom = 92.dp),
+        ) {
             FloatingActionButton(
                 onClick = onAddTransaction,
                 modifier = Modifier
-                    .size(56.dp)
+                    .size(54.dp)
                     .semantics { contentDescription = "新增流水" },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
             ) {
                 Icon(Icons.Default.Add, contentDescription = null)
             }
-        },
-        containerColor = MaterialTheme.colorScheme.background,
-    ) { innerPadding ->
-        Box(
-            Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .semantics { this.paneTitle = paneTitle },
-        ) {
-            content()
         }
+    }
+}
+
+@Composable
+private fun CompactDockItem(
+    item: AppDestination,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val contentColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+    Column(
+        modifier = modifier
+            .heightIn(min = 56.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(
+                if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.58f) else Color.Transparent,
+            )
+            .selectable(selected = selected, role = Role.Tab, onClick = onClick)
+            .semantics(mergeDescendants = true) {}
+            .padding(horizontal = 2.dp, vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(
+            imageVector = item.icon,
+            contentDescription = null,
+            modifier = Modifier.size(21.dp),
+            tint = contentColor,
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = item.label,
+            style = MaterialTheme.typography.labelSmall,
+            color = contentColor,
+            maxLines = 1,
+        )
     }
 }
 
@@ -151,7 +229,7 @@ private fun RailShell(
     onDestinationChange: (AppDestination) -> Unit,
     onAddTransaction: () -> Unit,
     paneTitle: String,
-    content: @Composable () -> Unit,
+    content: @Composable (AppDestination) -> Unit,
 ) {
     Row(Modifier.fillMaxSize()) {
         NavigationRail(
@@ -188,7 +266,7 @@ private fun RailShell(
                 .background(MaterialTheme.colorScheme.background)
                 .semantics { this.paneTitle = paneTitle },
         ) {
-            content()
+            content(destination)
         }
     }
 }
@@ -199,7 +277,7 @@ private fun ExpandedShell(
     onDestinationChange: (AppDestination) -> Unit,
     onAddTransaction: () -> Unit,
     paneTitle: String,
-    content: @Composable () -> Unit,
+    content: @Composable (AppDestination) -> Unit,
 ) {
     Row(Modifier.fillMaxSize()) {
         Surface(
@@ -297,7 +375,7 @@ private fun ExpandedShell(
                 .background(MaterialTheme.colorScheme.background)
                 .semantics { this.paneTitle = paneTitle },
         ) {
-            content()
+            content(destination)
         }
     }
 }

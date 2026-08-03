@@ -32,7 +32,7 @@ import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
-const val LEDGER_EXPORT_SCHEMA_VERSION: Int = 3
+const val LEDGER_EXPORT_SCHEMA_VERSION: Int = 4
 
 object LedgerJsonCodec {
     private val json = Json {
@@ -64,6 +64,7 @@ object LedgerJsonCodec {
                 0 -> migrateVersionZeroToOne(migrated)
                 1 -> migrateVersionOneToTwo(migrated)
                 2 -> migrateVersionTwoToThree(migrated)
+                3 -> migrateVersionThreeToFour(migrated)
                 else -> error("Unsupported ledger schema")
             }
             migratedVersion += 1
@@ -119,6 +120,22 @@ object LedgerJsonCodec {
             "schemaVersion" to JsonPrimitive(3),
             "assets" to migratedAssets,
         ))
+    }
+
+    private fun migrateVersionThreeToFour(root: JsonObject): JsonObject {
+        val legacyPreferences = root["insightPreferences"] as? JsonObject ?: JsonObject(emptyMap())
+        val migratedPreferences = JsonObject(
+            legacyPreferences + mapOf(
+                "feedbackTypeByKey" to
+                    (legacyPreferences["feedbackTypeByKey"] ?: JsonObject(emptyMap())),
+            ),
+        )
+        return JsonObject(
+            root + mapOf(
+                "schemaVersion" to JsonPrimitive(4),
+                "insightPreferences" to migratedPreferences,
+            ),
+        )
     }
 }
 
@@ -335,6 +352,7 @@ private data class InsightPreferencesDto(
     val updatedAtEpochMillis: Long = 0,
     val adoptedDeduplicationKeys: Set<String> = emptySet(),
     val snoozedUntilEpochMillisByKey: Map<String, Long> = emptyMap(),
+    val feedbackTypeByKey: Map<String, String> = emptyMap(),
 ) {
     fun toDomain() = InsightPreferenceRecord(
         mutedTypes = mutedTypes,
@@ -342,6 +360,7 @@ private data class InsightPreferencesDto(
         updatedAtEpochMillis = updatedAtEpochMillis,
         adoptedDeduplicationKeys = adoptedDeduplicationKeys,
         snoozedUntilEpochMillisByKey = snoozedUntilEpochMillisByKey,
+        feedbackTypeByKey = feedbackTypeByKey,
     )
     companion object {
         fun from(value: InsightPreferenceRecord) = InsightPreferencesDto(
@@ -350,6 +369,7 @@ private data class InsightPreferencesDto(
             updatedAtEpochMillis = value.updatedAtEpochMillis,
             adoptedDeduplicationKeys = value.adoptedDeduplicationKeys,
             snoozedUntilEpochMillisByKey = value.snoozedUntilEpochMillisByKey,
+            feedbackTypeByKey = value.feedbackTypeByKey,
         )
     }
 }

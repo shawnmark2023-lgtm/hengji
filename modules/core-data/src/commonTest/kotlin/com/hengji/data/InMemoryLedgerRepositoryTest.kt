@@ -165,7 +165,7 @@ class InMemoryLedgerRepositoryTest {
     @Test
     fun jsonExportDeclaresSchemaAndDoesNotInventIdentityFields() {
         val json = LedgerJsonExporter.export(DemoLedger.snapshot())
-        assertTrue("\"schemaVersion\": 3" in json)
+        assertTrue("\"schemaVersion\": 4" in json)
         assertTrue("\"transactions\"" in json)
         assertFalse("\"phone\"" in json.lowercase())
         assertFalse("\"email\"" in json.lowercase())

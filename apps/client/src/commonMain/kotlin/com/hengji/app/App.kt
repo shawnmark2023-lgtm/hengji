@@ -68,6 +68,7 @@ import com.hengji.app.importflow.ImportDocumentFormat
 import com.hengji.app.model.DomainDemoData
 import com.hengji.app.model.currencyDisplayPrefix
 import com.hengji.app.model.parseMoneyToMinor
+import com.hengji.app.model.withModelResult
 import com.hengji.app.navigation.AppDestination
 import com.hengji.app.theme.HengjiTheme
 import com.hengji.app.theme.HengjiSpacing
@@ -98,6 +99,10 @@ import com.hengji.domain.TransactionSource
 import com.hengji.domain.UsageEvent
 import com.hengji.domain.UsageEventId
 import com.hengji.insights.InsightFeedback
+import com.hengji.insights.InsightExplanationConsent
+import com.hengji.insights.PersonalInsightGenerationResult
+import com.hengji.insights.PersonalInsightModelOrchestrator
+import com.hengji.insights.PersonalInsightModelProvider
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -133,6 +138,7 @@ fun HengjiApp(
     quickEntryShortcutStatus: String? = null,
     priceNotificationControl: PriceNotificationControl? = null,
     systemReduceMotion: Boolean = false,
+    personalInsightModelProvider: PersonalInsightModelProvider? = null,
 ) {
     val gateway = remember(repository) { PersistentAppLedgerGateway(repository) }
     HengjiApp(
@@ -143,7 +149,8 @@ fun HengjiApp(
         quickEntryRequest,
         quickEntryShortcutStatus,
         priceNotificationControl,
-        systemReduceMotion,
+        systemReduceMotion = systemReduceMotion,
+        personalInsightModelProvider = personalInsightModelProvider,
     )
 }
 
@@ -157,6 +164,7 @@ fun HengjiApp(
     quickEntryShortcutStatus: String? = null,
     priceNotificationControl: PriceNotificationControl? = null,
     systemReduceMotion: Boolean = false,
+    personalInsightModelProvider: PersonalInsightModelProvider? = null,
 ) {
     var destination by rememberSaveable { mutableStateOf(AppDestination.Overview) }
     var appearanceMode by rememberSaveable { mutableStateOf(AppAppearanceMode.SYSTEM) }
@@ -177,6 +185,10 @@ fun HengjiApp(
     var insightFeedbackBusyKey by remember { mutableStateOf<String?>(null) }
     var insightFeedbackResetting by remember { mutableStateOf(false) }
     var insightFeedbackStatus by remember { mutableStateOf<String?>(null) }
+    var insightModelConsentAtEpochMillis by rememberSaveable { mutableStateOf<Long?>(null) }
+    var insightModelResult by remember { mutableStateOf<PersonalInsightGenerationResult.Generated?>(null) }
+    var insightModelBusy by remember { mutableStateOf(false) }
+    var insightModelStatus by remember { mutableStateOf<String?>(null) }
     var quickEntryMerchant by rememberSaveable { mutableStateOf("") }
     var quickEntryAmountMinor by rememberSaveable { mutableStateOf<Long?>(null) }
     var quickEntryCategory by rememberSaveable { mutableStateOf("其他") }
@@ -369,9 +381,52 @@ fun HengjiApp(
 
     val transactions = remember(currentSnapshot, today) { DomainDemoData.transactions(currentSnapshot, today) }
     val assets = remember(currentSnapshot, today) { DomainDemoData.assets(currentSnapshot, today) }
-    val insights = remember(currentSnapshot, today, nowEpochMillis) {
-        DomainDemoData.insights(currentSnapshot, today, nowEpochMillis)
+    val insightComputation = remember(currentSnapshot, today, nowEpochMillis) {
+        DomainDemoData.insightComputation(currentSnapshot, today, nowEpochMillis)
     }
+    val localInsightFeed = insightComputation.feed
+    val insightModelRequest = insightComputation.modelRequest
+    val insightModelConsent = InsightExplanationConsent(
+        enabled = insightModelConsentAtEpochMillis != null,
+        consentedAtEpochMillis = insightModelConsentAtEpochMillis,
+    )
+    LaunchedEffect(insightModelRequest, insightModelConsent, personalInsightModelProvider) {
+        insightModelResult = null
+        if (!insightModelConsent.enabled) {
+            insightModelStatus = null
+            insightModelBusy = false
+            return@LaunchedEffect
+        }
+        val request = insightModelRequest
+        if (request == null) {
+            insightModelStatus = "暂时没有达到可靠阈值的候选洞察，未请求模型。"
+            insightModelBusy = false
+            return@LaunchedEffect
+        }
+        insightModelBusy = true
+        val result = PersonalInsightModelOrchestrator(personalInsightModelProvider).generate(
+            consent = insightModelConsent,
+            request = request,
+        )
+        when (result) {
+            is PersonalInsightGenerationResult.Generated -> {
+                insightModelResult = result
+                insightModelStatus = "模型表达已更新；数值、排序和证据仍由本机计算。"
+            }
+            is PersonalInsightGenerationResult.LocalFallback -> {
+                insightModelStatus = when (result.reason) {
+                    "model-provider-unavailable" -> "未配置经过隐私评审的模型，继续使用本机洞察。"
+                    "model-provider-not-privacy-reviewed" -> "模型未通过隐私评审，已阻止发送并回退本机洞察。"
+                    else -> "模型本次未通过本机校验，已安全回退到本机洞察。"
+                }
+            }
+        }
+        insightModelBusy = false
+    }
+    val insightFeed = remember(localInsightFeed, insightModelResult) {
+        localInsightFeed.withModelResult(insightModelResult)
+    }
+    val insights = insightFeed.items
 
     HengjiTheme(darkTheme = darkTheme) {
         Surface(color = MaterialTheme.colorScheme.background) {
@@ -384,19 +439,22 @@ fun HengjiApp(
                         destination = it
                     },
                     onAddTransaction = { showAddTransaction = true },
-                ) {
+                    allowPageSwipe = !showImportWizard,
+                ) { page ->
                     if (showImportWizard) {
                         ImportWizard(
                             state = importHost.state,
                             onEvent = importHost.dispatch,
                             reduceMotion = reduceMotion,
                         )
-                    } else when (destination) {
+                    } else when (page) {
                     AppDestination.Overview -> OverviewScreen(
                         transactions = transactions,
                         assets = assets,
                         insights = insights,
                         asOf = today,
+                        onAddTransaction = { showAddTransaction = true },
+                        onOpenImport = { showImportWizard = true },
                         onOpenLedger = { destination = AppDestination.Ledger },
                         onOpenInsights = { destination = AppDestination.Insights },
                     )
@@ -436,16 +494,29 @@ fun HengjiApp(
                         },
                     )
                     AppDestination.Insights -> InsightsScreen(
-                        insights = insights,
+                        feed = insightFeed,
                         busyDeduplicationKey = insightFeedbackBusyKey,
                         isResetting = insightFeedbackResetting,
                         reduceMotion = reduceMotion,
                         statusMessage = insightFeedbackStatus,
+                        modelAvailable = personalInsightModelProvider != null,
+                        modelConsentEnabled = insightModelConsent.enabled,
+                        modelBusy = insightModelBusy,
+                        modelStatusMessage = insightModelStatus,
+                        onModelConsentChange = { enabled ->
+                            insightModelConsentAtEpochMillis = if (enabled) {
+                                Clock.System.now().toEpochMilliseconds()
+                            } else {
+                                insightModelResult = null
+                                null
+                            }
+                        },
                         onFeedback = { deduplicationKey, feedback ->
                             val updatedAt = Clock.System.now().toEpochMilliseconds()
                             val preferences = InsightFeedbackReducer.apply(
                                 current = currentSnapshot.insightPreferences,
                                 deduplicationKey = deduplicationKey,
+                                insightType = insights.first { it.deduplicationKey == deduplicationKey }.type,
                                 feedback = feedback,
                                 nowEpochMillis = updatedAt,
                             )

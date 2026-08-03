@@ -32,6 +32,11 @@ class LedgerJsonCodecTest {
                 updatedAtEpochMillis = 100,
                 adoptedDeduplicationKeys = setOf("budget:monthly:pace"),
                 snoozedUntilEpochMillisByKey = mapOf("spending:trend-increase" to 200),
+                feedbackTypeByKey = mapOf(
+                    "merchant:demo" to "MERCHANT_CONCENTRATION",
+                    "budget:monthly:pace" to "BUDGET_PACE",
+                    "spending:trend-increase" to "SPENDING_TREND",
+                ),
             ),
             importBatches = listOf(
                 ImportBatchRecord(
@@ -50,7 +55,7 @@ class LedgerJsonCodecTest {
 
         assertEquals(snapshot, restored)
         assertEquals(Money(18_800, CurrencyCode.CNY), restored.assets.first().saleTargetPrice)
-        assertTrue("\"schemaVersion\": 3" in LedgerJsonCodec.export(snapshot))
+        assertTrue("\"schemaVersion\": 4" in LedgerJsonCodec.export(snapshot))
     }
 
     @Test
@@ -112,6 +117,7 @@ class LedgerJsonCodecTest {
         assertEquals(77, restored.insightPreferences.updatedAtEpochMillis)
         assertTrue(restored.insightPreferences.adoptedDeduplicationKeys.isEmpty())
         assertTrue(restored.insightPreferences.snoozedUntilEpochMillisByKey.isEmpty())
+        assertTrue(restored.insightPreferences.feedbackTypeByKey.isEmpty())
     }
 
     @Test

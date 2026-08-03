@@ -128,7 +128,7 @@ def check(root: Path) -> dict[str, Any]:
         content = desktop_build.read_text(encoding="utf-8")
         required_packaging = {
             "per-user installation": r"perUserInstall\s*=\s*true",
-            "install/data directory separation": r'installationPath\s*=\s*"Programs/Hengji"',
+            "install/data directory separation": r'installationPath\s*=\s*"HengjiApp"',
             "stable upgrade UUID": r'upgradeUuid\s*=\s*"b2248acb-5ced-48a7-b69f-3b4f34571acf"',
             "version override": r'gradleProperty\("hengji\.packageVersion"\)',
         }

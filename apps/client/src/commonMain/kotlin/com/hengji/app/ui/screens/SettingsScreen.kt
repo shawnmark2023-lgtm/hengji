@@ -217,9 +217,9 @@ fun SettingsScreen(
                     SettingSwitchRow(
                         title = "进一步减少动态效果",
                         supporting = if (systemReduceMotion) {
-                            "系统已要求减少动态效果；衡记不会允许应用内设置覆盖该选择"
+                            "系统已要求减少动态效果；恒迹不会允许应用内设置覆盖该选择"
                         } else {
-                            "额外关闭衡记自定义加载动画；系统辅助功能设置始终优先"
+                            "额外关闭恒迹自定义加载动画；系统辅助功能设置始终优先"
                         },
                         checked = reduceMotion,
                         onCheckedChange = onReduceMotionChange,
@@ -271,7 +271,7 @@ fun SettingsScreen(
                 )
                 Spacer(Modifier.width(HengjiSpacing.xs))
                 Text(
-                    "衡记 0.1.0 · Local-first",
+                    "恒迹 0.1.0 · Local-first",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

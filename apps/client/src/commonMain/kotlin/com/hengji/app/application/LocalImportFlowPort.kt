@@ -106,12 +106,12 @@ class LocalImportFlowPort(
     override suspend fun openSource(source: ImportSource): ImportDocumentSummary? {
         val picked = when (source) {
             ImportSource.CsvSandboxSample -> PickedImportDocument(
-                displayName = "衡记 CSV 沙箱样例.csv",
+                displayName = "恒迹 CSV 沙箱样例.csv",
                 content = CSV_SANDBOX,
                 format = ImportDocumentFormat.Csv,
             )
             ImportSource.JsonSandboxSample -> PickedImportDocument(
-                displayName = "衡记 JSON 沙箱样例.json",
+                displayName = "恒迹 JSON 沙箱样例.json",
                 content = JSON_SANDBOX,
                 format = ImportDocumentFormat.Json,
             )

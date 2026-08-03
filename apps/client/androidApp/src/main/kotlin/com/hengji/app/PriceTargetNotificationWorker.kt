@@ -44,11 +44,11 @@ class PriceTargetNotificationWorker(
         createChannel(applicationContext)
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_hengji)
-            .setContentTitle("衡记出售目标提醒")
+            .setContentTitle("恒迹出售目标提醒")
             .setContentText("有一项资产的授权行情已达到你设置的出售目标。")
             .setStyle(
                 NotificationCompat.BigTextStyle()
-                    .bigText("有一项资产的授权行情已达到你设置的出售目标。打开衡记后再查看本机明细。"),
+                    .bigText("有一项资产的授权行情已达到你设置的出售目标。打开恒迹后再查看本机明细。"),
             )
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)

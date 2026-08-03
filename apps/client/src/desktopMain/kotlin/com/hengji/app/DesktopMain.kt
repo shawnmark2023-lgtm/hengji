@@ -68,7 +68,7 @@ fun main() {
         Window(
             onCloseRequest = ::exitApplication,
             state = windowState,
-            title = "衡记 HENGJI",
+            title = "恒迹 HENGJI",
             onPreviewKeyEvent = { event ->
                 if (
                     event.type == KeyEventType.KeyDown &&

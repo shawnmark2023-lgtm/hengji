@@ -36,7 +36,7 @@ internal class WindowsGlobalQuickEntryHotkey(
                         if (registered) {
                             "全局快捷记账：Ctrl+Shift+N；应用内也可使用同一组合键。"
                         } else {
-                            "Ctrl+Shift+N 已被其他程序占用；衡记未覆盖冲突，应用内快捷键仍可用。"
+                            "Ctrl+Shift+N 已被其他程序占用；恒迹未覆盖冲突，应用内快捷键仍可用。"
                         },
                     )
                 }

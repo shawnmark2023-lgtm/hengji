@@ -1,6 +1,7 @@
 package com.hengji.app.theme
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -11,53 +12,55 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-val HengjiGreen = Color(0xFF143F3A)
-val HengjiGreenLight = Color(0xFFB8D9CF)
-val HengjiApricot = Color(0xFFF4C982)
-val HengjiInk = Color(0xFF18211F)
-val HengjiPaper = Color(0xFFF7F6F1)
-val HengjiCream = Color(0xFFFFFBF3)
-val HengjiSuccess = Color(0xFF2E745F)
+val HengjiGreen = Color(0xFF087F71)
+val HengjiGreenLight = Color(0xFFB8E3DB)
+val HengjiApricot = Color(0xFFE5B86C)
+val HengjiInk = Color(0xFF171A19)
+val HengjiPaper = Color(0xFFF4F5F2)
+val HengjiCream = Color(0xFFFCFCF9)
+val HengjiSuccess = Color(0xFF087F71)
 val HengjiWarning = Color(0xFF9A5A1F)
+val HengjiGlassHighlight = Color(0xE6FFFFFF)
+val HengjiGlassShadow = Color(0x24111F1C)
 
 private val HengjiLightColors = lightColorScheme(
     primary = HengjiGreen,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFD5EBE4),
-    onPrimaryContainer = Color(0xFF07312D),
-    secondary = Color(0xFF6D4F22),
+    primaryContainer = Color(0xFFD8F0EB),
+    onPrimaryContainer = Color(0xFF043A34),
+    secondary = Color(0xFF4E6460),
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFFFE1AE),
-    onSecondaryContainer = Color(0xFF2D1A00),
-    tertiary = Color(0xFF466178),
+    secondaryContainer = Color(0xFFE2EAE7),
+    onSecondaryContainer = Color(0xFF24322F),
+    tertiary = Color(0xFF52708B),
     onTertiary = Color.White,
     background = HengjiPaper,
     onBackground = HengjiInk,
     surface = HengjiCream,
     onSurface = HengjiInk,
-    surfaceVariant = Color(0xFFE7ECE8),
-    onSurfaceVariant = Color(0xFF53605C),
-    outline = Color(0xFF74817D),
-    outlineVariant = Color(0xFFD3DBD7),
+    surfaceVariant = Color(0xFFE9ECE8),
+    onSurfaceVariant = Color(0xFF5A615E),
+    outline = Color(0xFF7E8581),
+    outlineVariant = Color(0xFFD8DCD8),
     error = Color(0xFFBA1A1A),
 )
 
 private val HengjiDarkColors = darkColorScheme(
-    primary = Color(0xFF9ED3C4),
-    onPrimary = Color(0xFF00372F),
-    primaryContainer = Color(0xFF1A4F47),
-    onPrimaryContainer = Color(0xFFC6F1E5),
-    secondary = Color(0xFFF1C47C),
-    onSecondary = Color(0xFF402D04),
-    secondaryContainer = Color(0xFF594318),
-    onSecondaryContainer = Color(0xFFFFDEA4),
+    primary = Color(0xFF73D7C6),
+    onPrimary = Color(0xFF003730),
+    primaryContainer = Color(0xFF164F47),
+    onPrimaryContainer = Color(0xFFC3F2E8),
+    secondary = Color(0xFFB7C9C4),
+    onSecondary = Color(0xFF23332F),
+    secondaryContainer = Color(0xFF354640),
+    onSecondaryContainer = Color(0xFFD3E5DF),
     tertiary = Color(0xFFADCBE5),
     onTertiary = Color(0xFF163248),
-    background = Color(0xFF101614),
+    background = Color(0xFF101311),
     onBackground = Color(0xFFE1E9E5),
-    surface = Color(0xFF171D1B),
+    surface = Color(0xFF191D1B),
     onSurface = Color(0xFFE1E9E5),
-    surfaceVariant = Color(0xFF303936),
+    surfaceVariant = Color(0xFF2C322F),
     onSurfaceVariant = Color(0xFFC1CBC6),
     outline = Color(0xFF8B9691),
     outlineVariant = Color(0xFF3D4844),
@@ -74,12 +77,20 @@ object HengjiSpacing {
     val xxl = 48.dp
 }
 
+val HengjiShapes = Shapes(
+    extraSmall = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+    small = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+    medium = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+    large = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+    extraLarge = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
+)
+
 private val HengjiTypography = androidx.compose.material3.Typography(
     displaySmall = TextStyle(
         fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.Bold,
-        fontSize = 36.sp,
-        lineHeight = 42.sp,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 34.sp,
+        lineHeight = 40.sp,
         letterSpacing = (-0.5).sp,
     ),
     headlineMedium = TextStyle(
@@ -128,6 +139,7 @@ fun HengjiTheme(
     MaterialTheme(
         colorScheme = if (darkTheme) HengjiDarkColors else HengjiLightColors,
         typography = HengjiTypography,
+        shapes = HengjiShapes,
         content = content,
     )
 }

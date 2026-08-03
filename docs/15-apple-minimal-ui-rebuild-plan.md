@@ -1,9 +1,12 @@
 # 恒迹 Apple 极简线条 UI 重建计划
 
-状态：`READY_TO_IMPLEMENT`  
+状态：`IMPLEMENTED_LOCAL`
+
 范围：Windows、Android 共享 Compose UI  
 基线：`f747bbb`  
 非本轮范围：iOS/macOS 工程、业务规则重写、数据库格式变更、网络服务扩张
+
+本计划已在 2026-08-03 完成本机实现批次。实际交付采用了一个更克制的产品决策：空账本直接显示三步上下文引导，不增加阻塞启动的全屏教程；移动端五页可左右滑动并由悬浮 Dock 同步，桌面端保留导航轨/侧栏；半透明材质只用于导航与控制层，财务内容保持不透明高对比。个性化洞察、验收命令、工件哈希和未验证边界见 [个性化 AI 与 Liquid Glass 重构验收](16-personal-ai-liquid-glass-refactor.md)。
 
 ## 1. 重建目标
 

@@ -25,6 +25,7 @@ data class InsightPreferenceRecord(
     val updatedAtEpochMillis: Long = 0,
     val adoptedDeduplicationKeys: Set<String> = emptySet(),
     val snoozedUntilEpochMillisByKey: Map<String, Long> = emptyMap(),
+    val feedbackTypeByKey: Map<String, String> = emptyMap(),
 ) {
     init {
         require(mutedTypes.none { it.isBlank() }) { "Muted insight types cannot be blank" }
@@ -33,6 +34,8 @@ data class InsightPreferenceRecord(
         require(adoptedDeduplicationKeys.none { it.isBlank() }) { "Adopted insight keys cannot be blank" }
         require(snoozedUntilEpochMillisByKey.keys.none { it.isBlank() }) { "Snoozed insight keys cannot be blank" }
         require(snoozedUntilEpochMillisByKey.values.none { it < 0 }) { "Snooze expiry cannot be negative" }
+        require(feedbackTypeByKey.keys.none { it.isBlank() }) { "Feedback insight keys cannot be blank" }
+        require(feedbackTypeByKey.values.none { it.isBlank() }) { "Feedback insight types cannot be blank" }
         require(adoptedDeduplicationKeys.intersect(ignoredDeduplicationKeys).isEmpty()) {
             "An insight cannot be both adopted and ignored"
         }
@@ -41,6 +44,15 @@ data class InsightPreferenceRecord(
         }
         require(ignoredDeduplicationKeys.intersect(snoozedUntilEpochMillisByKey.keys).isEmpty()) {
             "An insight cannot be both ignored and snoozed"
+        }
+        require(
+            feedbackTypeByKey.keys.all {
+                it in adoptedDeduplicationKeys ||
+                    it in ignoredDeduplicationKeys ||
+                    it in snoozedUntilEpochMillisByKey
+            },
+        ) {
+            "Feedback type metadata must reference a persisted feedback action"
         }
     }
 }

@@ -9,8 +9,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Button
@@ -19,6 +21,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -51,6 +54,8 @@ fun OverviewScreen(
     assets: List<DemoAsset>,
     insights: List<DemoInsight>,
     asOf: LocalDate,
+    onAddTransaction: () -> Unit,
+    onOpenImport: () -> Unit,
     onOpenLedger: () -> Unit,
     onOpenInsights: () -> Unit,
 ) {
@@ -70,9 +75,18 @@ fun OverviewScreen(
             ScreenHeader(
                 eyebrow = "${asOf.year} 年 ${asOf.month.ordinal + 1} 月 · 第 ${(asOf.day - 1) / 7 + 1} 周",
                 title = "今天的消费很清楚",
-                supporting = "衡记把流水、物品和可执行建议放在同一张本地视图里。",
+                supporting = "恒迹把流水、物品和可执行建议放在同一张本地视图里。",
                 action = { LocalOnlyBadge() },
             )
+        }
+
+        if (transactions.isEmpty() && assets.isEmpty()) {
+            item {
+                FirstRunGuide(
+                    onAddTransaction = onAddTransaction,
+                    onOpenImport = onOpenImport,
+                )
+            }
         }
 
         item {
@@ -165,6 +179,60 @@ fun OverviewScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun FirstRunGuide(
+    onAddTransaction: () -> Unit,
+    onOpenImport: () -> Unit,
+) {
+    SectionCard(Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(HengjiSpacing.md)) {
+            Column(verticalArrangement = Arrangement.spacedBy(HengjiSpacing.xs)) {
+                Text("从一笔真实记录开始", style = MaterialTheme.typography.titleLarge)
+                Text(
+                    "不需要注册，也不需要先配置一大堆选项。完成下面三步，恒迹就会开始建立你的本机基线。",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            GuideStep("1", "记一笔", "输入金额、商户和分类；之后都可以修改。")
+            GuideStep("2", "持续确认", "分类和使用记录越完整，成本视图越可靠。")
+            GuideStep("3", "给洞察反馈", "标记有帮助或不适合，排序会逐步贴近你。")
+            Button(onClick = onAddTransaction, modifier = Modifier.fillMaxWidth()) {
+                Text("记第一笔")
+            }
+            FilledTonalButton(onClick = onOpenImport, modifier = Modifier.fillMaxWidth()) {
+                Text("从本机文件导入")
+            }
+            Text(
+                "导入不会上传原文件，预览确认后才写入账本。",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun GuideStep(number: String, title: String, body: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Surface(
+            modifier = Modifier.size(32.dp),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        ) {
+            BoxWithConstraints(contentAlignment = Alignment.Center) {
+                Text(number, style = MaterialTheme.typography.labelLarge)
+            }
+        }
+        Spacer(Modifier.width(HengjiSpacing.sm))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

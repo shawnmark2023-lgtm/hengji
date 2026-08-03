@@ -92,6 +92,7 @@ data class InsightPreferences(
     val ignoredDeduplicationKeys: Set<String> = emptySet(),
     val adoptedDeduplicationKeys: Set<String> = emptySet(),
     val snoozedUntilEpochMillisByKey: Map<String, Long> = emptyMap(),
+    val feedbackTypeByKey: Map<String, InsightType> = emptyMap(),
 ) {
     init {
         require(ignoredDeduplicationKeys.none(String::isBlank)) {
@@ -106,6 +107,9 @@ data class InsightPreferences(
         require(snoozedUntilEpochMillisByKey.values.all { it >= 0 }) {
             "Snooze deadlines cannot be negative"
         }
+        require(feedbackTypeByKey.keys.none(String::isBlank)) {
+            "Feedback insight keys cannot be blank"
+        }
 
         val snoozedKeys = snoozedUntilEpochMillisByKey.keys
         require(adoptedDeduplicationKeys.intersect(ignoredDeduplicationKeys).isEmpty() &&
@@ -113,6 +117,15 @@ data class InsightPreferences(
             ignoredDeduplicationKeys.intersect(snoozedKeys).isEmpty()
         ) {
             "Adopted, ignored, and snoozed insight keys must be mutually exclusive"
+        }
+        require(
+            feedbackTypeByKey.keys.all {
+                it in adoptedDeduplicationKeys ||
+                    it in ignoredDeduplicationKeys ||
+                    it in snoozedUntilEpochMillisByKey
+            },
+        ) {
+            "Feedback type metadata must reference a persisted feedback action"
         }
     }
 }
@@ -147,6 +160,11 @@ object InsightRanker {
                 bestByKey[key] = candidate
             }
         }
-        return bestByKey.values.sortedWith(compareByDescending<Insight> { it.rankScore }.thenBy { it.id })
+        val affinities = InsightPreferenceWeights.affinities(preferences)
+        return bestByKey.values.sortedWith(
+            compareByDescending<Insight> {
+                it.rankScore * affinities.getValue(it.type).rankingMultiplierBasisPoints / 10_000L
+            }.thenBy { it.id },
+        )
     }
 }

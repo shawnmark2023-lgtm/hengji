@@ -15,6 +15,9 @@ import com.hengji.insights.InsightEngine
 import com.hengji.insights.InsightPreferences
 import com.hengji.insights.InsightSnapshot
 import com.hengji.insights.InsightType
+import com.hengji.insights.PersonalInsightProfile
+import com.hengji.insights.PersonalInsightProfileBuilder
+import com.hengji.insights.PersonalInsightModelContextFactory
 import kotlinx.datetime.LocalDate
 
 /**
@@ -131,14 +134,40 @@ internal object DomainDemoData {
         snapshot: LedgerSnapshot,
         asOf: LocalDate,
         nowEpochMillis: Long,
-    ): List<DemoInsight> {
+    ): List<DemoInsight> = insightFeed(snapshot, asOf, nowEpochMillis).items
+
+    fun insightFeed(
+        snapshot: LedgerSnapshot,
+        asOf: LocalDate,
+        nowEpochMillis: Long,
+    ): PersonalInsightFeed = insightComputation(snapshot, asOf, nowEpochMillis).feed
+
+    fun insightComputation(
+        snapshot: LedgerSnapshot,
+        asOf: LocalDate,
+        nowEpochMillis: Long,
+    ): PersonalInsightComputation {
         val estimates = estimates(snapshot, asOf)
         val currentPeriodStart = startOfMonth(asOf)
         val nextPeriodStart = shiftMonth(currentPeriodStart, 1)
         val previousPeriodStart = shiftMonth(currentPeriodStart, -1)
         val knownTypes = enumValues<InsightType>().associateBy(InsightType::name)
         val storedPreferences = snapshot.insightPreferences
-        return InsightEngine().generate(
+        val preferences = InsightPreferences(
+            mutedTypes = storedPreferences.mutedTypes.mapNotNull(knownTypes::get).toSet(),
+            ignoredDeduplicationKeys = storedPreferences.ignoredDeduplicationKeys,
+            adoptedDeduplicationKeys = storedPreferences.adoptedDeduplicationKeys,
+            snoozedUntilEpochMillisByKey = storedPreferences.snoozedUntilEpochMillisByKey,
+            feedbackTypeByKey = storedPreferences.feedbackTypeByKey.mapNotNull { (key, typeName) ->
+                knownTypes[typeName]?.let { type -> key to type }
+            }.toMap(),
+        )
+        val profile = PersonalInsightProfileBuilder.build(
+            transactions = snapshot.transactions,
+            asOf = asOf,
+            preferences = preferences,
+        )
+        val rankedInsights = InsightEngine().generate(
             snapshot = InsightSnapshot(
                 asOf = asOf,
                 currency = DemoLedger.cny,
@@ -151,14 +180,23 @@ internal object DomainDemoData {
                 marketEstimates = estimates,
                 marketQuotes = snapshot.marketQuotes,
             ),
-            preferences = InsightPreferences(
-                mutedTypes = storedPreferences.mutedTypes.mapNotNull(knownTypes::get).toSet(),
-                ignoredDeduplicationKeys = storedPreferences.ignoredDeduplicationKeys,
-                adoptedDeduplicationKeys = storedPreferences.adoptedDeduplicationKeys,
-                snoozedUntilEpochMillisByKey = storedPreferences.snoozedUntilEpochMillisByKey,
-            ),
+            preferences = preferences,
             nowEpochMillis = nowEpochMillis,
-        ).let(::retainPriceTargetInsights).map(::toDemoInsight)
+        ).let(::retainPriceTargetInsights)
+        val feed = PersonalInsightFeed(
+            items = rankedInsights.map { toDemoInsight(it, profile) },
+            learningStage = profile.stage,
+            learningPercent = profile.confidenceBasisPoints / 100,
+            observedTransactionCount = profile.activeTransactionCount,
+            observedDays = profile.observedDays,
+            feedbackCount = profile.feedbackCount,
+        )
+        return PersonalInsightComputation(
+            feed = feed,
+            modelRequest = rankedInsights.takeIf { it.isNotEmpty() }?.let {
+                PersonalInsightModelContextFactory.create(profile, it)
+            },
+        )
     }
 
     private fun startOfMonth(date: LocalDate): LocalDate = LocalDate(date.year, date.month, 1)
@@ -170,7 +208,7 @@ internal object DomainDemoData {
         return LocalDate(year, month, 1)
     }
 
-    private fun toDemoInsight(insight: Insight): DemoInsight {
+    private fun toDemoInsight(insight: Insight, profile: PersonalInsightProfile? = null): DemoInsight {
         val localized = when (insight.type) {
             InsightType.CATEGORY_CONCENTRATION -> Triple(
                 "一类支出占比较高",
@@ -206,6 +244,15 @@ internal object DomainDemoData {
                 else -> InsightPriority.Low
             },
             feedback = insight.feedback,
+            personalizationReason = profile?.let {
+                val affinity = it.affinities.getValue(insight.type)
+                when {
+                    affinity.helpfulCount > 0 -> "你曾认为这类洞察有帮助，因此本次优先展示。"
+                    affinity.notRelevantCount > 0 -> "这类洞察曾被你标记为不适合，已降低展示优先级。"
+                    it.feedbackCount > 0 -> "排序已结合你保存在本机的 ${it.feedbackCount} 次反馈。"
+                    else -> "当前先依据 ${it.activeTransactionCount} 笔记录建立个人基线。"
+                }
+            },
         )
     }
 

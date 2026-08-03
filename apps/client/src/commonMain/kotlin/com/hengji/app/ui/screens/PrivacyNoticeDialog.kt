@@ -33,7 +33,7 @@ internal fun PrivacyNoticeDialog(
             ) {
                 PrivacySection(
                     title = "本地优先",
-                    body = "衡记不要求账户，不采集姓名、手机号、位置、通讯录、广告标识或设备指纹。" +
+                    body = "恒迹不要求账户，不采集姓名、手机号、位置、通讯录、广告标识或设备指纹。" +
                         "交易、物品和分析结果保存在设备上的受保护账本中。",
                 )
                 PrivacySection(
@@ -58,7 +58,7 @@ internal fun PrivacyNoticeDialog(
                 )
                 PrivacySection(
                     title = "使用边界",
-                    body = "衡记用于个人记录与本地分析，不提供银行、支付、信贷、证券交易、投资、税务或受托理财服务。",
+                    body = "恒迹用于个人记录与本地分析，不提供银行、支付、信贷、证券交易、投资、税务或受托理财服务。",
                 )
             }
         },

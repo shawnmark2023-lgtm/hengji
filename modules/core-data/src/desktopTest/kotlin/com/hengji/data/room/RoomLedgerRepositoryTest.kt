@@ -343,6 +343,42 @@ class RoomLedgerRepositoryTest {
     }
 
     @Test
+    fun migrationThreeToFourAddsLocalFeedbackTypeMetadata() {
+        withDatabaseFileBlocking { path ->
+            BundledSQLiteDriver().open(path).use { connection ->
+                connection.execSQL(
+                    """
+                    CREATE TABLE insight_preferences (
+                        singletonId INTEGER NOT NULL PRIMARY KEY,
+                        mutedTypesJson TEXT NOT NULL,
+                        ignoredDeduplicationKeysJson TEXT NOT NULL,
+                        updatedAtEpochMillis INTEGER NOT NULL,
+                        adoptedDeduplicationKeysJson TEXT NOT NULL,
+                        snoozedUntilEpochMillisByKeyJson TEXT NOT NULL
+                    )
+                    """.trimIndent(),
+                )
+                connection.execSQL(
+                    """
+                    INSERT INTO insight_preferences VALUES (
+                        1, '[]', '["ignored:key"]', 77, '[]', '{}'
+                    )
+                    """.trimIndent(),
+                )
+
+                MIGRATION_3_4.migrate(connection)
+
+                connection.prepare(
+                    "SELECT feedbackTypeByKeyJson FROM insight_preferences WHERE singletonId = 1",
+                ).use { statement ->
+                    assertTrue(statement.step())
+                    assertEquals("{}", statement.getText(0))
+                }
+            }
+        }
+    }
+
+    @Test
     fun importCommitIsIdempotentAndRollbackIsAtomic() = runTest {
         withDatabaseFile { path ->
             val repository = open(path)

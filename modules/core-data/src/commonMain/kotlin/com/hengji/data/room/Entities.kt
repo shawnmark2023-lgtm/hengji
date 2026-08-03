@@ -93,6 +93,8 @@ data class InsightPreferencesEntity(
     val adoptedDeduplicationKeysJson: String = "[]",
     @ColumnInfo(defaultValue = "{}")
     val snoozedUntilEpochMillisByKeyJson: String = "{}",
+    @ColumnInfo(defaultValue = "{}")
+    val feedbackTypeByKeyJson: String = "{}",
 )
 
 @Entity(tableName = "import_batches", primaryKeys = ["batchId"], indices = [Index(value = ["state"])])

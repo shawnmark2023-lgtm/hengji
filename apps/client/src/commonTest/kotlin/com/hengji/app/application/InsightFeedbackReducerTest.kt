@@ -19,14 +19,26 @@ class InsightFeedbackReducerTest {
             updatedAtEpochMillis = 1,
         )
 
-        val adopted = InsightFeedbackReducer.apply(initial, key, InsightFeedback.ADOPTED, 10)
+        val adopted = InsightFeedbackReducer.apply(
+            initial,
+            key,
+            com.hengji.insights.InsightType.SPENDING_TREND,
+            InsightFeedback.ADOPTED,
+            10,
+        )
         assertTrue(key in adopted.adoptedDeduplicationKeys)
         assertFalse(key in adopted.ignoredDeduplicationKeys)
         assertFalse(key in adopted.snoozedUntilEpochMillisByKey)
         assertEquals(setOf("BUDGET_PACE"), adopted.mutedTypes)
         assertEquals(10, adopted.updatedAtEpochMillis)
 
-        val snoozed = InsightFeedbackReducer.apply(adopted, key, InsightFeedback.SNOOZED, 20)
+        val snoozed = InsightFeedbackReducer.apply(
+            adopted,
+            key,
+            com.hengji.insights.InsightType.SPENDING_TREND,
+            InsightFeedback.SNOOZED,
+            20,
+        )
         assertFalse(key in snoozed.adoptedDeduplicationKeys)
         assertFalse(key in snoozed.ignoredDeduplicationKeys)
         assertEquals(
@@ -35,7 +47,13 @@ class InsightFeedbackReducerTest {
         )
         assertEquals(20, snoozed.updatedAtEpochMillis)
 
-        val ignored = InsightFeedbackReducer.apply(snoozed, key, InsightFeedback.IGNORED, 30)
+        val ignored = InsightFeedbackReducer.apply(
+            snoozed,
+            key,
+            com.hengji.insights.InsightType.SPENDING_TREND,
+            InsightFeedback.IGNORED,
+            30,
+        )
         assertTrue(key in ignored.ignoredDeduplicationKeys)
         assertFalse(key in ignored.adoptedDeduplicationKeys)
         assertFalse(key in ignored.snoozedUntilEpochMillisByKey)

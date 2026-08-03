@@ -170,6 +170,11 @@ internal fun InsightPreferenceRecord.toRoomEntity() = InsightPreferencesEntity(
             }
         },
     ),
+    feedbackTypeByKeyJson = preferenceJson.encodeToString<Map<String, String>>(
+        buildMap {
+            feedbackTypeByKey.entries.sortedBy { it.key }.forEach { (key, value) -> put(key, value) }
+        },
+    ),
 )
 
 internal fun InsightPreferencesEntity.toDomain() = InsightPreferenceRecord(
@@ -180,6 +185,7 @@ internal fun InsightPreferencesEntity.toDomain() = InsightPreferenceRecord(
         preferenceJson.decodeFromString<List<String>>(adoptedDeduplicationKeysJson).toSet(),
     snoozedUntilEpochMillisByKey =
         preferenceJson.decodeFromString<Map<String, Long>>(snoozedUntilEpochMillisByKeyJson),
+    feedbackTypeByKey = preferenceJson.decodeFromString<Map<String, String>>(feedbackTypeByKeyJson),
 )
 
 internal fun ImportBatchRecord.toRoomEntity() = ImportBatchEntity(

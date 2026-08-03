@@ -14,7 +14,7 @@ class DesktopLedgerExportWriter : LedgerExportWriter {
         val export = LedgerExportPolicy.prepare(suggestedFileName, utf8Content, mediaType)
         val file = withContext(Dispatchers.Swing) {
             val chooser = JFileChooser().apply {
-                dialogTitle = "保存衡记账本备份"
+                dialogTitle = "保存恒迹账本备份"
                 selectedFile = File(export.fileName)
                 fileFilter = FileNameExtensionFilter(
                     "${export.fileExtension.uppercase()} 文件",

@@ -5,7 +5,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$UpgradeMsiPath,
     [string]$OutputPath = "",
-    [string]$ExpectedInstallSubdirectory = "Programs\Hengji",
+    [string]$ExpectedInstallSubdirectory = "HengjiApp",
     [switch]$SkipExecutableLaunch,
     [int]$StartupTimeoutSeconds = 30
 )

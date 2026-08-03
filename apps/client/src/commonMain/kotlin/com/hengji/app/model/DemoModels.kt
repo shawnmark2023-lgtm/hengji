@@ -3,6 +3,9 @@ package com.hengji.app.model
 import com.hengji.app.application.SaleTargetProjection
 import com.hengji.app.application.SaleTargetStatus
 import com.hengji.insights.InsightFeedback
+import com.hengji.insights.InsightLearningStage
+import com.hengji.insights.PersonalInsightGenerationResult
+import com.hengji.insights.PreparedPersonalInsightModelRequest
 import com.hengji.insights.InsightType
 import kotlinx.datetime.LocalDate
 
@@ -71,7 +74,48 @@ data class DemoInsight(
     val confidence: Int,
     val priority: InsightPriority,
     val feedback: InsightFeedback = InsightFeedback.NEW,
+    val personalizationReason: String? = null,
+    val modelDisclosure: String? = null,
 )
+
+data class PersonalInsightFeed(
+    val items: List<DemoInsight>,
+    val learningStage: InsightLearningStage,
+    val learningPercent: Int,
+    val observedTransactionCount: Int,
+    val observedDays: Int,
+    val feedbackCount: Int,
+) {
+    init {
+        require(learningPercent in 0..100)
+        require(observedTransactionCount >= 0 && observedDays >= 0 && feedbackCount >= 0)
+    }
+}
+
+data class PersonalInsightComputation(
+    val feed: PersonalInsightFeed,
+    val modelRequest: PreparedPersonalInsightModelRequest?,
+)
+
+fun PersonalInsightFeed.withModelResult(
+    result: PersonalInsightGenerationResult.Generated?,
+): PersonalInsightFeed {
+    if (result == null) return this
+    return copy(
+        items = items.map { insight ->
+            if (insight.deduplicationKey != result.localDeduplicationKey) {
+                insight
+            } else {
+                insight.copy(
+                    title = result.answer.headline.trim(),
+                    summary = result.answer.summary.trim(),
+                    action = result.answer.actionLabel.trim(),
+                    modelDisclosure = result.providerDisclosure,
+                )
+            }
+        },
+    )
+}
 
 private val demoAsOf = LocalDate(2026, 7, 15)
 val sampleTransactions: List<DemoTransaction> = DomainDemoData.transactions(DomainDemoData.initialSnapshot, demoAsOf)

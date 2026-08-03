@@ -885,7 +885,7 @@ private fun SensitiveDataNotice() {
             Column {
                 Text("消费记录仍属于敏感数据", style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "衡记只解析完成记账所需的时间、金额、商户、分类等字段；不读取姓名、手机号、位置或通讯录。原始文件不上传。",
+                    "恒迹只解析完成记账所需的时间、金额、商户、分类等字段；不读取姓名、手机号、位置或通讯录。原始文件不上传。",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                 )

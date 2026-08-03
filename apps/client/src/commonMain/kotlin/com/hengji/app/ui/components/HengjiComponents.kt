@@ -1,6 +1,7 @@
 package com.hengji.app.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -16,8 +17,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -27,6 +26,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.heading
@@ -39,6 +40,8 @@ import com.hengji.app.generated.resources.app_name
 import com.hengji.app.generated.resources.app_tagline
 import com.hengji.app.generated.resources.ic_hengji_mark
 import com.hengji.app.theme.HengjiSpacing
+import com.hengji.app.theme.HengjiGlassHighlight
+import com.hengji.app.theme.HengjiGlassShadow
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.foundation.Image
@@ -177,15 +180,16 @@ fun MetricCard(
     modifier: Modifier = Modifier,
     accent: Color = MaterialTheme.colorScheme.primary,
 ) {
-    Card(
+    Surface(
         modifier = modifier.semantics(mergeDescendants = true) {},
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shape = MaterialTheme.shapes.large,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column(Modifier.padding(HengjiSpacing.lg)) {
             Box(
                 Modifier
-                    .size(width = 28.dp, height = 5.dp)
+                    .size(8.dp)
                     .clip(CircleShape)
                     .background(accent),
             )
@@ -238,10 +242,11 @@ fun SectionCard(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    Card(
+    Surface(
         modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shape = MaterialTheme.shapes.large,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Box(Modifier.padding(HengjiSpacing.lg)) {
             content()
@@ -267,5 +272,37 @@ fun StatusPill(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
             style = MaterialTheme.typography.labelLarge,
         )
+    }
+}
+
+/**
+ * Cross-platform approximation of a regular Liquid Glass control layer. It intentionally avoids
+ * putting translucent glass behind financial content; use it for navigation and compact controls.
+ */
+@Composable
+fun GlassSurface(
+    modifier: Modifier = Modifier,
+    shape: RoundedCornerShape = RoundedCornerShape(28.dp),
+    contentPadding: androidx.compose.foundation.layout.PaddingValues =
+        androidx.compose.foundation.layout.PaddingValues(HengjiSpacing.xs),
+    content: @Composable () -> Unit,
+) {
+    val glassBase = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f)
+    val edge = Brush.linearGradient(
+        colors = listOf(
+            HengjiGlassHighlight,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f),
+            Color.White.copy(alpha = 0.18f),
+        ),
+    )
+    Box(
+        modifier = modifier
+            .shadow(18.dp, shape, clip = false, ambientColor = HengjiGlassShadow, spotColor = HengjiGlassShadow)
+            .border(1.dp, edge, shape)
+            .background(glassBase, shape)
+            .clip(shape)
+            .padding(contentPadding),
+    ) {
+        content()
     }
 }

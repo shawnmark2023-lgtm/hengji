@@ -167,7 +167,9 @@ compose.desktop {
             vendor = "HENGJI"
 
             windows {
-                installationPath = "Programs/Hengji"
+                // Keep binaries separate from %LOCALAPPDATA%\Hengji ledger data while
+                // avoiding JDK-8226534/ICE64 for nested per-user install directories.
+                installationPath = "HengjiApp"
                 menuGroup = "HENGJI"
                 perUserInstall = true
                 upgradeUuid = "b2248acb-5ced-48a7-b69f-3b4f34571acf"

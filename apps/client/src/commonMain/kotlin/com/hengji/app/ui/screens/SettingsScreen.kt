@@ -61,6 +61,7 @@ fun SettingsScreen(
     onRestoreData: () -> Unit = {},
     onClearData: () -> Unit = {},
     onOpenImport: () -> Unit = {},
+    onOpenFirstRunGuide: () -> Unit = {},
     storageStatus: String = "内存预览 · 关闭后不保留",
     quickEntryShortcutStatus: String? = null,
     priceNotificationControl: PriceNotificationControl? = null,
@@ -110,7 +111,7 @@ fun SettingsScreen(
                         },
                         second = {
                             OutlinedButton(onClick = onExportCsv, modifier = Modifier.fillMaxWidth()) {
-                                Text("流水 CSV")
+                                Text("账单 CSV")
                             }
                         },
                     )
@@ -137,6 +138,12 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text("查看隐私说明")
+                    }
+                    OutlinedButton(
+                        onClick = onOpenFirstRunGuide,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("重新看使用教程")
                     }
                     dataActionStatus?.let {
                         Text(
@@ -170,7 +177,7 @@ fun SettingsScreen(
                             Text(if (control.canRequest) "允许系统通知" else "关闭目标提醒")
                         }
                         Text(
-                            "后台只读取本机受保护账本，并仅使用授权实时报价判断；不会上传流水，也不会在通知中显示流水原文。",
+                            "后台只读取本机受保护账本，并仅使用授权实时报价判断；不会上传账单，也不会在通知中显示账单原文。",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -240,7 +247,7 @@ fun SettingsScreen(
             SectionCard(Modifier.fillMaxWidth()) {
                 Column(verticalArrangement = Arrangement.spacedBy(HengjiSpacing.md)) {
                     Text(
-                        "导入与连接器",
+                        "导入账单",
                         style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.semantics { heading() },
                     )
@@ -253,7 +260,7 @@ fun SettingsScreen(
                     FilledTonalButton(
                         onClick = onOpenImport,
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text("打开导入中心") }
+                    ) { Text("选择文件并导入") }
                     ConnectorRow("CSV / JSON 文件", "系统选择器授权 · 本机解析")
                 }
             }

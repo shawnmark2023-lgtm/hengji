@@ -27,7 +27,6 @@ import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.hengji.app.theme.HengjiTheme
-import com.hengji.data.ProtectedLedgerOpenOutcome
 import com.hengji.data.openDesktopProtectedLedger
 import com.hengji.app.application.QuickEntryRequest
 import java.io.File
@@ -64,6 +63,14 @@ fun main() {
             height = 820.dp,
             position = WindowPosition.PlatformDefault,
         )
+        val personalInsightModelProvider = remember {
+            BuiltInPersonalInsightModelProvider {
+                desktopBuiltInModelDirectory().absolutePath
+            }
+        }
+        DisposableEffect(personalInsightModelProvider) {
+            onDispose(personalInsightModelProvider::close)
+        }
 
         Window(
             onCloseRequest = ::exitApplication,
@@ -89,9 +96,10 @@ fun main() {
                         repository = opened.repository,
                         userImportDocumentPicker = remember { DesktopImportDocumentPicker() },
                         ledgerExportWriter = remember { DesktopLedgerExportWriter() },
-                        seedDemoData = opened.outcome == ProtectedLedgerOpenOutcome.CREATED_EMPTY,
+                        seedDemoData = false,
                         quickEntryRequest = QuickEntryRequest(quickEntrySequence),
                         quickEntryShortcutStatus = quickEntryShortcutStatus,
+                        personalInsightModelProvider = personalInsightModelProvider,
                     )
                 },
                 onFailure = {
@@ -102,6 +110,22 @@ fun main() {
             )
         }
     }
+}
+
+private fun desktopBuiltInModelDirectory(): File {
+    System.getenv("HENGJI_MODEL_DIR")
+        ?.takeIf(String::isNotBlank)
+        ?.let(::File)
+        ?.let { return it.canonicalFile }
+    System.getProperty("compose.application.resources.dir")
+        ?.takeIf(String::isNotBlank)
+        ?.let(::File)
+        ?.resolve("models/${BuiltInAiModelManifest.DIRECTORY_NAME}")
+        ?.takeIf(File::isDirectory)
+        ?.let { return it.canonicalFile }
+    return File(
+        "third_party/ai/model/common/models/${BuiltInAiModelManifest.DIRECTORY_NAME}",
+    ).canonicalFile
 }
 
 @androidx.compose.runtime.Composable

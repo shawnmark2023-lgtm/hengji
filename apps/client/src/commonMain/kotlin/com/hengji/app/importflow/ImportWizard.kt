@@ -153,7 +153,7 @@ private fun WizardHeader(
         }
         Column(Modifier.weight(1f)) {
             Text(
-                "导入中心",
+                "导入账单",
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.semantics { heading() },
             )
@@ -275,7 +275,7 @@ private fun WizardContent(
 ) {
     Column(
         modifier.semantics {
-            paneTitle = "导入中心，第 ${state.step.ordinal + 1} 步：${state.step.label}"
+            paneTitle = "导入账单，第 ${state.step.ordinal + 1} 步：${state.step.label}"
         },
     ) {
         state.error?.let { error ->
@@ -856,7 +856,7 @@ private fun ResultStep(
         }
         item {
             Text(
-                "撤销按批次执行，不影响导入前已有的流水。",
+                "撤销按批次执行，不影响导入前已有的账单。",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

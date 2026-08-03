@@ -95,6 +95,11 @@ data class InsightPreferencesEntity(
     val snoozedUntilEpochMillisByKeyJson: String = "{}",
     @ColumnInfo(defaultValue = "{}")
     val feedbackTypeByKeyJson: String = "{}",
+    @ColumnInfo(defaultValue = "1")
+    val personalAiEnabled: Boolean = true,
+    val onboardingCompletedAtEpochMillis: Long? = null,
+    @ColumnInfo(defaultValue = "[]")
+    val personalAnalysisHistoryJson: String = "[]",
 )
 
 @Entity(tableName = "import_batches", primaryKeys = ["batchId"], indices = [Index(value = ["state"])])

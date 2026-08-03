@@ -99,7 +99,7 @@ class PriceTargetNotificationWorker(
                     "出售目标提醒",
                     NotificationManager.IMPORTANCE_DEFAULT,
                 ).apply {
-                    description = "仅提醒授权实时行情达到本机出售目标，不展示流水原文。"
+                    description = "仅提醒授权实时行情达到本机出售目标，不展示账单原文。"
                 },
             )
         }

@@ -1,4 +1,4 @@
-# 衡记 HENGJI：开发 List
+# 恒迹 HENGJI：开发 List
 
 状态：`TODO` / `DOING` / `DONE` / `BLOCKED`。优先级：P0 首版必需，P1 Beta，P2 上线。
 
@@ -21,7 +21,7 @@
 - [x] `DOM-004` P0 精确实现总拥有成本、日均成本、净日均成本、单次使用成本。
 - [x] `DOM-005` P0 预算、月度汇总、分类占比、趋势和异常计算。
 - [x] `DAT-001` P0 suspend 仓储接口、内存测试实现与 Room KMP/bundled SQLite 持久化实现。
-- [x] `DAT-002` P0 schema v3、v0→v1→v2→v3 导出恢复、显式 Room 1→2→3 迁移、样例数据、幂等导入、去重和原子撤销批次。
+- [x] `DAT-002` P0 schema v5、v0→v1→v2→v3→v4→v5 导出恢复、显式 Room 1→2→3→4→5 迁移、样例数据、幂等导入、去重和原子撤销批次。
 - [x] `DAT-003` P0 完整 JSON 导出/恢复与防公式注入 CSV 导出。
 - [x] `DAT-004` P1 Windows/Android 已实现 AES-256-GCM 账本封装、平台密钥保护、可恢复 Room 明文迁移、受保护初始化 journal，以及带认证 active-key alias 的 v2 信封和崩溃安全密钥轮换；轮换提交失败保持旧信封可读。系统级抗回滚、密钥丢失灾难演练和 Apple 验收保留为后续安全/平台门禁。
 
@@ -36,6 +36,7 @@
 - [x] `UX-007` P0 Windows/Android 本地模式、JSON/CSV 导出、JSON 恢复和清除流程已完成并进入共享 UI 自动化；Apple 适配器验收依本轮范围延期。
 - [ ] `UX-008` P0 主要表单/导航/状态语义、360dp/200% 重排、深色主题、Reduce Motion、Windows Tab/Enter 和 Android Compose Accessibility Test Framework 已自动化通过；Android TalkBack、Windows Narrator 与真实硬件键盘仍待辅助技术验收。
 - [x] `UX-009` P1 Android 小组件、启动器快捷记账、文本/图片/PDF 系统分享入口，以及 Windows 全局 `Ctrl+Shift+N` 与应用内回退快捷键已接入；全局冲突不覆盖其他应用，所有入口只打开可取消的确认流程。
+- [x] `UX-010` P1 首次使用提供四步可跳过教程，可直接进入“记一笔”或“导入账单”，完成状态持久化并可从设置重新打开；顶层功能统一为“首页、账单、我的物品、智能分析、设置”。
 
 ## D. 智能分析
 
@@ -44,7 +45,7 @@
 - [x] `INS-003` P0 低使用资产和建议出售候选，展示节省估算与依据。
 - [x] `INS-004` P0 建议排序：影响 × 置信度 × 可执行性，避免重复和冲突。
 - [x] `INS-005` P0 建议反馈（采纳/稍后 7 天/忽略/恢复默认）与本地学习偏好，按稳定去重键持久化。
-- [ ] `INS-006` P1 离线确定性解释、聚合字段白名单和提供方隐私门控仍保留；未配置已审查的生产模型提供方时，发布界面不展示无效的模型同意开关，网络外发为 0。提供方合同、字段清单、保留策略和重新同意流程完成后再启用，状态为 `READY_EXTERNAL`。
+- [x] `INS-006` P1 Windows/Android 内置 Qwen2.5-0.5B INT4 本机模型，默认开启且可关闭；有效消费记录覆盖 90 天后第一次分析，之后最多每 30 天重算。模型结合新聚合、最近三条分析和明确反馈逐步适配，最近 12 条结果随加密账本持久化；无远程推理、运行期下载或遥测。
 
 ## E. 导入与平台连接器
 
@@ -99,7 +100,8 @@
 | UX-007 | DONE_WIN_ANDROID | Apple runner deferred | Windows/Android JSON/CSV 导出、JSON 恢复与清除路径已完成；Apple 平台依本轮范围延期 |
 | UX-008 | PARTIAL | TalkBack、Narrator、hardware keyboard | 共享语义、360dp/200%、深色主题、Reduce Motion、Desktop Tab/Enter 与 Android Compose Accessibility Test Framework 已自动化通过；不把自动分析宣称为真实屏幕阅读器验收 |
 | UX-009 | DONE_WIN_ANDROID | Apple deferred | Android 小组件、静态启动器快捷方式、文本/图片/PDF 系统分享和 Windows 全局快捷键已接入；冲突时不覆盖并保留应用内快捷键，所有入口只打开确认/取消界面 |
-| INS-006 | READY_EXTERNAL | 已审查的生产模型提供方、字段/保留清单、重新同意文案 | 当前发布界面移除无提供方支撑的模型同意开关；离线规则解释继续可用，聚合字段白名单拒绝原始流水，默认网络调用为 0。只有完成隐私审查并配置提供方后才重新暴露入口 |
+| UX-010 | DONE_WIN_ANDROID | Apple deferred | 四步教程、跳过/返回/直达动作、完成状态持久化、设置内重新打开和通俗功能命名均有共享 UI 测试 |
+| INS-006 | DONE_WIN_ANDROID | 代表性 Android 实体机性能仍待外部矩阵 | 固定模型与运行时随包交付；90 天资格和 30 天节流由本机代码控制，关闭时不加载模型。实际 Windows 推理测试通过；Android AAR 无遥测且所有 ELF LOAD 段为 16KB 对齐，APK 无 `INTERNET` |
 | IMP-005 | DONE_ANDROID | Windows 保留既有文件导入；Apple deferred | 20 份脱敏文本解析样本通过；图片/PDF 在 Android 设备内识别，限制 20 MiB、20 页和 100,000 字符，候选字段必须进入人工确认后才可保存；合并清单断言不含 `INTERNET`，阻断 ML Kit 诊断/使用指标外发 |
 | IMP-006 | READY_EXTERNAL | Google Play SMS declaration（仅直接读取方案需要） | 当前 APK 不声明读取/接收短信权限；用户主动分享的金融文本仅本地解析，非金融文本拒绝，原文不保留。直接读取不在未获批构建中启用 |
 | IMP-007 | TODO | FinanceKit entitlement、eligible region/account | entitlement/地区/账户三重门控；不可用时功能隐藏且文件导入仍可用；真机授权/撤销通过 |

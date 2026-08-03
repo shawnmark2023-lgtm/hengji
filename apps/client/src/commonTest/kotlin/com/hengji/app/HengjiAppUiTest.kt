@@ -37,6 +37,7 @@ import com.hengji.app.application.UserDocumentPurpose
 import com.hengji.app.application.UserImportDocumentPicker
 import com.hengji.app.importflow.ImportDocumentFormat
 import com.hengji.data.InMemoryLedgerRepository
+import com.hengji.data.InsightPreferenceRecord
 import com.hengji.data.LedgerJsonExporter
 import com.hengji.data.LedgerSnapshot
 import com.hengji.domain.CategoryId
@@ -52,6 +53,7 @@ import com.hengji.insights.PersonalInsightModelProvider
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlinx.coroutines.runBlocking
 import kotlin.time.Clock
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -60,33 +62,56 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalTestApi::class)
 class HengjiAppUiTest {
     @Test
+    fun firstRunGuideExplainsCoreFlowAndCanBeReopenedFromSettings() = runComposeUiTest {
+        val firstRunSnapshot = snapshotOf().copy(insightPreferences = InsightPreferenceRecord())
+        val gateway = PreviewLedgerGateway(InMemoryLedgerRepository(firstRunSnapshot))
+        setHengjiContent(gateway)
+
+        onNodeWithText("欢迎使用恒迹").assertIsDisplayed()
+        onNodeWithText("下一步").performClick()
+        onNodeWithText("先记第一笔消费").assertIsDisplayed()
+        onNodeWithText("下一步").performClick()
+        onNodeWithText("有旧账单就直接导入").assertIsDisplayed()
+        onNodeWithText("下一步").performClick()
+        onNodeWithText("三个月后看专属分析").assertIsDisplayed()
+        onNodeWithText("我会用了").performClick()
+        waitUntil {
+            runBlocking { gateway.snapshot().insightPreferences.onboardingCompletedAtEpochMillis != null }
+        }
+
+        navigateTo("设置")
+        onNodeWithText("重新看使用教程").performScrollTo().performClick()
+        onNodeWithText("欢迎使用恒迹").assertIsDisplayed()
+    }
+
+    @Test
     fun deletionRequiresConfirmationAndUndoRestoresTheVisibleLedgerRow() = runComposeUiTest {
         val merchant = "自动化咖啡"
         val gateway = gatewayWith(transaction("delete-me", merchant))
         setHengjiContent(gateway)
 
-        navigateTo("流水")
-        onNodeWithContentDescription("删除 $merchant 流水").performClick()
-        onNodeWithText("删除这笔流水？").assertIsDisplayed()
+        navigateTo("账单")
+        onNodeWithContentDescription("删除 $merchant 账单").performClick()
+        onNodeWithText("删除这笔账？").assertIsDisplayed()
         onNodeWithText("确认删除").assertIsDisplayed()
         onNodeWithText("取消").performClick()
-        onNodeWithText("删除这笔流水？").assertDoesNotExist()
+        onNodeWithText("删除这笔账？").assertDoesNotExist()
         onNodeWithText(merchant).assertIsDisplayed()
 
-        onNodeWithContentDescription("删除 $merchant 流水").performClick()
+        onNodeWithContentDescription("删除 $merchant 账单").performClick()
         onNodeWithText("确认删除").performClick()
-        waitUntilExactlyOneExists(hasText("流水已删除；8 秒内可撤销"))
+        waitUntilExactlyOneExists(hasText("这笔账已删除；8 秒内可撤销"))
         onNodeWithText(merchant).assertDoesNotExist()
         onNodeWithText("撤销").performClick()
         waitUntilExactlyOneExists(hasText(merchant))
-        onNodeWithText("流水已删除；8 秒内可撤销").assertDoesNotExist()
+        onNodeWithText("这笔账已删除；8 秒内可撤销").assertDoesNotExist()
 
-        onNodeWithContentDescription("删除 $merchant 流水").performClick()
+        onNodeWithContentDescription("删除 $merchant 账单").performClick()
         onNodeWithText("确认删除").performClick()
-        waitUntilExactlyOneExists(hasText("流水已删除；8 秒内可撤销"))
+        waitUntilExactlyOneExists(hasText("这笔账已删除；8 秒内可撤销"))
         mainClock.advanceTimeBy(8_100)
         waitForIdle()
-        onNodeWithText("流水已删除；8 秒内可撤销").assertDoesNotExist()
+        onNodeWithText("这笔账已删除；8 秒内可撤销").assertDoesNotExist()
         onNodeWithText(merchant).assertDoesNotExist()
     }
 
@@ -108,33 +133,34 @@ class HengjiAppUiTest {
         onNodeWithText("JSON 数据导出").assertIsDisplayed()
         onNodeWithText("完成").performClick()
 
-        onNodeWithText("流水 CSV").performScrollTo().performClick()
+        onNodeWithText("账单 CSV").performScrollTo().performClick()
         waitUntil { writer.calls.size == 2 }
         assertEquals("text/csv", writer.calls.last().mediaType)
-        assertEquals("CSV 流水导出", writer.calls.last().title)
-        onNodeWithText("CSV 流水导出").assertIsDisplayed()
+        assertEquals("CSV 账单导出", writer.calls.last().title)
+        onNodeWithText("CSV 账单导出").assertIsDisplayed()
         onNodeWithText("完成").performClick()
 
         onNodeWithText("清除数据").performScrollTo().performClick()
         onNodeWithText("清除所有本机数据？").assertIsDisplayed()
         onNodeWithText("取消").performClick()
-        navigateTo("流水")
+        navigateTo("账单")
         onNodeWithText(originalMerchant).assertIsDisplayed()
 
         navigateTo("设置")
         onNodeWithText("清除数据").performScrollTo().performClick()
         onNodeWithText("确认清除").performClick()
         waitUntilExactlyOneExists(hasText("本机账本已清除"))
-        navigateTo("流水")
+        onNodeWithText("跳过教程").performClick()
+        navigateTo("账单")
         onNodeWithText(originalMerchant).assertDoesNotExist()
-        onNodeWithText("没有匹配的流水").assertIsDisplayed()
+        onNodeWithText("没有找到这笔账").assertIsDisplayed()
 
         navigateTo("设置")
         onNodeWithText("恢复备份").performScrollTo().performClick()
         waitUntilExactlyOneExists(hasText("已从 自动化恢复.json 恢复本机账本"))
         assertEquals(UserDocumentPurpose.LedgerRestore, picker.observedPurpose)
         assertEquals(ImportDocumentFormat.Json, picker.observedFormat)
-        navigateTo("流水")
+        navigateTo("账单")
         onNodeWithText(restoredMerchant).assertIsDisplayed()
         onNodeWithText(originalMerchant).assertDoesNotExist()
     }
@@ -144,8 +170,8 @@ class HengjiAppUiTest {
         setHengjiContent(gatewayWith())
 
         navigateTo("设置")
-        onNode(hasScrollToNodeAction()).performScrollToNode(hasText("打开导入中心"))
-        onNodeWithText("打开导入中心").performClick()
+        onNode(hasScrollToNodeAction()).performScrollToNode(hasText("选择文件并导入"))
+        onNodeWithText("选择文件并导入").performClick()
         waitUntilExactlyOneExists(hasText("CSV 沙箱样例"))
 
         onNodeWithText("CSV 沙箱样例").performClick()
@@ -166,8 +192,8 @@ class HengjiAppUiTest {
         onNode(hasScrollToNodeAction()).performScrollToNode(hasText("撤销整个导入批次"))
         onNodeWithText("撤销整个导入批次").performClick()
         waitUntilExactlyOneExists(hasText("批次已撤销"))
-        navigateTo("流水")
-        onNodeWithText("没有匹配的流水").assertIsDisplayed()
+        navigateTo("账单")
+        onNodeWithText("没有找到这笔账").assertIsDisplayed()
     }
 
     @Test
@@ -180,10 +206,10 @@ class HengjiAppUiTest {
             fontScale = 2f,
         )
 
-        onNodeWithContentDescription("新增流水").assertIsDisplayed()
+        onNodeWithContentDescription("记一笔").assertIsDisplayed()
         navigateTo("设置")
         onNodeWithText("完整 JSON").performScrollTo().assertIsDisplayed()
-        onNodeWithText("流水 CSV").performScrollTo().assertIsDisplayed()
+        onNodeWithText("账单 CSV").performScrollTo().assertIsDisplayed()
         onNodeWithText("恢复备份").performScrollTo().assertIsDisplayed()
         onNodeWithText("清除数据").performScrollTo().assertIsDisplayed()
 
@@ -213,21 +239,21 @@ class HengjiAppUiTest {
         val merchant = "语义商户"
         setHengjiContent(gatewayWith(transaction("semantics", merchant)))
 
-        onAllNodes(hasText("概览") and hasClickAction()).assertCountEquals(1)
-        onAllNodes(hasText("流水") and hasClickAction()).assertCountEquals(1)
-        onAllNodes(hasText("物品") and hasClickAction()).assertCountEquals(1)
-        onAllNodes(hasText("洞察") and hasClickAction()).assertCountEquals(1)
+        onAllNodes(hasText("首页") and hasClickAction()).assertCountEquals(1)
+        onAllNodes(hasText("账单") and hasClickAction()).assertCountEquals(1)
+        onAllNodes(hasText("我的物品") and hasClickAction()).assertCountEquals(1)
+        onAllNodes(hasText("智能分析") and hasClickAction()).assertCountEquals(1)
         onAllNodes(hasText("设置") and hasClickAction()).assertCountEquals(1)
 
-        navigateTo("流水")
-        onNodeWithContentDescription("删除 $merchant 流水")
+        navigateTo("账单")
+        onNodeWithContentDescription("删除 $merchant 账单")
             .assert(hasClickAction())
             .assertIsDisplayed()
-        onAllNodes(hasContentDescription("新增流水")).assertAny(hasClickAction())
+        onAllNodes(hasContentDescription("记一笔")).assertAny(hasClickAction())
         onNode(
             SemanticsMatcher.expectValue(
                 SemanticsProperties.PaneTitle,
-                "流水",
+                "账单",
             ),
         ).assertIsDisplayed()
     }
@@ -243,20 +269,22 @@ class HengjiAppUiTest {
         onNode(SemanticsMatcher.keyIsDefined(SemanticsProperties.HorizontalScrollAxisRange))
             .performTouchInput { swipeLeft() }
         waitUntilExactlyOneExists(
-            SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "流水"),
+            SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "账单"),
         )
         onNodeWithText("滑动测试商户").assertIsDisplayed()
     }
 
     @Test
-    fun modelEnhancementRequiresConsentAndReceivesOnlyOpaqueAggregateContext() = runComposeUiTest {
+    fun builtInModelRunsAutomaticallyAfterThreeMonthsAndCanBeDisabled() = runComposeUiTest {
         val provider = RecordingPersonalInsightModelProvider()
         val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
-        val gateway = gatewayWith(transaction("model-test", "模型隐私商户", bookedOn = today))
+        val gateway = gatewayWith(
+            transaction("model-test-old", "模型隐私商户", bookedOn = LocalDate(2026, 1, 1)),
+            transaction("model-test", "模型隐私商户", bookedOn = today),
+        )
         setHengjiContent(gateway = gateway, modelProvider = provider)
 
-        navigateTo("洞察")
-        onNodeWithText("同意并开启本次会话").performScrollTo().performClick()
+        navigateTo("智能分析")
         waitUntil { provider.calls == 1 }
         val verticalPage = SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange)
         onNode(verticalPage).performScrollToNode(hasText("为你整理的本期重点"))
@@ -266,11 +294,10 @@ class HengjiAppUiTest {
         assertTrue(observed.candidates.all { it.candidateKey.startsWith("candidate-") })
         assertTrue(!observed.toString().contains("模型隐私商户"))
         assertTrue(!observed.toString().contains("model-test"))
-        onNode(verticalPage).performScrollToNode(hasText("关闭模型增强"))
-        onNodeWithText("关闭模型增强").performClick()
-        onNode(verticalPage).performScrollToNode(hasText("同意并开启本次会话"))
-        onNodeWithText("同意并开启本次会话").assertIsDisplayed()
-        onNodeWithText("为你整理的本期重点").assertDoesNotExist()
+        onNode(verticalPage).performScrollToNode(hasText("关闭智能分析"))
+        onNodeWithText("关闭智能分析").performClick()
+        onNode(verticalPage).performScrollToNode(hasText("开启智能分析"))
+        onNodeWithText("开启智能分析").assertIsDisplayed()
     }
 
     private fun ComposeUiTest.setHengjiContent(
@@ -295,7 +322,7 @@ class HengjiAppUiTest {
             }
         }
         waitForIdle()
-        waitUntilExactlyOneExists(hasText("概览") and hasClickAction())
+        waitUntilExactlyOneExists(hasText("首页") and hasClickAction())
     }
 
     private fun ComposeUiTest.navigateTo(label: String) {
@@ -327,6 +354,7 @@ class HengjiAppUiTest {
         maintenanceCosts = emptyList(),
         usageEvents = emptyList(),
         marketQuotes = emptyList(),
+        insightPreferences = InsightPreferenceRecord(onboardingCompletedAtEpochMillis = 1),
     )
 
     private fun transaction(
@@ -371,7 +399,7 @@ class HengjiAppUiTest {
             mediaType: String,
         ): String? {
             calls += ExportCall(
-                title = if (mediaType == "application/json") "JSON 数据导出" else "CSV 流水导出",
+                title = if (mediaType == "application/json") "JSON 数据导出" else "CSV 账单导出",
                 suggestedFileName = suggestedFileName,
                 utf8Content = utf8Content,
                 mediaType = mediaType,

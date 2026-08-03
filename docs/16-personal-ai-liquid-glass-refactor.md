@@ -1,5 +1,7 @@
 # 恒迹个性化 AI 与 Liquid Glass 重构验收
 
+> 本文记录 2026-08-03 较早一轮的 UI/规则学习验收。其“可选模型、默认关闭、未配置真实模型”等描述已被后续内置模型实现替代；当前合同与证据以 `docs/17-built-in-personal-ai-onboarding.md` 为准。
+
 状态：`WINDOWS_ANDROID_LOCAL_ACCEPTED`
 
 日期：2026-08-03

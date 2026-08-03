@@ -32,7 +32,7 @@ import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
-const val LEDGER_EXPORT_SCHEMA_VERSION: Int = 4
+const val LEDGER_EXPORT_SCHEMA_VERSION: Int = 5
 
 object LedgerJsonCodec {
     private val json = Json {
@@ -65,6 +65,7 @@ object LedgerJsonCodec {
                 1 -> migrateVersionOneToTwo(migrated)
                 2 -> migrateVersionTwoToThree(migrated)
                 3 -> migrateVersionThreeToFour(migrated)
+                4 -> migrateVersionFourToFive(migrated)
                 else -> error("Unsupported ledger schema")
             }
             migratedVersion += 1
@@ -133,6 +134,26 @@ object LedgerJsonCodec {
         return JsonObject(
             root + mapOf(
                 "schemaVersion" to JsonPrimitive(4),
+                "insightPreferences" to migratedPreferences,
+            ),
+        )
+    }
+
+    private fun migrateVersionFourToFive(root: JsonObject): JsonObject {
+        val legacyPreferences = root["insightPreferences"] as? JsonObject ?: JsonObject(emptyMap())
+        val migratedPreferences = JsonObject(
+            legacyPreferences + mapOf(
+                "personalAiEnabled" to
+                    (legacyPreferences["personalAiEnabled"] ?: JsonPrimitive(true)),
+                "onboardingCompletedAtEpochMillis" to
+                    (legacyPreferences["onboardingCompletedAtEpochMillis"] ?: JsonNull),
+                "personalAnalysisHistory" to
+                    (legacyPreferences["personalAnalysisHistory"] ?: JsonArray(emptyList())),
+            ),
+        )
+        return JsonObject(
+            root + mapOf(
+                "schemaVersion" to JsonPrimitive(5),
                 "insightPreferences" to migratedPreferences,
             ),
         )
@@ -353,6 +374,9 @@ private data class InsightPreferencesDto(
     val adoptedDeduplicationKeys: Set<String> = emptySet(),
     val snoozedUntilEpochMillisByKey: Map<String, Long> = emptyMap(),
     val feedbackTypeByKey: Map<String, String> = emptyMap(),
+    val personalAiEnabled: Boolean = true,
+    val onboardingCompletedAtEpochMillis: Long? = null,
+    val personalAnalysisHistory: List<PersonalAnalysisRecord> = emptyList(),
 ) {
     fun toDomain() = InsightPreferenceRecord(
         mutedTypes = mutedTypes,
@@ -361,6 +385,9 @@ private data class InsightPreferencesDto(
         adoptedDeduplicationKeys = adoptedDeduplicationKeys,
         snoozedUntilEpochMillisByKey = snoozedUntilEpochMillisByKey,
         feedbackTypeByKey = feedbackTypeByKey,
+        personalAiEnabled = personalAiEnabled,
+        onboardingCompletedAtEpochMillis = onboardingCompletedAtEpochMillis,
+        personalAnalysisHistory = personalAnalysisHistory,
     )
     companion object {
         fun from(value: InsightPreferenceRecord) = InsightPreferencesDto(
@@ -370,6 +397,9 @@ private data class InsightPreferencesDto(
             adoptedDeduplicationKeys = value.adoptedDeduplicationKeys,
             snoozedUntilEpochMillisByKey = value.snoozedUntilEpochMillisByKey,
             feedbackTypeByKey = value.feedbackTypeByKey,
+            personalAiEnabled = value.personalAiEnabled,
+            onboardingCompletedAtEpochMillis = value.onboardingCompletedAtEpochMillis,
+            personalAnalysisHistory = value.personalAnalysisHistory,
         )
     }
 }

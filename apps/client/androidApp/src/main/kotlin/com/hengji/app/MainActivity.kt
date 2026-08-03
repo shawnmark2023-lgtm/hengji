@@ -17,7 +17,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
-import com.hengji.data.ProtectedLedgerOpenOutcome
 import com.hengji.data.ProtectedLedgerOpenResult
 import com.hengji.data.openAndroidProtectedLedger
 import com.hengji.app.application.PriceNotificationControl
@@ -31,6 +30,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
+    private val personalInsightModelProviderDelegate = lazy {
+        BuiltInPersonalInsightModelProvider {
+            AndroidBuiltInModelAssets.ensureInstalled(applicationContext).absolutePath
+        }
+    }
     private var storageState by mutableStateOf<AndroidStorageState>(AndroidStorageState.Loading)
     private var quickEntryRequest by mutableStateOf<QuickEntryRequest?>(null)
     private var quickEntrySequence = 0L
@@ -67,7 +71,7 @@ class MainActivity : ComponentActivity() {
                     repository = state.result.repository,
                     userImportDocumentPicker = importPicker,
                     ledgerExportWriter = exportWriter,
-                    seedDemoData = state.result.outcome == ProtectedLedgerOpenOutcome.CREATED_EMPTY,
+                    seedDemoData = false,
                     quickEntryRequest = quickEntryRequest,
                     priceNotificationControl = PriceNotificationControl(
                         status = notificationStatus,
@@ -76,6 +80,7 @@ class MainActivity : ComponentActivity() {
                         disable = ::disablePriceNotifications,
                     ),
                     systemReduceMotion = systemReduceMotion,
+                    personalInsightModelProvider = personalInsightModelProviderDelegate.value,
                 )
 
                 AndroidStorageState.Failed -> AndroidStorageStartupStatus(
@@ -93,6 +98,13 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         refreshNotificationStatus()
         refreshSystemReduceMotion()
+    }
+
+    override fun onDestroy() {
+        if (personalInsightModelProviderDelegate.isInitialized()) {
+            personalInsightModelProviderDelegate.value.close()
+        }
+        super.onDestroy()
     }
 
     override fun onNewIntent(intent: Intent) {

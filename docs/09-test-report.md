@@ -1,5 +1,32 @@
 # 测试与构建报告
 
+## 2026-08-03 内置专属分析与首用引导增量验收
+
+本轮交付并验证 Windows/Android 内置本机模型、90 天首次分析门槛、有界个性化记忆、明确反馈学习、通俗功能命名和四步新手引导。模型随安装包交付，不存在运行期下载或远程推理降级；用户可关闭智能分析。iOS/macOS 仍按产品决定延期，本节不宣称其构建、签名或设备验收通过。
+
+| 门禁 | 结果 | 实测证据 |
+| --- | --- | --- |
+| Desktop | 通过 | Kotlin 208/208，0 failure/error/skip；含真实内置模型离线中文推理；ProGuard Release 与 MSI 构建通过 |
+| Windows MSI | 通过（发布边界保留） | 行政解包、首次启动、重开、DPAPI 三个保护物、密文跨重启不变、0 明文数据库、密文不含测试哨兵；MSI/EXE 均未签名 |
+| Android host/build | 通过 | host 63/63；Debug、R8 Release、AndroidTest APK；lint 0 error/0 fatal/14 warning，`Aligned16KB=0` |
+| Android API 36 | 通过 | Google APIs x86_64 AVD instrumentation 4/4；真实模型用例完成资产安装、哈希校验、原生运行时加载与中文离线推理 |
+| Android 权限/ABI | 通过 | Release 仅 arm64-v8a；不含 `INTERNET`、`READ_SMS`、`RECEIVE_SMS`；`zipalign -c -P 16 4` 通过 |
+| 静态与质量 | 通过 | 格式 194、架构 40、发布守卫 335、依赖复现 18、供应链清单 352、畸形导入 8/8、10 万账单 4/4（105 ms、43.07 MiB） |
+| 覆盖率 | 通过 | core-domain 94.76%/61.90%，core-insights 93.51%/60.79%，connectors 91.86%/53.23%（行/分支） |
+| 供应链 | 通过 | CycloneDX 1.6：280 组件；OSV Scanner 2.3.8：276 包、0 已知漏洞、0 许可证违规；64 个 GitHub Action 引用均为完整 SHA |
+| 辅助服务 | 通过 | connector 4/4、TypeScript 与 Python 严格类型检查、npm audit 0；生产连接器保持 fail-closed |
+| 财务应用校验器 | 通过 | 扫描 1,388 个文件，0 error、0 warning |
+
+当前重建工件：
+
+- Android Debug APK：481,401,256 bytes，SHA-256 `8BC4C74EFAFF4562B1DA70D6BD518CAFAF2211FD34B73FBE4359991AF505061C`。
+- Android 未签名 R8 Release APK：387,035,540 bytes，SHA-256 `0CD539AFA8D9D765C8D9B4E74B646FC1E664DA321B668CD943B2C92E40A3B85D`。
+- Android instrumentation APK：4,449,694 bytes，SHA-256 `AE322565147415A5041053258F4398A6B4EE64913CE465D4D1121449B0EF29D9`。
+- Windows 未签名 MSI 0.1.0：449,733,384 bytes，SHA-256 `10C080B2E2E093EEF426C12F7CDF73A8A2413A4414711B90AB8CBD8DDAA33D78`。
+- CycloneDX 1.6 SBOM：193,049 bytes，SHA-256 `0600986717420E3B8FD41F717831F018E07A3F88F8C44574B21CC68991856358`。
+
+尚未关闭的边界：Windows/Android 生产签名与商店流程、Android AAB 和 Play App Signing、代表性实体机模型内存/延迟/温升/低存储测试、TalkBack/Narrator/真实硬件键盘、ChromeOS/x86 发行决策。完整实现与隐私边界见 `docs/17-built-in-personal-ai-onboarding.md`。
+
 ## 2026-07-28 Windows/Android 全量工程与安全验收
 
 本轮在当前未提交源码状态上重新执行所有本机可运行门禁；iOS/macOS 不在范围内。结论为 **Windows/Android 本地代码与工程验收通过**，不等同于 Beta、生产、签名或商店发布。完整命令、工件哈希、安全发现与未验证边界见 `docs/13-engineering-security-acceptance.md`。

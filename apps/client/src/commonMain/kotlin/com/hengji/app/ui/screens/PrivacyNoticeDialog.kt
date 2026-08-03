@@ -49,7 +49,7 @@ internal fun PrivacyNoticeDialog(
                 PrivacySection(
                     title = "保留、导出与删除",
                     body = "数据会保留到你在设置中清除、卸载应用或由操作系统移除应用数据为止。" +
-                        "你可以随时导出完整 JSON 备份或 CSV 流水；“清除数据”会在确认后删除本机账本内容。",
+                        "你可以随时导出完整 JSON 备份或 CSV 账单；“清除数据”会在确认后删除本机账本内容。",
                 )
                 PrivacySection(
                     title = "选择与撤回",

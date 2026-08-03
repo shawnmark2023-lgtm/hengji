@@ -15,6 +15,14 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.mlkit.text.recognition.chinese)
     implementation(libs.androidx.work.runtime)
+    implementation(
+        files(
+            rootProject.file(
+                "third_party/ai/runtime/0.15.0/onnxruntime-genai-android-0.15.0-hengji.aar",
+            ),
+        ),
+    )
+    implementation(files(rootProject.file("third_party/ai/runtime/0.15.0/onnxruntime-android-1.26.0.aar")))
     androidTestImplementation("androidx.test:runner:1.7.0")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
@@ -36,9 +44,17 @@ android {
     }
 
     buildTypes {
+        debug {
+            ndk {
+                abiFilters += setOf("arm64-v8a", "x86_64")
+            }
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            ndk {
+                abiFilters += "arm64-v8a"
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -48,6 +64,17 @@ android {
 
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
+    }
+
+    sourceSets.getByName("main").assets.directories.add(
+        rootProject.file("third_party/ai/model/common").absolutePath,
+    )
+    sourceSets.getByName("main").jniLibs.directories.add(
+        rootProject.file("third_party/ai/runtime/0.15.0/android-jni").absolutePath,
+    )
+
+    androidResources {
+        noCompress += setOf("onnx", "data", "json", "txt", "jinja")
     }
 
     compileOptions {

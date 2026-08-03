@@ -69,6 +69,8 @@ import com.hengji.app.model.DomainDemoData
 import com.hengji.app.model.currencyDisplayPrefix
 import com.hengji.app.model.parseMoneyToMinor
 import com.hengji.app.model.withModelResult
+import com.hengji.app.model.toGeneratedModelResult
+import com.hengji.app.model.toPersonalAnalysisRecord
 import com.hengji.app.navigation.AppDestination
 import com.hengji.app.theme.HengjiTheme
 import com.hengji.app.theme.HengjiSpacing
@@ -78,6 +80,7 @@ import com.hengji.app.ui.screens.InsightsScreen
 import com.hengji.app.ui.screens.LedgerScreen
 import com.hengji.app.ui.screens.OverviewScreen
 import com.hengji.app.ui.screens.SettingsScreen
+import com.hengji.app.ui.screens.FirstRunGuide
 import com.hengji.data.InMemoryLedgerRepository
 import com.hengji.data.InsightPreferenceRecord
 import com.hengji.data.LedgerJsonExporter
@@ -110,6 +113,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlin.time.Clock
+
+private const val PERSONAL_ANALYSIS_INTERVAL_MILLIS: Long = 30L * 24L * 60L * 60L * 1_000L
 
 @Composable
 fun HengjiApp() {
@@ -173,6 +178,8 @@ fun HengjiApp(
     var showAddAsset by rememberSaveable { mutableStateOf(false) }
     var manualQuoteAssetId by rememberSaveable { mutableStateOf<String?>(null) }
     var showImportWizard by rememberSaveable { mutableStateOf(false) }
+    var showFirstRunGuideAgain by rememberSaveable { mutableStateOf(false) }
+    var firstRunGuideDismissedThisSession by rememberSaveable { mutableStateOf(false) }
     var editingTransactionId by rememberSaveable { mutableStateOf<String?>(null) }
     var transactionPendingDeletionId by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingTransactionUndo by remember { mutableStateOf<PendingTransactionUndo?>(null) }
@@ -185,7 +192,6 @@ fun HengjiApp(
     var insightFeedbackBusyKey by remember { mutableStateOf<String?>(null) }
     var insightFeedbackResetting by remember { mutableStateOf(false) }
     var insightFeedbackStatus by remember { mutableStateOf<String?>(null) }
-    var insightModelConsentAtEpochMillis by rememberSaveable { mutableStateOf<Long?>(null) }
     var insightModelResult by remember { mutableStateOf<PersonalInsightGenerationResult.Generated?>(null) }
     var insightModelBusy by remember { mutableStateOf(false) }
     var insightModelStatus by remember { mutableStateOf<String?>(null) }
@@ -309,13 +315,13 @@ fun HengjiApp(
                 if (restored) {
                     snapshot = gateway.snapshot()
                 } else {
-                    storageError = "撤销失败：流水已再次变化或撤销窗口已过期。"
+                    storageError = "撤销失败：账单已再次变化或撤销窗口已过期。"
                 }
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Exception) {
                 pendingTransactionUndo = null
-                storageError = "撤销失败：流水已再次变化或撤销窗口已过期。"
+                storageError = "撤销失败：账单已再次变化或撤销窗口已过期。"
             } finally {
                 storageBusy = false
             }
@@ -386,21 +392,38 @@ fun HengjiApp(
     }
     val localInsightFeed = insightComputation.feed
     val insightModelRequest = insightComputation.modelRequest
+    val personalAiEnabled = currentSnapshot.insightPreferences.personalAiEnabled
+    val savedAnalysis = currentSnapshot.insightPreferences.personalAnalysisHistory.lastOrNull()
     val insightModelConsent = InsightExplanationConsent(
-        enabled = insightModelConsentAtEpochMillis != null,
-        consentedAtEpochMillis = insightModelConsentAtEpochMillis,
+        enabled = personalAiEnabled,
+        consentedAtEpochMillis = if (personalAiEnabled) savedAnalysis?.createdAtEpochMillis ?: 0L else null,
     )
-    LaunchedEffect(insightModelRequest, insightModelConsent, personalInsightModelProvider) {
+    LaunchedEffect(
+        insightModelRequest,
+        personalAiEnabled,
+        personalInsightModelProvider,
+        savedAnalysis?.createdAtEpochMillis,
+    ) {
         insightModelResult = null
         if (!insightModelConsent.enabled) {
-            insightModelStatus = null
+            insightModelStatus = "智能分析已关闭；不会加载模型，记账和账单仍可正常使用。"
             insightModelBusy = false
             return@LaunchedEffect
         }
         val request = insightModelRequest
         if (request == null) {
-            insightModelStatus = "暂时没有达到可靠阈值的候选洞察，未请求模型。"
+            insightModelStatus = if (localInsightFeed.firstAnalysisEligible) {
+                "这期没有足够可靠的重点，恒迹不会为了显得聪明而编造结论。"
+            } else {
+                "再积累 ${localInsightFeed.daysUntilFirstAnalysis} 天左右的消费记录，就会生成第一次专属分析。"
+            }
             insightModelBusy = false
+            return@LaunchedEffect
+        }
+        val analysisDue = savedAnalysis == null ||
+            nowEpochMillis - savedAnalysis.createdAtEpochMillis >= PERSONAL_ANALYSIS_INTERVAL_MILLIS
+        if (!analysisDue) {
+            insightModelStatus = "已显示最近一次专属分析；满一个月后会结合新记录和反馈再次分析。"
             return@LaunchedEffect
         }
         insightModelBusy = true
@@ -411,20 +434,40 @@ fun HengjiApp(
         when (result) {
             is PersonalInsightGenerationResult.Generated -> {
                 insightModelResult = result
-                insightModelStatus = "模型表达已更新；数值、排序和证据仍由本机计算。"
+                val createdAt = Clock.System.now().toEpochMilliseconds()
+                val currentPreferences = currentSnapshot.insightPreferences
+                val history = (
+                    currentPreferences.personalAnalysisHistory +
+                        result.toPersonalAnalysisRecord(createdAt)
+                    ).takeLast(12)
+                try {
+                    gateway.saveInsightPreferences(
+                        currentPreferences.copy(
+                            updatedAtEpochMillis = createdAt,
+                            personalAnalysisHistory = history,
+                        ),
+                    )
+                    snapshot = gateway.snapshot()
+                    insightModelStatus = "专属分析已保存在本机；以后会结合新记录和你的反馈继续学习。"
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) {
+                    insightModelStatus = "分析已生成，但没有成功保存；账本数据没有改变。"
+                }
             }
             is PersonalInsightGenerationResult.LocalFallback -> {
                 insightModelStatus = when (result.reason) {
-                    "model-provider-unavailable" -> "未配置经过隐私评审的模型，继续使用本机洞察。"
-                    "model-provider-not-privacy-reviewed" -> "模型未通过隐私评审，已阻止发送并回退本机洞察。"
-                    else -> "模型本次未通过本机校验，已安全回退到本机洞察。"
+                    "model-provider-unavailable" -> "内置模型不可用，已安全回退；请重新安装完整应用包。"
+                    "model-provider-not-privacy-reviewed" -> "模型未通过隐私评审，本次不会生成智能建议。"
+                    else -> "模型本次未通过本机校验，已改为显示经过验证的普通建议。"
                 }
             }
         }
         insightModelBusy = false
     }
-    val insightFeed = remember(localInsightFeed, insightModelResult) {
-        localInsightFeed.withModelResult(insightModelResult)
+    val displayedModelResult = insightModelResult ?: savedAnalysis?.toGeneratedModelResult()
+    val insightFeed = remember(localInsightFeed, displayedModelResult) {
+        localInsightFeed.withModelResult(displayedModelResult)
     }
     val insights = insightFeed.items
 
@@ -433,7 +476,7 @@ fun HengjiApp(
             Box(Modifier.fillMaxSize()) {
                 AdaptiveAppShell(
                     destination = destination,
-                    paneTitle = if (showImportWizard) "导入中心" else destination.label,
+                    paneTitle = if (showImportWizard) "导入账单" else destination.label,
                     onDestinationChange = {
                         showImportWizard = false
                         destination = it
@@ -504,12 +547,23 @@ fun HengjiApp(
                         modelBusy = insightModelBusy,
                         modelStatusMessage = insightModelStatus,
                         onModelConsentChange = { enabled ->
-                            insightModelConsentAtEpochMillis = if (enabled) {
-                                Clock.System.now().toEpochMilliseconds()
-                            } else {
+                            if (!enabled) {
                                 insightModelResult = null
-                                null
                             }
+                            val updatedAt = Clock.System.now().toEpochMilliseconds()
+                            persistInsightPreferences(
+                                preferences = currentSnapshot.insightPreferences.copy(
+                                    personalAiEnabled = enabled,
+                                    updatedAtEpochMillis = updatedAt,
+                                ),
+                                busyKey = null,
+                                resetting = false,
+                                successMessage = if (enabled) {
+                                    "智能分析已开启，所有推理只在本机进行"
+                                } else {
+                                    "智能分析已关闭，模型不会再运行"
+                                },
+                            )
                         },
                         onFeedback = { deduplicationKey, feedback ->
                             val updatedAt = Clock.System.now().toEpochMilliseconds()
@@ -536,7 +590,11 @@ fun HengjiApp(
                         onResetFeedback = {
                             val updatedAt = Clock.System.now().toEpochMilliseconds()
                             persistInsightPreferences(
-                                preferences = InsightFeedbackReducer.reset(updatedAt),
+                                preferences = InsightFeedbackReducer.reset(updatedAt).copy(
+                                    personalAiEnabled = currentSnapshot.insightPreferences.personalAiEnabled,
+                                    onboardingCompletedAtEpochMillis =
+                                        currentSnapshot.insightPreferences.onboardingCompletedAtEpochMillis,
+                                ),
                                 busyKey = null,
                                 resetting = true,
                                 successMessage = "已恢复默认建议偏好",
@@ -575,10 +633,10 @@ fun HengjiApp(
                                     mediaType = "text/csv",
                                 )
                                 if (location == null) {
-                                    exportPreview = "CSV 流水导出" to csv
-                                    dataActionStatus = "已生成当前流水的 CSV 导出内容"
+                                    exportPreview = "CSV 账单导出" to csv
+                                    dataActionStatus = "已生成当前账单的 CSV 导出内容"
                                 } else {
-                                    dataActionStatus = "流水已导出到 $location"
+                                    dataActionStatus = "账单已导出到 $location"
                                 }
                             }
                         },
@@ -599,6 +657,7 @@ fun HengjiApp(
                         },
                         onClearData = { confirmClear = true },
                         onOpenImport = { showImportWizard = true },
+                        onOpenFirstRunGuide = { showFirstRunGuideAgain = true },
                         storageStatus = if (gateway is PersistentAppLedgerGateway) {
                             "认证加密账本已跨重启持久化 · 平台密钥保护"
                         } else {
@@ -630,7 +689,7 @@ fun HengjiApp(
                             }
                         },
                     ) {
-                        Text("流水已删除；8 秒内可撤销")
+                        Text("这笔账已删除；8 秒内可撤销")
                     }
                 }
             }
@@ -641,7 +700,7 @@ fun HengjiApp(
         }
         if (showAddTransaction || editingTransaction != null) {
             AddTransactionDialog(
-                title = if (editingTransaction == null) "记一笔消费" else "编辑流水",
+                title = if (editingTransaction == null) "记一笔消费" else "编辑这笔账",
                 initialMerchant = editingTransaction?.merchant?.displayName ?: quickEntryMerchant,
                 initialAmount = editingTransaction?.amount?.minorUnits?.let(::minorUnitsToInput)
                     ?: quickEntryAmountMinor?.let(::minorUnitsToInput).orEmpty(),
@@ -690,10 +749,10 @@ fun HengjiApp(
         transactionPendingDeletion?.let { transaction ->
             AlertDialog(
                 onDismissRequest = { transactionPendingDeletionId = null },
-                title = { Text("删除这笔流水？") },
+                title = { Text("删除这笔账？") },
                 text = {
                     Text(
-                        "“${transaction.merchant?.displayName ?: "未命名交易"}”将从流水、总览和智能分析中移除。" +
+                        "“${transaction.merchant?.displayName ?: "未命名交易"}”将从账单、首页和智能分析中移除。" +
                             "删除成功后可在 8 秒内撤销；如记录已变化或存在关联退款，系统会拒绝删除。",
                     )
                 },
@@ -800,7 +859,7 @@ fun HengjiApp(
                     ) {
                         Text(
                             if (title.startsWith("CSV")) {
-                                "这是交易流水表格内容；金额使用整数最小单位。为审计与恢复，软删除记录及删除时间也会导出，日常界面仍会隐藏这些记录。"
+                                "这是账单表格内容；金额使用整数最小单位。为审计与恢复，软删除记录及删除时间也会导出，日常界面仍会隐藏这些记录。"
                             } else {
                                 "这是完整的本机账本备份内容，可用于恢复当前数据；其中包含用于审计与恢复的软删除记录。"
                             },
@@ -824,7 +883,7 @@ fun HengjiApp(
             AlertDialog(
                 onDismissRequest = { confirmClear = false },
                 title = { Text("清除所有本机数据？") },
-                text = { Text("此操作会删除流水、物品、使用记录和本机估值。建议先导出；清除后不可撤销。") },
+                text = { Text("此操作会删除账单、物品、使用记录和本机估值。建议先导出；清除后不可撤销。") },
                 confirmButton = {
                     TextButton(
                         onClick = {
@@ -844,6 +903,31 @@ fun HengjiApp(
                 dismissButton = {
                     TextButton(onClick = { confirmClear = false }) { Text("取消") }
                 },
+            )
+        }
+
+        val shouldShowFirstRunGuide = showFirstRunGuideAgain ||
+            (currentSnapshot.insightPreferences.onboardingCompletedAtEpochMillis == null &&
+                !firstRunGuideDismissedThisSession)
+        if (shouldShowFirstRunGuide) {
+            fun finishFirstRunGuide() {
+                showFirstRunGuideAgain = false
+                firstRunGuideDismissedThisSession = true
+                val completedAt = Clock.System.now().toEpochMilliseconds()
+                persistInsightPreferences(
+                    preferences = currentSnapshot.insightPreferences.copy(
+                        onboardingCompletedAtEpochMillis = completedAt,
+                        updatedAtEpochMillis = completedAt,
+                    ),
+                    busyKey = null,
+                    resetting = false,
+                    successMessage = "使用教程已完成，可在设置里重新打开",
+                )
+            }
+            FirstRunGuide(
+                onFinished = ::finishFirstRunGuide,
+                onTryAddTransaction = { showAddTransaction = true },
+                onTryImport = { showImportWizard = true },
             )
         }
 
@@ -1051,8 +1135,8 @@ private fun AddAssetDialog(
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                 ) {
                     androidx.compose.foundation.layout.Column(Modifier.weight(1f)) {
-                        Text("同时记入消费流水", style = MaterialTheme.typography.titleMedium)
-                        Text("可在流水页继续编辑商户和分类", style = MaterialTheme.typography.bodySmall)
+                        Text("同时记入消费账单", style = MaterialTheme.typography.titleMedium)
+                        Text("可在账单页继续编辑商户和分类", style = MaterialTheme.typography.bodySmall)
                     }
                     Switch(checked = recordExpense, onCheckedChange = null)
                 }

@@ -5,8 +5,10 @@ import com.hengji.app.application.SaleTargetStatus
 import com.hengji.insights.InsightFeedback
 import com.hengji.insights.InsightLearningStage
 import com.hengji.insights.PersonalInsightGenerationResult
+import com.hengji.insights.PersonalInsightModelAnswer
 import com.hengji.insights.PreparedPersonalInsightModelRequest
 import com.hengji.insights.InsightType
+import com.hengji.data.PersonalAnalysisRecord
 import kotlinx.datetime.LocalDate
 
 enum class EntryKind {
@@ -85,10 +87,14 @@ data class PersonalInsightFeed(
     val observedTransactionCount: Int,
     val observedDays: Int,
     val feedbackCount: Int,
+    val observedExpenseMonthCount: Int = 0,
+    val firstAnalysisEligible: Boolean = false,
+    val daysUntilFirstAnalysis: Int = 90,
 ) {
     init {
         require(learningPercent in 0..100)
         require(observedTransactionCount >= 0 && observedDays >= 0 && feedbackCount >= 0)
+        require(observedExpenseMonthCount >= 0 && daysUntilFirstAnalysis >= 0)
     }
 }
 
@@ -116,6 +122,30 @@ fun PersonalInsightFeed.withModelResult(
         },
     )
 }
+
+fun PersonalAnalysisRecord.toGeneratedModelResult(): PersonalInsightGenerationResult.Generated =
+    PersonalInsightGenerationResult.Generated(
+        localDeduplicationKey = localDeduplicationKey,
+        answer = PersonalInsightModelAnswer(
+            candidateKey = "saved-local-analysis",
+            headline = headline,
+            summary = summary,
+            evidenceCodes = evidenceCodes,
+            actionLabel = actionLabel,
+        ),
+        providerDisclosure = "由恒迹内置本机模型生成；数据未离开设备，金额与依据以账本计算为准。",
+    )
+
+fun PersonalInsightGenerationResult.Generated.toPersonalAnalysisRecord(
+    createdAtEpochMillis: Long,
+): PersonalAnalysisRecord = PersonalAnalysisRecord(
+    createdAtEpochMillis = createdAtEpochMillis,
+    localDeduplicationKey = localDeduplicationKey,
+    headline = answer.headline.trim(),
+    summary = answer.summary.trim(),
+    actionLabel = answer.actionLabel.trim(),
+    evidenceCodes = answer.evidenceCodes,
+)
 
 private val demoAsOf = LocalDate(2026, 7, 15)
 val sampleTransactions: List<DemoTransaction> = DomainDemoData.transactions(DomainDemoData.initialSnapshot, demoAsOf)

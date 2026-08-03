@@ -75,7 +75,7 @@ fun OverviewScreen(
             ScreenHeader(
                 eyebrow = "${asOf.year} 年 ${asOf.month.ordinal + 1} 月 · 第 ${(asOf.day - 1) / 7 + 1} 周",
                 title = "今天的消费很清楚",
-                supporting = "恒迹把流水、物品和可执行建议放在同一张本地视图里。",
+                supporting = "本月花了多少、最近记了什么，一眼就能看懂。",
                 action = { LocalOnlyBadge() },
             )
         }
@@ -100,13 +100,13 @@ fun OverviewScreen(
                         MetricCard(
                             label = "本月支出",
                             value = formatMoney(spend),
-                            supporting = "按本月已记流水实时汇总",
+                            supporting = "按本月已记账单计算",
                             modifier = Modifier.weight(1f),
                         )
                         MetricCard(
                             label = "还可支配",
                             value = formatMoney(available),
-                            supporting = "预算剩余 $remainingPercent%，按本月已记流水计算",
+                            supporting = "预算还剩 $remainingPercent%，按本月账单计算",
                             modifier = Modifier.weight(1f),
                             accent = HengjiApricot,
                         )
@@ -120,11 +120,11 @@ fun OverviewScreen(
                     }
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(HengjiSpacing.md)) {
-                        MetricCard("本月支出", formatMoney(spend), "按本月已记流水实时汇总", Modifier.fillMaxWidth())
+                        MetricCard("本月花了", formatMoney(spend), "按本月已记账单计算", Modifier.fillMaxWidth())
                         MetricCard(
                             "还可支配",
                             formatMoney(available),
-                            "预算剩余 $remainingPercent%，按本月已记流水计算",
+                            "预算还剩 $remainingPercent%，按本月账单计算",
                             Modifier.fillMaxWidth(),
                             HengjiApricot,
                         )
@@ -163,7 +163,7 @@ fun OverviewScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column {
-                            Text("最近流水", style = MaterialTheme.typography.titleLarge)
+                            Text("最近记的账", style = MaterialTheme.typography.titleLarge)
                             Text(
                                 "最近发生的收支与来源",
                                 style = MaterialTheme.typography.bodyMedium,
@@ -200,7 +200,7 @@ private fun FirstRunGuide(
             }
             GuideStep("1", "记一笔", "输入金额、商户和分类；之后都可以修改。")
             GuideStep("2", "持续确认", "分类和使用记录越完整，成本视图越可靠。")
-            GuideStep("3", "给洞察反馈", "标记有帮助或不适合，排序会逐步贴近你。")
+            GuideStep("3", "告诉智能分析准不准", "点有帮助或不适合我，下次会更懂你。")
             Button(onClick = onAddTransaction, modifier = Modifier.fillMaxWidth()) {
                 Text("记第一笔")
             }
@@ -297,7 +297,7 @@ private fun InsightPreview(
             if (insight == null) {
                 Text("暂无需要处理的建议", style = MaterialTheme.typography.titleLarge)
                 Text(
-                    "继续记录流水或物品使用后，本机规则会在这里给出有证据的建议。",
+                    "继续记账或记录物品使用，三个月后这里会出现你的专属分析。",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

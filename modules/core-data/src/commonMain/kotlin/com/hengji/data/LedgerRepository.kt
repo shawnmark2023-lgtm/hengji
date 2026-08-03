@@ -7,6 +7,7 @@ import com.hengji.domain.MarketQuote
 import com.hengji.domain.Transaction
 import com.hengji.domain.TransactionId
 import com.hengji.domain.UsageEvent
+import kotlinx.serialization.Serializable
 
 data class LedgerSnapshot(
     val revision: Long,
@@ -26,6 +27,9 @@ data class InsightPreferenceRecord(
     val adoptedDeduplicationKeys: Set<String> = emptySet(),
     val snoozedUntilEpochMillisByKey: Map<String, Long> = emptyMap(),
     val feedbackTypeByKey: Map<String, String> = emptyMap(),
+    val personalAiEnabled: Boolean = true,
+    val onboardingCompletedAtEpochMillis: Long? = null,
+    val personalAnalysisHistory: List<PersonalAnalysisRecord> = emptyList(),
 ) {
     init {
         require(mutedTypes.none { it.isBlank() }) { "Muted insight types cannot be blank" }
@@ -36,6 +40,13 @@ data class InsightPreferenceRecord(
         require(snoozedUntilEpochMillisByKey.values.none { it < 0 }) { "Snooze expiry cannot be negative" }
         require(feedbackTypeByKey.keys.none { it.isBlank() }) { "Feedback insight keys cannot be blank" }
         require(feedbackTypeByKey.values.none { it.isBlank() }) { "Feedback insight types cannot be blank" }
+        require(onboardingCompletedAtEpochMillis == null || onboardingCompletedAtEpochMillis >= 0) {
+            "Onboarding completion time cannot be negative"
+        }
+        require(personalAnalysisHistory.size <= 12) { "At most twelve personal analyses are retained" }
+        require(personalAnalysisHistory.zipWithNext().all { (left, right) ->
+            left.createdAtEpochMillis <= right.createdAtEpochMillis
+        }) { "Personal analyses must be stored in chronological order" }
         require(adoptedDeduplicationKeys.intersect(ignoredDeduplicationKeys).isEmpty()) {
             "An insight cannot be both adopted and ignored"
         }
@@ -54,6 +65,30 @@ data class InsightPreferenceRecord(
         ) {
             "Feedback type metadata must reference a persisted feedback action"
         }
+    }
+}
+
+/**
+ * A bounded, local-only memory of model analyses. The protected ledger owns this record; it is
+ * never treated as a financial fact and can be cleared independently of transaction history.
+ */
+@Serializable
+data class PersonalAnalysisRecord(
+    val createdAtEpochMillis: Long,
+    val localDeduplicationKey: String,
+    val headline: String,
+    val summary: String,
+    val actionLabel: String,
+    val evidenceCodes: List<String>,
+) {
+    init {
+        require(createdAtEpochMillis >= 0)
+        require(localDeduplicationKey.isNotBlank() && localDeduplicationKey.length <= 200)
+        require(headline.length in 1..80)
+        require(summary.length in 1..500)
+        require(actionLabel.length in 1..80)
+        require(evidenceCodes.size in 1..8)
+        require(evidenceCodes.all { it.matches(Regex("[a-z0-9._-]{1,80}")) })
     }
 }
 

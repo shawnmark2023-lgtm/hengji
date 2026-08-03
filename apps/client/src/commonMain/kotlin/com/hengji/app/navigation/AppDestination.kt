@@ -13,9 +13,9 @@ enum class AppDestination(
     val supportingLabel: String,
     val icon: ImageVector,
 ) {
-    Overview("概览", "本月消费与价值", Icons.Default.Home),
-    Ledger("流水", "每一笔收支", Icons.AutoMirrored.Filled.List),
-    Assets("物品", "拥有成本与残值", Icons.Default.ShoppingCart),
-    Insights("洞察", "可解释的优化建议", Icons.Default.Star),
-    Settings("设置", "隐私、导入与偏好", Icons.Default.Settings),
+    Overview("首页", "这个月花了多少", Icons.Default.Home),
+    Ledger("账单", "每一笔收入和支出", Icons.AutoMirrored.Filled.List),
+    Assets("我的物品", "买了多久、还值多少", Icons.Default.ShoppingCart),
+    Insights("智能分析", "看懂钱花到哪里", Icons.Default.Star),
+    Settings("设置", "数据、外观和隐私", Icons.Default.Settings),
 }

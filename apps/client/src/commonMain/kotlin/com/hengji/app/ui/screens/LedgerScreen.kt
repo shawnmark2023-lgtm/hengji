@@ -75,7 +75,7 @@ fun LedgerScreen(
         item {
             ScreenHeader(
                 eyebrow = "本机账本 · ${transactions.size} 笔记录",
-                title = "流水",
+                title = "账单",
                 supporting = "搜索、核对和修正每笔收支；导入记录始终保留来源。",
                 action = {
                     FilledTonalButton(onClick = onAddTransaction) {
@@ -139,7 +139,7 @@ fun LedgerScreen(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
-                            Text("没有匹配的流水", style = MaterialTheme.typography.titleMedium)
+                            Text("没有找到这笔账", style = MaterialTheme.typography.titleMedium)
                             Spacer(Modifier.height(HengjiSpacing.xs))
                             Text(
                                 "调整分类或搜索词后重试。",
@@ -172,7 +172,7 @@ private fun LedgerRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(
-                onClickLabel = "编辑流水",
+                onClickLabel = "编辑这笔账",
                 onClick = onEdit,
             )
             .padding(vertical = HengjiSpacing.md),
@@ -219,7 +219,7 @@ private fun LedgerRow(
         IconButton(onClick = onDelete) {
             Icon(
                 imageVector = Icons.Outlined.Delete,
-                contentDescription = "删除 ${transaction.merchant} 流水",
+                contentDescription = "删除 ${transaction.merchant} 账单",
                 tint = MaterialTheme.colorScheme.error,
             )
         }

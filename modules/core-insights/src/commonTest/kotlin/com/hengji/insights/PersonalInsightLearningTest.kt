@@ -12,10 +12,29 @@ import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.coroutines.startCoroutine
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 class PersonalInsightLearningTest {
+    @Test
+    fun `first personal analysis starts only after ninety days of expense history`() {
+        val asOf = LocalDate(2025, 4, 1)
+        val dayEightyNine = PersonalInsightProfileBuilder.build(
+            listOf(transaction("day-89", LocalDate(2025, 1, 3))),
+            asOf,
+        )
+        val dayNinety = PersonalInsightProfileBuilder.build(
+            listOf(transaction("day-90", LocalDate(2025, 1, 2))),
+            asOf,
+        )
+
+        assertEquals(89, dayEightyNine.observedDays)
+        assertFalse(dayEightyNine.firstAnalysisEligible)
+        assertEquals(90, dayNinety.observedDays)
+        assertTrue(dayNinety.firstAnalysisEligible)
+    }
+
     @Test
     fun `profile becomes established only with history and explicit feedback`() {
         val feedback = (1..8).associate { index -> "trend-$index" to InsightType.SPENDING_TREND }
@@ -62,7 +81,7 @@ class PersonalInsightLearningTest {
     }
 
     @Test
-    fun `model context contains buckets and evidence codes but no raw transaction fields`() {
+    fun `local model context contains verified aggregates but no raw transaction fields`() {
         val profile = PersonalInsightProfileBuilder.build(
             transactions = listOf(transaction("tx", LocalDate(2025, 7, 1))),
             asOf = LocalDate(2025, 7, 20),
@@ -74,6 +93,9 @@ class PersonalInsightLearningTest {
         assertEquals("candidate-1", context.candidates.single().candidateKey)
         assertEquals(listOf("metric.share"), context.candidates.single().evidenceCodes)
         assertEquals("40-44-percent", context.candidates.single().evidenceBuckets.getValue("metric.share"))
+        assertEquals(1, context.exactExpenseCount)
+        assertEquals(20, context.exactHistoryDays)
+        assertEquals(4_000L, context.candidates.single().exactEvidence.single().numericValue)
         assertTrue(context.toString().contains("metric.share"))
         assertTrue(!context.toString().contains("merchant"))
         assertTrue(!context.toString().contains("note"))

@@ -37,6 +37,18 @@ class LedgerJsonCodecTest {
                     "budget:monthly:pace" to "BUDGET_PACE",
                     "spending:trend-increase" to "SPENDING_TREND",
                 ),
+                personalAiEnabled = false,
+                onboardingCompletedAtEpochMillis = 90,
+                personalAnalysisHistory = listOf(
+                    PersonalAnalysisRecord(
+                        createdAtEpochMillis = 80,
+                        localDeduplicationKey = "spending:trend-increase",
+                        headline = "最近支出有变化",
+                        summary = "先从变化最大的类别开始看看。",
+                        actionLabel = "查看支出分类",
+                        evidenceCodes = listOf("change_basis_points"),
+                    ),
+                ),
             ),
             importBatches = listOf(
                 ImportBatchRecord(
@@ -55,7 +67,7 @@ class LedgerJsonCodecTest {
 
         assertEquals(snapshot, restored)
         assertEquals(Money(18_800, CurrencyCode.CNY), restored.assets.first().saleTargetPrice)
-        assertTrue("\"schemaVersion\": 4" in LedgerJsonCodec.export(snapshot))
+        assertTrue("\"schemaVersion\": 5" in LedgerJsonCodec.export(snapshot))
     }
 
     @Test
@@ -118,6 +130,9 @@ class LedgerJsonCodecTest {
         assertTrue(restored.insightPreferences.adoptedDeduplicationKeys.isEmpty())
         assertTrue(restored.insightPreferences.snoozedUntilEpochMillisByKey.isEmpty())
         assertTrue(restored.insightPreferences.feedbackTypeByKey.isEmpty())
+        assertTrue(restored.insightPreferences.personalAiEnabled)
+        assertEquals(null, restored.insightPreferences.onboardingCompletedAtEpochMillis)
+        assertTrue(restored.insightPreferences.personalAnalysisHistory.isEmpty())
     }
 
     @Test

@@ -85,6 +85,7 @@ kotlin {
 
     sourceSets {
         val desktopMain by getting {
+            kotlin.srcDir("src/jvmSharedMain/kotlin")
             dependencies {
                 implementation(
                     "org.jetbrains.compose.desktop:desktop-jvm-$desktopDependencyProfile:" +
@@ -92,9 +93,32 @@ kotlin {
                 )
                 implementation(libs.kotlinx.coroutines.swing)
                 implementation(libs.jna.platform)
+                implementation(
+                    files(rootProject.file("third_party/ai/runtime/0.15.0/onnxruntime-genai-0.15.0.jar")),
+                )
+                implementation(
+                    files(rootProject.file("third_party/ai/runtime/0.15.0/onnxruntime-1.26.0.jar")),
+                )
             }
         }
         val desktopTest by getting
+
+        val androidMain by getting {
+            kotlin.srcDir("src/jvmSharedMain/kotlin")
+            dependencies {
+                implementation(
+                    files(
+                        rootProject.file(
+                            "third_party/ai/runtime/0.15.0/" +
+                                "onnxruntime-genai-android-0.15.0-hengji.aar",
+                        ),
+                    ),
+                )
+                implementation(
+                    files(rootProject.file("third_party/ai/runtime/0.15.0/onnxruntime-android-1.26.0.aar")),
+                )
+            }
+        }
 
         commonMain.dependencies {
             implementation(project(":modules:core-domain"))
@@ -165,6 +189,7 @@ compose.desktop {
             packageVersion = desktopPackageVersion
             description = "Local-first spending value manager"
             vendor = "HENGJI"
+            appResourcesRootDir.set(rootProject.layout.projectDirectory.dir("third_party/ai/model"))
 
             windows {
                 // Keep binaries separate from %LOCALAPPDATA%\Hengji ledger data while
@@ -180,4 +205,13 @@ compose.desktop {
             }
         }
     }
+}
+
+val builtInModelDirectory = "hengji-qwen2.5-0.5b-int4-v1"
+
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    systemProperty(
+        "hengji.testModelDir",
+        rootProject.file("third_party/ai/model/common/models/$builtInModelDirectory").absolutePath,
+    )
 }

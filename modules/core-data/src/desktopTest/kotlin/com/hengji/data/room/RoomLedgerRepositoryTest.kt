@@ -6,6 +6,7 @@ import com.hengji.data.CommitImportBatchRequest
 import com.hengji.data.ImportBatchCommitStatus
 import com.hengji.data.ImportBatchState
 import com.hengji.data.InsightPreferenceRecord
+import com.hengji.data.PersonalAnalysisRecord
 import com.hengji.data.DemoLedger
 import com.hengji.domain.CategoryId
 import com.hengji.domain.CurrencyCode
@@ -39,6 +40,18 @@ class RoomLedgerRepositoryTest {
                     updatedAtEpochMillis = 99,
                     adoptedDeduplicationKeys = setOf("asset:adopted"),
                     snoozedUntilEpochMillisByKey = mapOf("asset:snoozed" to 999),
+                    personalAiEnabled = false,
+                    onboardingCompletedAtEpochMillis = 88,
+                    personalAnalysisHistory = listOf(
+                        PersonalAnalysisRecord(
+                            createdAtEpochMillis = 77,
+                            localDeduplicationKey = "asset:snoozed",
+                            headline = "最近消费有变化",
+                            summary = "先看变化最大的部分。",
+                            actionLabel = "查看分类",
+                            evidenceCodes = listOf("metric.share"),
+                        ),
+                    ),
                 ),
             )
             repository.close()
@@ -51,6 +64,9 @@ class RoomLedgerRepositoryTest {
             assertEquals(setOf("asset:adopted"), snapshot.insightPreferences.adoptedDeduplicationKeys)
             assertEquals(mapOf("asset:snoozed" to 999L), snapshot.insightPreferences.snoozedUntilEpochMillisByKey)
             assertEquals(99L, snapshot.insightPreferences.updatedAtEpochMillis)
+            assertFalse(snapshot.insightPreferences.personalAiEnabled)
+            assertEquals(88L, snapshot.insightPreferences.onboardingCompletedAtEpochMillis)
+            assertEquals("最近消费有变化", snapshot.insightPreferences.personalAnalysisHistory.single().headline)
             repository.close()
         }
     }
@@ -373,6 +389,44 @@ class RoomLedgerRepositoryTest {
                 ).use { statement ->
                     assertTrue(statement.step())
                     assertEquals("{}", statement.getText(0))
+                }
+            }
+        }
+    }
+
+    @Test
+    fun migrationFourToFiveEnablesBuiltInAiAndAddsEmptyLocalMemory() {
+        withDatabaseFileBlocking { path ->
+            BundledSQLiteDriver().open(path).use { connection ->
+                connection.execSQL(
+                    """
+                    CREATE TABLE insight_preferences (
+                        singletonId INTEGER NOT NULL PRIMARY KEY,
+                        mutedTypesJson TEXT NOT NULL,
+                        ignoredDeduplicationKeysJson TEXT NOT NULL,
+                        updatedAtEpochMillis INTEGER NOT NULL,
+                        adoptedDeduplicationKeysJson TEXT NOT NULL,
+                        snoozedUntilEpochMillisByKeyJson TEXT NOT NULL,
+                        feedbackTypeByKeyJson TEXT NOT NULL
+                    )
+                    """.trimIndent(),
+                )
+                connection.execSQL(
+                    "INSERT INTO insight_preferences VALUES (1, '[]', '[]', 77, '[]', '{}', '{}')",
+                )
+
+                MIGRATION_4_5.migrate(connection)
+
+                connection.prepare(
+                    """
+                    SELECT personalAiEnabled, onboardingCompletedAtEpochMillis, personalAnalysisHistoryJson
+                    FROM insight_preferences WHERE singletonId = 1
+                    """.trimIndent(),
+                ).use { statement ->
+                    assertTrue(statement.step())
+                    assertEquals(1, statement.getLong(0))
+                    assertTrue(statement.isNull(1))
+                    assertEquals("[]", statement.getText(2))
                 }
             }
         }

@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.hengji.app.application.PreviewLedgerGateway
 import com.hengji.data.InMemoryLedgerRepository
+import com.hengji.data.InsightPreferenceRecord
 import com.hengji.data.LedgerSnapshot
 import com.hengji.domain.CategoryId
 import com.hengji.domain.CurrencyCode
@@ -46,18 +47,18 @@ class HengjiKeyboardUiTest {
                 }
             }
         }
-        waitUntilExactlyOneExists(hasText("概览") and hasClickAction())
+        waitUntilExactlyOneExists(hasText("首页") and hasClickAction())
 
-        val overviewDestination = onNode(hasText("概览") and hasClickAction())
+        val overviewDestination = onNode(hasText("首页") and hasClickAction())
         overviewDestination.performSemanticsAction(SemanticsActions.RequestFocus)
         overviewDestination.assertIsFocused()
         overviewDestination.performKeyInput { pressKey(Key.Tab) }
 
-        val ledgerDestination = onNode(hasText("流水") and hasClickAction())
+        val ledgerDestination = onNode(hasText("账单") and hasClickAction())
         ledgerDestination.assertIsFocused()
         ledgerDestination.performKeyInput { pressKey(Key.Enter) }
         waitUntilExactlyOneExists(
-            SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "流水"),
+            SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "账单"),
         )
         onNodeWithText("键盘商户").assertIsDisplayed()
     }
@@ -92,6 +93,7 @@ class HengjiKeyboardUiTest {
                 maintenanceCosts = emptyList(),
                 usageEvents = emptyList(),
                 marketQuotes = emptyList(),
+                insightPreferences = InsightPreferenceRecord(onboardingCompletedAtEpochMillis = 1),
             ),
         ),
     )

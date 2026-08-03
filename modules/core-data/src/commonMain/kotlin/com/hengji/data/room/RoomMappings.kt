@@ -5,6 +5,7 @@ import com.hengji.data.ImportBatchRecord
 import com.hengji.data.ImportBatchState
 import com.hengji.data.InsightPreferenceRecord
 import com.hengji.data.LedgerSnapshot
+import com.hengji.data.PersonalAnalysisRecord
 import com.hengji.domain.Asset
 import com.hengji.domain.AssetId
 import com.hengji.domain.AssetStatus
@@ -175,6 +176,9 @@ internal fun InsightPreferenceRecord.toRoomEntity() = InsightPreferencesEntity(
             feedbackTypeByKey.entries.sortedBy { it.key }.forEach { (key, value) -> put(key, value) }
         },
     ),
+    personalAiEnabled = personalAiEnabled,
+    onboardingCompletedAtEpochMillis = onboardingCompletedAtEpochMillis,
+    personalAnalysisHistoryJson = preferenceJson.encodeToString(personalAnalysisHistory),
 )
 
 internal fun InsightPreferencesEntity.toDomain() = InsightPreferenceRecord(
@@ -186,6 +190,9 @@ internal fun InsightPreferencesEntity.toDomain() = InsightPreferenceRecord(
     snoozedUntilEpochMillisByKey =
         preferenceJson.decodeFromString<Map<String, Long>>(snoozedUntilEpochMillisByKeyJson),
     feedbackTypeByKey = preferenceJson.decodeFromString<Map<String, String>>(feedbackTypeByKeyJson),
+    personalAiEnabled = personalAiEnabled,
+    onboardingCompletedAtEpochMillis = onboardingCompletedAtEpochMillis,
+    personalAnalysisHistory = preferenceJson.decodeFromString<List<PersonalAnalysisRecord>>(personalAnalysisHistoryJson),
 )
 
 internal fun ImportBatchRecord.toRoomEntity() = ImportBatchEntity(

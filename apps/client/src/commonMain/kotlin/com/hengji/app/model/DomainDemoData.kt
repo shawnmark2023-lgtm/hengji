@@ -18,6 +18,7 @@ import com.hengji.insights.InsightType
 import com.hengji.insights.PersonalInsightProfile
 import com.hengji.insights.PersonalInsightProfileBuilder
 import com.hengji.insights.PersonalInsightModelContextFactory
+import com.hengji.insights.FIRST_PERSONAL_ANALYSIS_DAYS
 import kotlinx.datetime.LocalDate
 
 /**
@@ -183,18 +184,33 @@ internal object DomainDemoData {
             preferences = preferences,
             nowEpochMillis = nowEpochMillis,
         ).let(::retainPriceTargetInsights)
+        val eligibleInsights = rankedInsights.takeIf { profile.firstAnalysisEligible }.orEmpty()
+        val learningPercent = if (profile.firstAnalysisEligible) {
+            profile.confidenceBasisPoints / 100
+        } else {
+            (profile.observedDays * 100 / FIRST_PERSONAL_ANALYSIS_DAYS).coerceIn(0, 99)
+        }
         val feed = PersonalInsightFeed(
-            items = rankedInsights.map { toDemoInsight(it, profile) },
+            items = eligibleInsights.map { toDemoInsight(it, profile) },
             learningStage = profile.stage,
-            learningPercent = profile.confidenceBasisPoints / 100,
+            learningPercent = learningPercent,
             observedTransactionCount = profile.activeTransactionCount,
             observedDays = profile.observedDays,
             feedbackCount = profile.feedbackCount,
+            observedExpenseMonthCount = profile.observedExpenseMonthCount,
+            firstAnalysisEligible = profile.firstAnalysisEligible,
+            daysUntilFirstAnalysis = (FIRST_PERSONAL_ANALYSIS_DAYS - profile.observedDays).coerceAtLeast(0),
         )
         return PersonalInsightComputation(
             feed = feed,
-            modelRequest = rankedInsights.takeIf { it.isNotEmpty() }?.let {
-                PersonalInsightModelContextFactory.create(profile, it)
+            modelRequest = eligibleInsights.takeIf { it.isNotEmpty() }?.let {
+                PersonalInsightModelContextFactory.create(
+                    profile = profile,
+                    rankedInsights = it,
+                    priorAnalysisSummaries = storedPreferences.personalAnalysisHistory.map { record ->
+                        "${record.headline}：${record.summary}"
+                    },
+                )
             },
         )
     }
@@ -247,8 +263,8 @@ internal object DomainDemoData {
             personalizationReason = profile?.let {
                 val affinity = it.affinities.getValue(insight.type)
                 when {
-                    affinity.helpfulCount > 0 -> "你曾认为这类洞察有帮助，因此本次优先展示。"
-                    affinity.notRelevantCount > 0 -> "这类洞察曾被你标记为不适合，已降低展示优先级。"
+                    affinity.helpfulCount > 0 -> "你曾认为这类建议有帮助，因此本次优先展示。"
+                    affinity.notRelevantCount > 0 -> "这类建议曾被你标记为不适合，已降低展示优先级。"
                     it.feedbackCount > 0 -> "排序已结合你保存在本机的 ${it.feedbackCount} 次反馈。"
                     else -> "当前先依据 ${it.activeTransactionCount} 笔记录建立个人基线。"
                 }

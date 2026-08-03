@@ -176,7 +176,7 @@ private fun CompactShell(
                 onClick = onAddTransaction,
                 modifier = Modifier
                     .size(54.dp)
-                    .semantics { contentDescription = "新增流水" },
+                    .semantics { contentDescription = "记一笔" },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
             ) {
@@ -243,7 +243,7 @@ private fun RailShell(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "新增流水")
+                    Icon(Icons.Default.Add, contentDescription = "记一笔")
                 }
             },
         ) {

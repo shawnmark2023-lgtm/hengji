@@ -87,9 +87,9 @@ fun InsightsScreen(
     ) {
         item {
             ScreenHeader(
-                eyebrow = "只在本机学习",
-                title = "个人洞察",
-                supporting = "恒迹会用你的记录与反馈逐步校准排序。可选 LLM 只接收经同意的脱敏聚合，账单原文不会进入模型。",
+                eyebrow = "数据只留在你的设备",
+                title = "智能分析",
+                supporting = "消费记录覆盖三个月后，内置模型会做第一次专属分析；以后结合新记录和你的反馈继续学习。",
                 action = {
                     TextButton(
                         onClick = { showResetConfirmation = true },
@@ -117,6 +117,8 @@ fun InsightsScreen(
                 busy = modelBusy,
                 statusMessage = modelStatusMessage,
                 reduceMotion = reduceMotion,
+                firstAnalysisEligible = feed.firstAnalysisEligible,
+                daysUntilFirstAnalysis = feed.daysUntilFirstAnalysis,
                 onConsentChange = onModelConsentChange,
             )
         }
@@ -146,7 +148,7 @@ fun InsightsScreen(
             ) {
                 Column {
                     Text(
-                        text = "本期值得关注",
+                        text = "这次最值得注意",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -157,7 +159,7 @@ fun InsightsScreen(
                     )
                 }
                 Text(
-                    text = "按个人相关性排序",
+                    text = "按和你的关系排序",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -196,7 +198,7 @@ fun InsightsScreen(
                 )
                 Spacer(Modifier.width(HengjiSpacing.xs))
                 Text(
-                    "洞察基于本机数据计算，仅供参考，不构成投资、借贷或税务建议。",
+                    "智能分析只在本机运行，仅供你整理消费，不构成投资、借贷或税务建议。",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -207,8 +209,8 @@ fun InsightsScreen(
     if (showResetConfirmation) {
         AlertDialog(
             onDismissRequest = { showResetConfirmation = false },
-            title = { Text("清除个人学习记录？") },
-            text = { Text("这会清除有帮助、不适合和稍后反馈，洞察会恢复为通用排序；账本数据不会改变。") },
+            title = { Text("清除智能学习记录？") },
+            text = { Text("这会清除过去的专属分析和你的反馈，重新从账单学习；收入支出记录不会改变。") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -233,6 +235,8 @@ private fun ModelEnhancementPanel(
     busy: Boolean,
     statusMessage: String?,
     reduceMotion: Boolean,
+    firstAnalysisEligible: Boolean,
+    daysUntilFirstAnalysis: Int,
     onConsentChange: (Boolean) -> Unit,
 ) {
     Surface(
@@ -253,16 +257,24 @@ private fun ModelEnhancementPanel(
                 )
                 Spacer(Modifier.width(HengjiSpacing.sm))
                 Column(Modifier.weight(1f)) {
-                    Text("可选模型增强", style = MaterialTheme.typography.titleMedium)
+                    Text("本机智能分析", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        if (available) "默认关闭 · 本次会话单独同意" else "当前构建未配置模型提供方",
+                        when {
+                            !available -> "完整模型没有安装，请重新安装应用"
+                            consentEnabled -> "已开启 · 不联网 · 不上传账单"
+                            else -> "已关闭 · 模型不会运行"
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
             Text(
-                "开启后只发送阶段、数量区间、百分比区间、证据代码和偏好类型；不会发送商户、备注、账户、原始流水或本机标识。",
+                if (firstAnalysisEligible) {
+                    "已达到第一次分析条件。模型会读取本机汇总和过去反馈，原始账单不会离开设备。"
+                } else {
+                    "还差约 $daysUntilFirstAnalysis 天记录。三个月前只积累数据，不会提前给出不可靠结论。"
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -278,9 +290,9 @@ private fun ModelEnhancementPanel(
                     }
                     Text(
                         when {
-                            busy -> "正在进行本机校验…"
-                            consentEnabled -> "关闭模型增强"
-                            else -> "同意并开启本次会话"
+                            busy -> "正在本机分析…"
+                            consentEnabled -> "关闭智能分析"
+                            else -> "开启智能分析"
                         },
                     )
                 }
@@ -300,10 +312,10 @@ private fun ModelEnhancementPanel(
 @Composable
 private fun LearningProfilePanel(feed: PersonalInsightFeed) {
     val stageLabel = when (feed.learningStage) {
-        InsightLearningStage.STARTING -> "建立基线"
-        InsightLearningStage.LEARNING -> "正在学习"
-        InsightLearningStage.PERSONALIZED -> "已个性化"
-        InsightLearningStage.ESTABLISHED -> "稳定画像"
+        InsightLearningStage.STARTING -> "正在积累记录"
+        InsightLearningStage.LEARNING -> "开始了解你"
+        InsightLearningStage.PERSONALIZED -> "越来越懂你"
+        InsightLearningStage.ESTABLISHED -> "已形成长期习惯"
     }
     Surface(
         modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
@@ -333,7 +345,7 @@ private fun LearningProfilePanel(feed: PersonalInsightFeed) {
                 }
                 Spacer(Modifier.width(HengjiSpacing.sm))
                 Column(Modifier.weight(1f)) {
-                    Text("你的财务学习成熟度", style = MaterialTheme.typography.labelLarge)
+                    Text("专属分析准备进度", style = MaterialTheme.typography.labelLarge)
                     Text(stageLabel, style = MaterialTheme.typography.titleLarge)
                 }
                 Text(
@@ -353,12 +365,16 @@ private fun LearningProfilePanel(feed: PersonalInsightFeed) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                LearningStat("记录", "${feed.observedTransactionCount} 笔")
-                LearningStat("覆盖", "${feed.observedDays} 天")
-                LearningStat("反馈", "${feed.feedbackCount} 次")
+                LearningStat("消费记录", "${feed.observedTransactionCount} 笔")
+                LearningStat("已记录", "${feed.observedDays} 天")
+                LearningStat("月份", "${feed.observedExpenseMonthCount} 个")
             }
             Text(
-                "记录越完整、反馈越明确，后续洞察的排序和表达越贴近你；确定性证据始终由本机规则计算。",
+                if (feed.firstAnalysisEligible) {
+                    "已经可以生成专属分析。你点“有帮助”或“不适合我”，下次分析会记住。"
+                } else {
+                    "继续正常记账即可。覆盖至少三个月后，恒迹会自动做第一次专属分析。"
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -388,12 +404,15 @@ private fun EmptyInsightState(feed: PersonalInsightFeed) {
             verticalArrangement = Arrangement.spacedBy(HengjiSpacing.sm),
         ) {
             Icon(Icons.Outlined.AutoAwesome, contentDescription = null, modifier = Modifier.size(30.dp))
-            Text("暂时没有需要打扰你的事项", style = MaterialTheme.typography.titleMedium)
             Text(
-                if (feed.observedTransactionCount < 10) {
-                    "再记录一些流水后，恒迹会建立更可靠的个人基线。"
+                if (feed.firstAnalysisEligible) "这次没有需要特别提醒" else "先安心记满三个月",
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                if (!feed.firstAnalysisEligible) {
+                    "还差约 ${feed.daysUntilFirstAnalysis} 天。记录得越完整，第一次分析越像你。"
                 } else {
-                    "本期数据没有触发可靠规则；恒迹不会为了显得聪明而编造建议。"
+                    "本期数据没有足够可靠的变化；恒迹不会为了显得聪明而编造建议。"
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -434,7 +453,7 @@ private fun InsightPanel(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "洞察 ${index + 1}",
+                    text = "建议 ${index + 1}",
                     style = MaterialTheme.typography.labelLarge,
                     color = accent,
                 )

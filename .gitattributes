@@ -1,0 +1,6 @@
+third_party/ai/**/*.onnx filter=lfs diff=lfs merge=lfs -text
+third_party/ai/**/*.data filter=lfs diff=lfs merge=lfs -text
+third_party/ai/**/*.jar filter=lfs diff=lfs merge=lfs -text
+third_party/ai/**/*.aar filter=lfs diff=lfs merge=lfs -text
+third_party/ai/**/*.so filter=lfs diff=lfs merge=lfs -text
+third_party/ai/**/tokenizer.json filter=lfs diff=lfs merge=lfs -text

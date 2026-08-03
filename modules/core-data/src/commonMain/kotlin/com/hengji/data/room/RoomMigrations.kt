@@ -31,3 +31,20 @@ object MIGRATION_3_4 : Migration(3, 4) {
         )
     }
 }
+
+object MIGRATION_4_5 : Migration(4, 5) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL(
+            "ALTER TABLE insight_preferences " +
+                "ADD COLUMN personalAiEnabled INTEGER NOT NULL DEFAULT 1",
+        )
+        connection.execSQL(
+            "ALTER TABLE insight_preferences " +
+                "ADD COLUMN onboardingCompletedAtEpochMillis INTEGER",
+        )
+        connection.execSQL(
+            "ALTER TABLE insight_preferences " +
+                "ADD COLUMN personalAnalysisHistoryJson TEXT NOT NULL DEFAULT '[]'",
+        )
+    }
+}

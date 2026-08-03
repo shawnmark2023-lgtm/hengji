@@ -1,6 +1,7 @@
 package com.hengji.insights
 
 import com.hengji.domain.Transaction
+import com.hengji.domain.TransactionKind
 import kotlinx.datetime.LocalDate
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -25,8 +26,9 @@ data class InsightTypeAffinity(
 }
 
 /**
- * A deterministic, local-only user model. It is rebuilt from the ledger and explicit feedback so
- * it can be inspected, reset, exported and reproduced without treating an opaque model as truth.
+ * The inspectable profile and ranking layer that feeds the built-in local language model. It is
+ * rebuilt from the ledger and explicit feedback so eligibility and financial claims remain
+ * reproducible instead of treating generated text as truth.
  */
 data class PersonalInsightProfile(
     val stage: InsightLearningStage,
@@ -35,6 +37,8 @@ data class PersonalInsightProfile(
     val feedbackCount: Int,
     val confidenceBasisPoints: Int,
     val affinities: Map<InsightType, InsightTypeAffinity>,
+    val observedExpenseMonthCount: Int = 0,
+    val firstAnalysisEligible: Boolean = observedDays >= FIRST_PERSONAL_ANALYSIS_DAYS,
 ) {
     init {
         require(activeTransactionCount >= 0)
@@ -42,6 +46,7 @@ data class PersonalInsightProfile(
         require(feedbackCount >= 0)
         require(confidenceBasisPoints in 0..10_000)
         require(affinities.keys == affinities.values.mapTo(mutableSetOf()) { it.type })
+        require(observedExpenseMonthCount >= 0)
     }
 
     val preferredTypes: List<InsightType>
@@ -63,15 +68,21 @@ object PersonalInsightProfileBuilder {
         asOf: LocalDate,
         preferences: InsightPreferences = InsightPreferences(),
     ): PersonalInsightProfile {
-        val active = transactions.filter { !it.isDeleted && it.bookedOn <= asOf }
+        val active = transactions.filter {
+            !it.isDeleted && it.bookedOn <= asOf && it.kind == TransactionKind.EXPENSE
+        }
         val earliest = active.minOfOrNull { it.bookedOn }
         val observedDays = earliest?.let {
             (asOf.toEpochDays() - it.toEpochDays() + 1).coerceAtLeast(0).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
         } ?: 0
         val affinities = InsightPreferenceWeights.affinities(preferences)
         val feedbackCount = preferences.feedbackTypeByKey.size
+        val observedExpenseMonthCount = active
+            .mapTo(mutableSetOf()) { it.bookedOn.year * 12 + it.bookedOn.month.ordinal }
+            .size
+        val firstAnalysisEligible = observedDays >= FIRST_PERSONAL_ANALYSIS_DAYS
         val stage = when {
-            active.size < 10 || observedDays < 14 -> InsightLearningStage.STARTING
+            !firstAnalysisEligible -> InsightLearningStage.STARTING
             active.size < 40 || feedbackCount < 2 -> InsightLearningStage.LEARNING
             active.size < 120 || feedbackCount < 8 -> InsightLearningStage.PERSONALIZED
             else -> InsightLearningStage.ESTABLISHED
@@ -86,9 +97,13 @@ object PersonalInsightProfileBuilder {
             feedbackCount = feedbackCount,
             confidenceBasisPoints = (dataScore + horizonScore + feedbackScore).toInt(),
             affinities = affinities,
+            observedExpenseMonthCount = observedExpenseMonthCount,
+            firstAnalysisEligible = firstAnalysisEligible,
         )
     }
 }
+
+const val FIRST_PERSONAL_ANALYSIS_DAYS: Int = 90
 
 object InsightPreferenceWeights {
     fun affinities(preferences: InsightPreferences): Map<InsightType, InsightTypeAffinity> {
@@ -119,11 +134,11 @@ object InsightPreferenceWeights {
 }
 
 /**
- * Whitelisted context for an optional LLM. No transaction rows, merchant names, notes, account
- * identifiers or import payloads can be represented by this contract.
+ * Whitelisted local-only context for the built-in LLM. No transaction rows, merchant names,
+ * notes, account identifiers or import payloads can be represented by this contract.
  */
 data class PersonalInsightModelContext(
-    val protocolVersion: Int = 1,
+    val protocolVersion: Int = 2,
     val learningStage: String,
     val confidenceBasisPoints: Int,
     val transactionCountBucket: String,
@@ -131,9 +146,13 @@ data class PersonalInsightModelContext(
     val feedbackCountBucket: String,
     val preferredInsightTypes: List<String>,
     val candidates: List<PersonalInsightModelCandidate>,
+    val exactExpenseCount: Int = 0,
+    val exactHistoryDays: Int = 0,
+    val observedExpenseMonthCount: Int = 0,
+    val priorAnalysisSummaries: List<String> = emptyList(),
 ) {
     init {
-        require(protocolVersion == 1)
+        require(protocolVersion == 2)
         require(learningStage.matches(Regex("[a-z-]{1,32}")))
         require(confidenceBasisPoints in 0..10_000)
         require(transactionCountBucket in setOf("0", "1-9", "10-39", "40-119", "120+"))
@@ -142,6 +161,9 @@ data class PersonalInsightModelContext(
         require(preferredInsightTypes.size <= 5)
         require(candidates.size in 1..5)
         require(candidates.distinctBy { it.candidateKey }.size == candidates.size)
+        require(exactExpenseCount >= 0 && exactHistoryDays >= 0 && observedExpenseMonthCount >= 0)
+        require(priorAnalysisSummaries.size <= 3)
+        require(priorAnalysisSummaries.all { it.length in 1..300 && !containsUnsafeModelText(it) })
     }
 }
 
@@ -152,6 +174,7 @@ data class PersonalInsightModelCandidate(
     val evidenceBuckets: Map<String, String>,
     val confidenceBasisPoints: Int,
     val impactBand: String,
+    val exactEvidence: List<PersonalInsightModelEvidence> = emptyList(),
 ) {
     init {
         require(candidateKey.matches(Regex("[A-Za-z0-9:._+-]{1,160}")))
@@ -162,7 +185,33 @@ data class PersonalInsightModelCandidate(
         require(evidenceBuckets.values.all { it.matches(Regex("[a-z0-9+-]{1,32}")) })
         require(confidenceBasisPoints in 0..10_000)
         require(impactBand in setOf("none", "low", "medium", "high", "very-high"))
+        require(exactEvidence.size in 1..8)
+        require(exactEvidence.map { it.code }.toSet() == evidenceCodes.toSet())
     }
+}
+
+data class PersonalInsightModelEvidence(
+    val code: String,
+    val kind: String,
+    val numericValue: Long? = null,
+    val textValue: String? = null,
+) {
+    init {
+        require(code.matches(Regex("[a-z0-9._-]{1,80}")))
+        require(kind in setOf("amount-minor", "basis-points", "count", "days", "text"))
+        require((kind == "text") == (textValue != null))
+        require((kind == "text") != (numericValue != null))
+        require(textValue == null || (textValue.length in 1..80 && !containsUnsafeModelText(textValue)))
+    }
+}
+
+private fun containsUnsafeModelText(value: String): Boolean = value.any { character ->
+    character.code < 32 && character !in setOf('\n', '\t') ||
+        character.code == 127 ||
+        character in '\u200B'..'\u200F' ||
+        character in '\u202A'..'\u202E' ||
+        character in '\u2060'..'\u206F' ||
+        character == '\uFEFF'
 }
 
 /**
@@ -254,7 +303,7 @@ class PersonalInsightModelOrchestrator(
             localDeduplicationKey = localDeduplicationKey,
             answer = answer,
             providerDisclosure =
-                "由 $providerId 基于经同意的脱敏聚合生成；金额与证据以本机计算为准。",
+                "由 $providerId 基于本机汇总生成；金额与证据以本机计算为准。",
         )
     }
 
@@ -272,6 +321,7 @@ object PersonalInsightModelContextFactory {
     fun create(
         profile: PersonalInsightProfile,
         rankedInsights: List<Insight>,
+        priorAnalysisSummaries: List<String> = emptyList(),
     ): PreparedPersonalInsightModelRequest {
         require(rankedInsights.isNotEmpty()) { "At least one insight is required" }
         val selected = rankedInsights.take(5)
@@ -289,6 +339,10 @@ object PersonalInsightModelContextFactory {
                 else -> "20+"
             },
             preferredInsightTypes = profile.preferredTypes.take(5).map { it.name.lowercase() },
+            exactExpenseCount = profile.activeTransactionCount,
+            exactHistoryDays = profile.observedDays,
+            observedExpenseMonthCount = profile.observedExpenseMonthCount,
+            priorAnalysisSummaries = priorAnalysisSummaries.takeLast(3),
             candidates = selected.mapIndexed { index, insight ->
                 PersonalInsightModelCandidate(
                     candidateKey = "candidate-${index + 1}",
@@ -300,6 +354,10 @@ object PersonalInsightModelContextFactory {
                         .associate { it.code to it.observed.toPrivacyBucket() },
                     confidenceBasisPoints = insight.confidence.basisPoints,
                     impactBand = insight.estimatedImpact.toImpactBand(),
+                    exactEvidence = insight.evidence
+                        .distinctBy { it.code }
+                        .take(8)
+                        .map { evidence -> evidence.observed.toExactModelEvidence(evidence.code) },
                 )
             },
         )
@@ -346,5 +404,18 @@ object PersonalInsightModelContextFactory {
             else -> "90+-days"
         }
         is EvidenceValue.Text -> "present"
+    }
+
+    private fun EvidenceValue.toExactModelEvidence(code: String): PersonalInsightModelEvidence = when (this) {
+        is EvidenceValue.Amount -> PersonalInsightModelEvidence(
+            code = code,
+            kind = "amount-minor",
+            numericValue = value.minorUnits,
+            textValue = null,
+        )
+        is EvidenceValue.BasisPoints -> PersonalInsightModelEvidence(code, "basis-points", value)
+        is EvidenceValue.Count -> PersonalInsightModelEvidence(code, "count", value)
+        is EvidenceValue.Days -> PersonalInsightModelEvidence(code, "days", value.toLong())
+        is EvidenceValue.Text -> PersonalInsightModelEvidence(code, "text", textValue = value)
     }
 }

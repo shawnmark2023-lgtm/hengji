@@ -1,5 +1,13 @@
 import org.gradle.api.artifacts.dsl.LockMode
 
+if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) {
+    val minimumWindowsRuntime = Runtime.Version.parse("21.0.12")
+    check(Runtime.version() >= minimumWindowsRuntime) {
+        "Windows builds require JDK 21.0.12 or newer so the packaged VC runtime can load the built-in AI engine. " +
+            "Current runtime: ${Runtime.version()}"
+    }
+}
+
 plugins {
     alias(libs.plugins.androidApplication) apply false
     alias(libs.plugins.androidMultiplatformLibrary) apply false

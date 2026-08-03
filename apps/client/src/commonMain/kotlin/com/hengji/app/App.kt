@@ -17,7 +17,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Switch
@@ -47,6 +49,7 @@ import com.hengji.app.application.AssetSaleTargetEditor
 import com.hengji.app.application.DemoDataSeedPolicy
 import com.hengji.app.application.InsightFeedbackReducer
 import com.hengji.app.application.LocalImportFlowPort
+import com.hengji.app.application.LocalCaptureLaunchRequest
 import com.hengji.app.application.ManualMarketQuoteFactory
 import com.hengji.app.application.PersistentAppLedgerGateway
 import com.hengji.app.application.PendingTransactionUndo
@@ -55,8 +58,10 @@ import com.hengji.app.application.TransactionDeletionCoordinator
 import com.hengji.app.application.TransactionDeletionResult
 import com.hengji.app.application.rememberImportFlowHost
 import com.hengji.app.application.UnavailableUserImportDocumentPicker
+import com.hengji.app.application.UnavailableUserLocalCapturePicker
 import com.hengji.app.application.UserDocumentPurpose
 import com.hengji.app.application.UserImportDocumentPicker
+import com.hengji.app.application.UserLocalCapturePicker
 import com.hengji.app.application.LedgerExportWriter
 import com.hengji.app.application.PreviewOnlyLedgerExportWriter
 import com.hengji.app.application.QuickEntryRequest
@@ -65,6 +70,9 @@ import com.hengji.app.application.shouldReduceMotion
 import com.hengji.app.application.shouldDisplay
 import com.hengji.app.importflow.ImportWizard
 import com.hengji.app.importflow.ImportDocumentFormat
+import com.hengji.app.importflow.ImportFlowEvent
+import com.hengji.app.importflow.ImportSource
+import com.hengji.app.importflow.LocalCaptureMode
 import com.hengji.app.model.DomainDemoData
 import com.hengji.app.model.currencyDisplayPrefix
 import com.hengji.app.model.parseMoneyToMinor
@@ -129,7 +137,11 @@ fun HengjiApp() {
 @Composable
 fun HengjiApp(repository: LedgerRepository) {
     val gateway = remember(repository) { PreviewLedgerGateway(repository) }
-    HengjiApp(gateway, UnavailableUserImportDocumentPicker, PreviewOnlyLedgerExportWriter)
+    HengjiApp(
+        gateway = gateway,
+        userImportDocumentPicker = UnavailableUserImportDocumentPicker,
+        ledgerExportWriter = PreviewOnlyLedgerExportWriter,
+    )
 }
 
 /** Durable platform entry point. All Room access remains coroutine-first and off the UI blocking path. */
@@ -137,9 +149,11 @@ fun HengjiApp(repository: LedgerRepository) {
 fun HengjiApp(
     repository: PersistentLedgerRepository,
     userImportDocumentPicker: UserImportDocumentPicker = UnavailableUserImportDocumentPicker,
+    userLocalCapturePicker: UserLocalCapturePicker = UnavailableUserLocalCapturePicker,
     ledgerExportWriter: LedgerExportWriter = PreviewOnlyLedgerExportWriter,
     seedDemoData: Boolean = false,
     quickEntryRequest: QuickEntryRequest? = null,
+    localCaptureLaunchRequest: LocalCaptureLaunchRequest? = null,
     quickEntryShortcutStatus: String? = null,
     priceNotificationControl: PriceNotificationControl? = null,
     systemReduceMotion: Boolean = false,
@@ -149,9 +163,11 @@ fun HengjiApp(
     HengjiApp(
         gateway,
         userImportDocumentPicker,
+        userLocalCapturePicker,
         ledgerExportWriter,
         seedDemoData,
         quickEntryRequest,
+        localCaptureLaunchRequest,
         quickEntryShortcutStatus,
         priceNotificationControl,
         systemReduceMotion = systemReduceMotion,
@@ -163,9 +179,11 @@ fun HengjiApp(
 fun HengjiApp(
     gateway: AppLedgerGateway,
     userImportDocumentPicker: UserImportDocumentPicker = UnavailableUserImportDocumentPicker,
+    userLocalCapturePicker: UserLocalCapturePicker = UnavailableUserLocalCapturePicker,
     ledgerExportWriter: LedgerExportWriter = PreviewOnlyLedgerExportWriter,
     seedDemoData: Boolean = false,
     quickEntryRequest: QuickEntryRequest? = null,
+    localCaptureLaunchRequest: LocalCaptureLaunchRequest? = null,
     quickEntryShortcutStatus: String? = null,
     priceNotificationControl: PriceNotificationControl? = null,
     systemReduceMotion: Boolean = false,
@@ -201,13 +219,22 @@ fun HengjiApp(
     var quickEntryDisclosure by rememberSaveable { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val transactionDeletionCoordinator = remember(gateway) { TransactionDeletionCoordinator(gateway) }
-    val importPort = remember(gateway, userImportDocumentPicker) {
-        LocalImportFlowPort(gateway, userImportDocumentPicker)
+    val importPort = remember(gateway, userImportDocumentPicker, userLocalCapturePicker) {
+        LocalImportFlowPort(gateway, userImportDocumentPicker, userLocalCapturePicker)
     }
     val importHost = rememberImportFlowHost(importPort) {
         scope.launch {
             snapshot = gateway.snapshot()
         }
+    }
+
+    LaunchedEffect(localCaptureLaunchRequest?.sequence) {
+        val request = localCaptureLaunchRequest ?: return@LaunchedEffect
+        showAddTransaction = false
+        showImportWizard = true
+        importHost.dispatch(
+            ImportFlowEvent.SourceChosen(ImportSource.LocalCapture(request.mode)),
+        )
     }
 
     LaunchedEffect(gateway) {
@@ -488,6 +515,7 @@ fun HengjiApp(
                         ImportWizard(
                             state = importHost.state,
                             onEvent = importHost.dispatch,
+                            localCaptureAvailable = userLocalCapturePicker.isAvailable,
                             reduceMotion = reduceMotion,
                         )
                     } else when (page) {
@@ -664,6 +692,7 @@ fun HengjiApp(
                             "内存预览 · 关闭后不保留"
                         },
                         quickEntryShortcutStatus = quickEntryShortcutStatus,
+                        localCaptureAvailable = userLocalCapturePicker.isAvailable,
                         priceNotificationControl = priceNotificationControl?.takeIf { control ->
                             control.shouldDisplay(
                                 hasAuthorizedLiveQuotes =
@@ -707,6 +736,25 @@ fun HengjiApp(
                 initialCategory = editingTransaction?.categoryId?.value?.let(::categoryLabelForId)
                     ?: quickEntryCategory,
                 sourceDisclosure = if (editingTransaction == null) quickEntryDisclosure else null,
+                localCaptureAvailable = editingTransaction == null && userLocalCapturePicker.isAvailable,
+                onLongScreenshot = {
+                    showAddTransaction = false
+                    showImportWizard = true
+                    importHost.dispatch(
+                        ImportFlowEvent.SourceChosen(
+                            ImportSource.LocalCapture(LocalCaptureMode.LongScreenshot),
+                        ),
+                    )
+                },
+                onOneClickCapture = {
+                    showAddTransaction = false
+                    showImportWizard = true
+                    importHost.dispatch(
+                        ImportFlowEvent.SourceChosen(
+                            ImportSource.LocalCapture(LocalCaptureMode.ImageOrPdf),
+                        ),
+                    )
+                },
                 onDismiss = {
                     showAddTransaction = false
                     editingTransactionId = null
@@ -952,6 +1000,9 @@ private fun AddTransactionDialog(
     initialAmount: String,
     initialCategory: String,
     sourceDisclosure: String? = null,
+    localCaptureAvailable: Boolean = false,
+    onLongScreenshot: () -> Unit = {},
+    onOneClickCapture: () -> Unit = {},
     onDismiss: () -> Unit,
     onAdd: (merchant: String, category: String, amountMinor: Long) -> Unit,
 ) {
@@ -982,6 +1033,29 @@ private fun AddTransactionDialog(
                         it,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                if (localCaptureAvailable) {
+                    Text(
+                        "不想手填？",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    FilledTonalButton(
+                        onClick = onLongScreenshot,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    ) {
+                        Text("识别长截图（可提取多笔）")
+                    }
+                    OutlinedButton(
+                        onClick = onOneClickCapture,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    ) {
+                        Text("一键读取图片或 PDF")
+                    }
+                    Text(
+                        "只读取你主动选择的文件，识别后先预览，不会直接入账。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 OutlinedTextField(

@@ -2,7 +2,7 @@
 
 状态：`TODO` / `DOING` / `DONE` / `BLOCKED`。优先级：P0 首版必需，P1 Beta，P2 上线。
 
-2026-07-28 P0/P1 收口范围：Windows + Android。iOS/macOS 依本轮产品指令延期，不再阻塞本轮勾选；其平台门禁保留在仅手动触发的 `apple-deferred.yml` 和发布清单中。Android API 36 instrumentation 已在本机官方 x86_64 模拟器通过 3/3 并加入自动 CI，完整工程/安全验收见 `docs/13-engineering-security-acceptance.md`，实体设备与辅助技术验收矩阵见 `docs/11-device-accessibility-validation.md`。依赖生产合同、商店审批、签名账号或代表性实体设备的事项，以 `READY_EXTERNAL` 标记为代码侧已就绪但不冒充外部验收完成。
+2026-08-03 P0/P1 当前范围：Windows + Android。iOS/macOS 依产品指令延期，不阻塞本轮勾选；其平台门禁保留在仅手动触发的 `apple-deferred.yml` 和发布清单中。Android API 36 instrumentation 已在本机官方 x86_64 模拟器通过 5/5，新增真实内置模型和分片长图 OCR；完整工程/安全验收见 `docs/13-engineering-security-acceptance.md`，长截图增量见 `docs/18-long-screenshot-local-import.md`。依赖生产合同、商店审批、签名账号或代表性实体设备的事项，以 `READY_EXTERNAL` 标记为代码侧已就绪但不冒充外部验收完成。
 
 ## A. 工程基础
 
@@ -53,7 +53,7 @@
 - [x] `IMP-002` P0 CSV/JSON 解析器和可配置字段映射。
 - [x] `IMP-003` P0 支付宝/微信/淘宝/京东沙箱样例连接器，明确标注非真实同步。
 - [x] `IMP-004` P0 OAuth 回调、token vault 接口和 PKCE/state 设计；首版不保存真实 token。
-- [x] `IMP-005` P1 Android 图片 OCR/PDF 设备内解析、大小/页数/文本上限和用户逐项确认已实现；20 份脱敏文本样本通过，原文件与 OCR 原文不进入账本。ML Kit 条款与数据披露已审查，发行清单显式移除其传递依赖带入的 `INTERNET` 权限，阻断诊断/使用指标外发。
+- [x] `IMP-005` P1 Android 长截图多笔识别、图片/PDF 一键读取和系统分享已接入设备内 OCR；候选统一进入字段映射、预览去重、原子确认和整批撤销。20 MiB、20 页、100,000 字符、100M 源像素和 200 笔上限均 fail-closed；原文件与 OCR 原文不进入账本。ML Kit 条款与数据披露已审查，发行清单显式移除其传递依赖带入的 `INTERNET` 权限。
 - [ ] `IMP-006` P1 Android 采用用户主动系统分享的金融短信文本适配器，构建不声明 `READ_SMS`/`RECEIVE_SMS`，非金融内容本地拒绝且不保留原文；直接短信读取须等待 Google Play 审批，因此状态为 `READY_EXTERNAL`。
 - [ ] `IMP-007` P1 Apple FinanceKit 适配器；受地区、eligible accounts 和 entitlement 限制。
 - [ ] `IMP-008` P2 正式平台应用申请、scope 审核、隐私影响评估和连接器上线。
@@ -102,7 +102,7 @@
 | UX-009 | DONE_WIN_ANDROID | Apple deferred | Android 小组件、静态启动器快捷方式、文本/图片/PDF 系统分享和 Windows 全局快捷键已接入；冲突时不覆盖并保留应用内快捷键，所有入口只打开确认/取消界面 |
 | UX-010 | DONE_WIN_ANDROID | Apple deferred | 四步教程、跳过/返回/直达动作、完成状态持久化、设置内重新打开和通俗功能命名均有共享 UI 测试 |
 | INS-006 | DONE_WIN_ANDROID | 代表性 Android 实体机性能仍待外部矩阵 | 固定模型与运行时随包交付；90 天资格和 30 天节流由本机代码控制，关闭时不加载模型。实际 Windows 推理测试通过；Android AAR 无遥测且所有 ELF LOAD 段为 16KB 对齐，APK 无 `INTERNET` |
-| IMP-005 | DONE_ANDROID | Windows 保留既有文件导入；Apple deferred | 20 份脱敏文本解析样本通过；图片/PDF 在 Android 设备内识别，限制 20 MiB、20 页和 100,000 字符，候选字段必须进入人工确认后才可保存；合并清单断言不含 `INTERNET`，阻断 ML Kit 诊断/使用指标外发 |
+| IMP-005 | DONE_ANDROID | Windows 保留 CSV/JSON 文件导入；Apple deferred | Android 长截图、图片、PDF 和系统分享均在设备内识别；多笔候选复用预览、去重、原子确认和整批撤销，API 36 分片长图 OCR 实测通过；合并清单断言不含 `INTERNET`、短信和图库读取权限 |
 | IMP-006 | READY_EXTERNAL | Google Play SMS declaration（仅直接读取方案需要） | 当前 APK 不声明读取/接收短信权限；用户主动分享的金融文本仅本地解析，非金融文本拒绝，原文不保留。直接读取不在未获批构建中启用 |
 | IMP-007 | TODO | FinanceKit entitlement、eligible region/account | entitlement/地区/账户三重门控；不可用时功能隐藏且文件导入仍可用；真机授权/撤销通过 |
 | IMP-008 | TODO | provider app、scope、DPA/合同 | 每个生产连接器有批准 scope、最小字段清单、撤权/过期/限流测试和上线回滚预案 |
@@ -113,7 +113,7 @@
 | SEC-005 | TODO | account backend、Passkey/SIWA | 注册/验证/恢复/2FA/会话撤销/设备丢失演练通过，且不破坏无账号本地模式 |
 | SEC-006 | TODO | E2EE protocol、sync engine | 双设备离线冲突、密钥轮换、恢复短语、灾难恢复和服务端不可读性测试通过 |
 | REL-001 | TODO | Apple/Google/Microsoft signing accounts | 四平台生产签名、隐私声明、公证/商店审查、分阶段发布和一键回滚演练通过 |
-| QA-003 | DONE_WIN_ANDROID | Apple runner deferred | Desktop client 57/57、Android 共享 UI 52/52、API 36 instrumentation 历史基线 3/3（平台入口、Keystore 启动、自动无障碍）；本轮 Apple 质量重构后的共享 UI 由 Desktop 复用测试覆盖，API 36 未复跑 |
+| QA-003 | DONE_WIN_ANDROID | Apple runner deferred | Desktop 216/216（client 64、domain 17、data 81、insights 34、connectors 20）；API 36 instrumentation 5/5，覆盖平台入口/权限、Keystore 启动、自动无障碍、内置模型和分片长图 OCR |
 | QA-005 | PARTIAL | TalkBack、Narrator、真实硬件键盘 | 自动化矩阵已覆盖共享语义、360dp/200%、深色主题、Reduce Motion、Desktop 键盘和 Android Accessibility Test Framework；固定实体设备/辅助技术矩阵与证据模板已写入 `docs/11-device-accessibility-validation.md`，尚未执行 |
 | QA-006 | READY_EXTERNAL | representative low-end physical device | 开发机 100,000 流水基线 4/4 通过，97 ms、内存增量 43.82 MiB；实体机型号、环境、场景、指标和证据模板已固定，尚无代表性低端 Android 的加密持久层与完整 UI 性能结果 |
 | QA-007 | TODO | external security review、store dry run | 高危漏洞为 0；加密备份恢复成功；四平台审核材料与回滚桌面演练签字完成 |

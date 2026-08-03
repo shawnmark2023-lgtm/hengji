@@ -205,10 +205,10 @@ private fun FirstRunGuide(
                 Text("记第一笔")
             }
             FilledTonalButton(onClick = onOpenImport, modifier = Modifier.fillMaxWidth()) {
-                Text("从本机文件导入")
+                Text("导入旧账单")
             }
             Text(
-                "导入不会上传原文件，预览确认后才写入账本。",
+                "导入不会上传原文件；预览确认后才写入账本。",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

@@ -21,6 +21,8 @@ import com.hengji.data.ProtectedLedgerOpenResult
 import com.hengji.data.openAndroidProtectedLedger
 import com.hengji.app.application.PriceNotificationControl
 import com.hengji.app.application.QuickEntryRequest
+import com.hengji.app.application.LocalCaptureLaunchRequest
+import com.hengji.app.importflow.LocalCaptureMode
 import com.hengji.connectors.LocalDocumentKind
 import com.hengji.connectors.ReviewedDocumentParseResult
 import com.hengji.connectors.ReviewedDocumentTextParser
@@ -37,7 +39,10 @@ class MainActivity : ComponentActivity() {
     }
     private var storageState by mutableStateOf<AndroidStorageState>(AndroidStorageState.Loading)
     private var quickEntryRequest by mutableStateOf<QuickEntryRequest?>(null)
+    private var localCaptureLaunchRequest by mutableStateOf<LocalCaptureLaunchRequest?>(null)
     private var quickEntrySequence = 0L
+    private var localCaptureSequence = 0L
+    private lateinit var importPicker: AndroidImportDocumentPicker
     private var notificationStatus by mutableStateOf("系统通知默认关闭；仅在你主动允许后安排本地评估。")
     private var notificationCanRequest by mutableStateOf(true)
     private var systemReduceMotion by mutableStateOf(false)
@@ -54,7 +59,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val importPicker = AndroidImportDocumentPicker(this)
+        importPicker = AndroidImportDocumentPicker(this)
         val exportWriter = AndroidLedgerExportWriter(this)
         handleLaunchIntent(intent)
         refreshNotificationStatus()
@@ -70,9 +75,11 @@ class MainActivity : ComponentActivity() {
                 is AndroidStorageState.Opened -> HengjiApp(
                     repository = state.result.repository,
                     userImportDocumentPicker = importPicker,
+                    userLocalCapturePicker = importPicker,
                     ledgerExportWriter = exportWriter,
                     seedDemoData = false,
                     quickEntryRequest = quickEntryRequest,
+                    localCaptureLaunchRequest = localCaptureLaunchRequest,
                     priceNotificationControl = PriceNotificationControl(
                         status = notificationStatus,
                         canRequest = notificationCanRequest,
@@ -140,29 +147,17 @@ class MainActivity : ComponentActivity() {
                     val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT).orEmpty()
                     publishSharedText(sharedText)
                 } else if (intent.type == "application/pdf" || intent.type?.startsWith("image/") == true) {
-                    val documentKind = if (intent.type == "application/pdf") {
-                        LocalDocumentKind.PDF
-                    } else {
-                        LocalDocumentKind.IMAGE
-                    }
                     val uri = @Suppress("DEPRECATION") (intent.getParcelableExtra(Intent.EXTRA_STREAM) as? Uri)
                     if (uri == null) {
                         publishRejectedDocument("分享内容没有可读取的文件")
+                    } else if (!importPicker.offerSharedDocument(uri, requireNotNull(intent.type))) {
+                        publishRejectedDocument("分享内容不是受支持的图片或 PDF")
                     } else {
-                        lifecycleScope.launch {
-                            val text = try {
-                                withContext(Dispatchers.IO) {
-                                    AndroidOnDeviceDocumentTextExtractor(applicationContext)
-                                        .extract(uri, requireNotNull(intent.type))
-                                }
-                            } catch (error: CancellationException) {
-                                throw error
-                            } catch (_: Exception) {
-                                publishRejectedDocument("本机 OCR/PDF 解析失败")
-                                return@launch
-                            }
-                            publishDocumentText(text, documentKind)
-                        }
+                        localCaptureSequence += 1
+                        localCaptureLaunchRequest = LocalCaptureLaunchRequest(
+                            sequence = localCaptureSequence,
+                            mode = LocalCaptureMode.SharedDocument,
+                        )
                     }
                 }
             }
@@ -196,32 +191,6 @@ class MainActivity : ComponentActivity() {
             is ReviewedDocumentParseResult.Rejected -> QuickEntryRequest(
                 sequence = quickEntrySequence,
                 sourceDisclosure = "${parsed.reason}。未保留分享原文，你仍可手动记账。",
-            )
-        }
-    }
-
-    private fun publishDocumentText(
-        text: String,
-        documentKind: LocalDocumentKind,
-    ) {
-        quickEntrySequence += 1
-        val parsed = parseReviewedDocument(
-            text = text,
-            sourceKind = documentKind,
-            rejectionReason = "OCR 文本超过本地解析上限或格式无效",
-        )
-        quickEntryRequest = when (parsed) {
-            is ReviewedDocumentParseResult.Candidate -> QuickEntryRequest(
-                sequence = quickEntrySequence,
-                merchant = parsed.value.merchant.value.orEmpty(),
-                amountMinor = parsed.value.amountMinor.value,
-                categoryLabel = parsed.value.categoryHint.value ?: "其他",
-                sourceDisclosure = "图片/PDF 已在设备上离线识别；请核对所有候选字段，原文件不会写入账本。",
-            )
-
-            is ReviewedDocumentParseResult.Rejected -> QuickEntryRequest(
-                sequence = quickEntrySequence,
-                sourceDisclosure = "${parsed.reason}。原文件未写入账本，你仍可手动记账。",
             )
         }
     }

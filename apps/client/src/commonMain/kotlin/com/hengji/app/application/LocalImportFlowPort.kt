@@ -5,6 +5,7 @@ import com.hengji.app.importflow.ImportDocumentFormat
 import com.hengji.app.importflow.ImportDocumentSummary
 import com.hengji.app.importflow.ImportFlowPort
 import com.hengji.app.importflow.ImportSource
+import com.hengji.app.importflow.LocalCaptureMode
 import com.hengji.connectors.CandidateStatus
 import com.hengji.connectors.ImportCommitResult
 import com.hengji.connectors.ImportFieldMapping
@@ -12,6 +13,7 @@ import com.hengji.connectors.ImportPreview
 import com.hengji.connectors.ImportRollbackResult
 import com.hengji.connectors.TransactionDirection
 import com.hengji.connectors.TransactionImporter
+import com.hengji.connectors.ReviewedDocumentBatch
 import com.hengji.data.CommitImportBatchRequest
 import com.hengji.domain.CategoryId
 import com.hengji.domain.CurrencyCode
@@ -95,15 +97,100 @@ object UnavailableUserImportDocumentPicker : UserImportDocumentPicker {
         throw UnsupportedOperationException("此平台的系统文件选择器尚未接入；可先体验明确标注的沙箱样例。")
 }
 
+interface UserLocalCapturePicker {
+    val isAvailable: Boolean
+
+    suspend fun pick(mode: LocalCaptureMode): PickedImportDocument?
+}
+
+object UnavailableUserLocalCapturePicker : UserLocalCapturePicker {
+    override val isAvailable: Boolean = false
+
+    override suspend fun pick(mode: LocalCaptureMode): PickedImportDocument =
+        throw UnsupportedOperationException("当前平台尚未接入本机截图识别；仍可选择 CSV/JSON 或手动记账。")
+}
+
+object CapturedDocumentCsvEncoder {
+    fun encode(
+        batch: ReviewedDocumentBatch,
+        mode: LocalCaptureMode,
+    ): PickedImportDocument {
+        val repeatedKeys = mutableMapOf<String, Int>()
+        val rows = batch.candidates.map { candidate ->
+            val stableKey = listOf(
+                candidate.bookedOn,
+                candidate.amountMinor,
+                candidate.merchant,
+                candidate.currency,
+                candidate.direction,
+            ).joinToString("|")
+            val occurrence = repeatedKeys.getOrElse(stableKey) { 0 } + 1
+            repeatedKeys[stableKey] = occurrence
+            listOf(
+                candidate.bookedOn.toString(),
+                candidate.amountMinor.toMajorDecimal(),
+                candidate.merchant,
+                candidate.categoryHint,
+                candidate.direction,
+                candidate.currency,
+                "ocr-${stableHash(stableKey)}-$occurrence",
+                "本机 OCR 候选；原图与 OCR 原文未保存",
+            ).joinToString(",", transform = ::escapeCsv)
+        }
+        val title = when (mode) {
+            LocalCaptureMode.LongScreenshot -> "长截图识别"
+            LocalCaptureMode.ImageOrPdf -> "图片或PDF识别"
+            LocalCaptureMode.SharedDocument -> "系统分享识别"
+        }
+        val skipped = batch.skippedAmountCount.takeIf { it > 0 }?.let { "-跳过${it}项" }.orEmpty()
+        val content = buildString {
+            appendLine("date,amount,merchant,category,direction,currency,orderId,note")
+            append(rows.joinToString("\n"))
+        }
+        require(content.encodeToByteArray().size <= UserDocumentPolicy.MAX_TRANSACTION_IMPORT_BYTES) {
+            "识别结果超过 5 MiB 导入上限，请拆分后重试"
+        }
+        return PickedImportDocument(
+            displayName = "$title-${batch.candidates.size}笔$skipped.csv",
+            content = content,
+            format = ImportDocumentFormat.Csv,
+        )
+    }
+
+    private fun Long.toMajorDecimal(): String =
+        "${this / 100}.${(this % 100).toString().padStart(2, '0')}"
+
+    private fun escapeCsv(value: Any): String {
+        val text = value.toString()
+        return if (text.any { it == ',' || it == '"' || it == '\n' || it == '\r' }) {
+            "\"${text.replace("\"", "\"\"")}\""
+        } else {
+            text
+        }
+    }
+
+    private fun stableHash(value: String): String {
+        var hash = 0xcbf29ce484222325UL
+        value.encodeToByteArray().forEach { byte ->
+            hash = (hash xor byte.toUByte().toULong()) * 0x100000001b3UL
+        }
+        return hash.toString(16).padStart(16, '0')
+    }
+}
+
 /** Local-only import adapter. Raw document contents remain in this short-lived object and never enter Compose state. */
 class LocalImportFlowPort(
     private val ledger: AppLedgerGateway,
     private val picker: UserImportDocumentPicker = UnavailableUserImportDocumentPicker,
+    private val capturePicker: UserLocalCapturePicker = UnavailableUserLocalCapturePicker,
     private val importer: TransactionImporter = TransactionImporter(),
 ) : ImportFlowPort {
     private val rawDocuments = mutableMapOf<String, String>()
+    private val sourceConnectorIds = mutableMapOf<String, String>()
 
     override suspend fun openSource(source: ImportSource): ImportDocumentSummary? {
+        rawDocuments.clear()
+        sourceConnectorIds.clear()
         val picked = when (source) {
             ImportSource.CsvSandboxSample -> PickedImportDocument(
                 displayName = "恒迹 CSV 沙箱样例.csv",
@@ -119,9 +206,24 @@ class LocalImportFlowPort(
                 format = source.format,
                 purpose = UserDocumentPurpose.TransactionImport,
             ) ?: return null
+            is ImportSource.LocalCapture -> capturePicker.pick(source.mode) ?: return null
         }
         val documentId = documentId(picked.content, picked.format)
         rawDocuments[documentId] = picked.content
+        sourceConnectorIds[documentId] = when (source) {
+            ImportSource.CsvSandboxSample -> "sandbox-csv"
+            ImportSource.JsonSandboxSample -> "sandbox-json"
+            is ImportSource.UserFile -> if (source.format == ImportDocumentFormat.Csv) {
+                "local-file-csv"
+            } else {
+                "local-file-json"
+            }
+            is ImportSource.LocalCapture -> when (source.mode) {
+                LocalCaptureMode.LongScreenshot -> "local-ocr-long-screenshot"
+                LocalCaptureMode.ImageOrPdf -> "local-ocr-document"
+                LocalCaptureMode.SharedDocument -> "local-ocr-system-share"
+            }
+        }
         return inspect(
             documentId = documentId,
             picked = picked,
@@ -189,6 +291,7 @@ class LocalImportFlowPort(
             .filter { it.id.value in insertedIds }
             .mapNotNull { it.importFingerprint }
         rawDocuments.remove(selection.document.documentId)
+        sourceConnectorIds.remove(selection.document.documentId)
         return ImportCommitResult(batchId, insertedFingerprints, now.toString())
     }
 
@@ -294,12 +397,8 @@ class LocalImportFlowPort(
         else -> "other"
     }
 
-    private fun sourceConnectorId(document: ImportDocumentSummary): String = when {
-        document.isSandbox && document.format == ImportDocumentFormat.Csv -> "sandbox-csv"
-        document.isSandbox -> "sandbox-json"
-        document.format == ImportDocumentFormat.Csv -> "local-file-csv"
-        else -> "local-file-json"
-    }
+    private fun sourceConnectorId(document: ImportDocumentSummary): String =
+        requireNotNull(sourceConnectorIds[document.documentId]) { "导入来源已过期，请重新选择" }
 
     private fun documentId(content: String, format: ImportDocumentFormat): String {
         var hash = 0xcbf29ce484222325UL

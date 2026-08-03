@@ -7,8 +7,8 @@
 ## 当前已验证基础
 
 - [x] Room KMP/bundled SQLite 跨重启持久化、schema v3、备份/恢复、批次回滚。
-- [x] 自动架构/secret/沙箱/Apple readiness 门禁、193 个 Desktop Kotlin 测试、63 个 Android host 测试、8 类畸形导入、10 万流水开发基线。
-- [x] Android lint、Debug APK 与未签名 R8 Release 构建；API 36 上平台入口、AndroidKeyStore 受保护账本和 Compose 自动无障碍分析 3/3。
+- [x] 自动架构/secret/沙箱/Apple readiness 门禁、216 个 Desktop Kotlin 测试、63 个 Android host 测试、8 类畸形导入、10 万流水开发基线。
+- [x] Android lint、Debug APK 与未签名 R8 Release 构建；API 36 上平台入口、AndroidKeyStore、Compose 自动无障碍、内置模型和分片长图 OCR 5/5。
 - [x] Windows/Android 关键 UI 自动化覆盖导入整批回滚、导出、恢复、清除、删除确认与 8 秒撤销、360dp/200%、深色和 Reduce Motion；Windows 另覆盖 Tab/Enter。
 - [x] Windows 73 个 Release JAR 的规范化内容及 Android Debug APK 的两次隔离构建一致。
 - [ ] 历史基线完成过 iOS 客户端与数据层 arm64/simulator Kotlin klib 交叉编译；本轮源码在修复 common metadata 的 JVM-only `Math` 后，被 Windows Application Control 阻断于 Kotlin/Native DLL。当前源码仍须 macOS/Xcode 重新编译，且不能由历史结果替代。
@@ -25,6 +25,7 @@
 - [ ] 10 万流水在代表性设备上的首次载入、筛选、导入峰值和低内存基线通过。
 - [ ] 应用内隐私说明、当前本地字段边界、权限用途、导出和本地删除路径已完成；公开隐私政策 URL、支持联系渠道、商店字段申报与法务签字仍是外部门禁。
 - [x] Android OCR 使用的 ML Kit 官方条款与数据披露已审查；识别内容在设备内处理，发行清单显式移除传递依赖引入的 `INTERNET`，自动断言阻止诊断/使用指标外发。未来授权行情联网必须单独重新审查并更新披露。
+- [x] Android 长截图按 2,000 像素高分片解码，20 MiB/100M 源像素/50 分片/100,000 字符/200 候选上限 fail-closed；三位小数、超量候选和不完整记录不会静默入账。
 - [ ] 正式构建无演示行情，或以不可误解的“示例”模式隔离。
 - [ ] 崩溃监控采用最小数据方案并可关闭；无原始账单和 token。
 - [ ] 分阶段发布、回滚版本、数据库迁移与支持预案完成。

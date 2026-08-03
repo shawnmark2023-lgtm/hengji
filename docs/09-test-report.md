@@ -1,5 +1,28 @@
 # 测试与构建报告
 
+## 2026-08-03 长截图与一键读取账单增量验收
+
+本轮在 Android 的“记一笔”和导入页新增长截图多笔识别、图片/PDF 一键读取，并把系统分享图片/PDF 从“只取第一笔”改为完整的多笔审查流程。所有候选继续复用字段映射、逐笔预览、重复检测、原子提交和整批撤销；Windows 保留 CSV/JSON 与手动记账，不宣称具备本机 OCR。
+
+| 门禁 | 结果 | 实测证据 |
+| --- | --- | --- |
+| Desktop | 通过 | Kotlin 216/216，0 failure/error/skip：client 64、core-domain 17、core-data 81、core-insights 34、connectors 20；ProGuard Release 与 Windows uber JAR 通过 |
+| Android host/build | 通过 | host 63/63；lint 0 fatal/error、14 warning；Debug、R8 Release、AndroidTest APK 构建通过 |
+| Android API 36 | 通过 | Google APIs x86_64 AVD instrumentation 5/5；新增 1000×9000 测试图强制分片解码，顶部与底部文本均由内置 OCR 识别 |
+| 权限与 ABI 对齐 | 通过 | Debug/Release 均不含 `INTERNET`、`READ_SMS`、`RECEIVE_SMS` 或图库读取权限；`zipalign -c -P 16 4` 通过 |
+| 静态与质量 | 通过 | 格式 195、架构 40、发布守卫 338、Apple readiness 42、依赖复现 18、供应链清单 352、畸形导入 8/8、10 万流水 4/4（109 ms、43.89 MiB） |
+| 覆盖率 | 通过 | core-domain 94.76%/61.90%，core-insights 93.51%/60.79%，connectors 92.90%/56.18%（行/分支） |
+| 财务应用校验器 | 通过 | 扫描 704 个文件，0 error、0 warning |
+
+当前重建工件：
+
+- Android Debug APK：481,401,256 bytes，SHA-256 `89E3B5A5EB59CD6D849CFBFD542BC1CB7C19B409E41BABCD0B98AFB9F3926535`。
+- Android 未签名 R8 Release APK：387,051,924 bytes，SHA-256 `F77F88452744E4BBB1E054E7C7080324A2C5046B8631A07636A035EE3AB09E19`。
+- Android instrumentation APK：4,452,035 bytes，SHA-256 `7CE8D5E646D65CEF3C61776257FB1DA21FC16FA97AB200626FB59FC16001B881`。
+- Windows Release uber JAR：106,347,024 bytes，SHA-256 `A78D41D10371319CD1F0DCAEC4593308B163176771ED7AAA22D6391736D23EEF`。
+
+安全边界、输入上限、失败策略与平台差异见 `docs/18-long-screenshot-local-import.md`。本节不宣称实体机、生产签名、商店或 Apple 平台验收完成。
+
 ## 2026-08-03 内置专属分析与首用引导增量验收
 
 本轮交付并验证 Windows/Android 内置本机模型、90 天首次分析门槛、有界个性化记忆、明确反馈学习、通俗功能命名和四步新手引导。模型随安装包交付，不存在运行期下载或远程推理降级；用户可关闭智能分析。iOS/macOS 仍按产品决定延期，本节不宣称其构建、签名或设备验收通过。

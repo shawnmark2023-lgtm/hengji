@@ -78,6 +78,7 @@ import com.hengji.connectors.TransactionDirection
 fun ImportWizard(
     state: ImportWizardState,
     onEvent: (ImportFlowEvent) -> Unit,
+    localCaptureAvailable: Boolean = false,
     reduceMotion: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
@@ -110,6 +111,7 @@ fun ImportWizard(
                         WizardContent(
                             state = state,
                             onEvent = onEvent,
+                            localCaptureAvailable = localCaptureAvailable,
                             reduceMotion = reduceMotion,
                             modifier = Modifier.weight(1f).fillMaxHeight(),
                         )
@@ -120,6 +122,7 @@ fun ImportWizard(
                         WizardContent(
                             state = state,
                             onEvent = onEvent,
+                            localCaptureAvailable = localCaptureAvailable,
                             reduceMotion = reduceMotion,
                             modifier = Modifier.weight(1f).fillMaxWidth(),
                         )
@@ -270,6 +273,7 @@ private fun StepMarker(number: Int, complete: Boolean, current: Boolean) {
 private fun WizardContent(
     state: ImportWizardState,
     onEvent: (ImportFlowEvent) -> Unit,
+    localCaptureAvailable: Boolean,
     reduceMotion: Boolean,
     modifier: Modifier,
 ) {
@@ -282,7 +286,7 @@ private fun WizardContent(
             ErrorBanner(error = error, onDismiss = { onEvent(ImportFlowEvent.ErrorDismissed) })
         }
         when (state.step) {
-            ImportWizardStep.Source -> SourceStep(state, onEvent, reduceMotion)
+            ImportWizardStep.Source -> SourceStep(state, onEvent, localCaptureAvailable, reduceMotion)
             ImportWizardStep.Mapping -> MappingStep(state, onEvent)
             ImportWizardStep.Preview -> PreviewStep(state, onEvent)
             ImportWizardStep.Confirm -> ConfirmStep(state, onEvent, reduceMotion)
@@ -295,6 +299,7 @@ private fun WizardContent(
 private fun SourceStep(
     state: ImportWizardState,
     onEvent: (ImportFlowEvent) -> Unit,
+    localCaptureAvailable: Boolean,
     reduceMotion: Boolean,
 ) {
     LazyColumn(
@@ -305,10 +310,44 @@ private fun SourceStep(
         item {
             StepTitle(
                 title = "选择消费记录来源",
-                supporting = "沙箱样例只用于体验流程；用户文件由系统选择器主动授权，本机解析。",
+                supporting = "长截图、图片、PDF 和用户文件都只在本机解析；先预览，确认后才入账。",
             )
         }
         item { SensitiveDataNotice() }
+        if (localCaptureAvailable) {
+            item {
+                SourceCard(
+                    title = "识别长截图",
+                    supporting = "选择支付平台的长截图，本机拆成多笔账单；缺日期或商户的模糊项目会自动跳过",
+                    badge = "本机 OCR · 多笔识别",
+                    enabled = !state.isBusy,
+                    selected = state.source == ImportSource.LocalCapture(LocalCaptureMode.LongScreenshot),
+                    onClick = {
+                        onEvent(
+                            ImportFlowEvent.SourceChosen(
+                                ImportSource.LocalCapture(LocalCaptureMode.LongScreenshot),
+                            ),
+                        )
+                    },
+                )
+            }
+            item {
+                SourceCard(
+                    title = "一键读取图片或 PDF",
+                    supporting = "选择一张账单图片或 PDF，自动提取日期、商户、金额和分类；也可以从其他应用直接分享给恒迹",
+                    badge = "本机读取 · 不上传",
+                    enabled = !state.isBusy,
+                    selected = state.source == ImportSource.LocalCapture(LocalCaptureMode.ImageOrPdf),
+                    onClick = {
+                        onEvent(
+                            ImportFlowEvent.SourceChosen(
+                                ImportSource.LocalCapture(LocalCaptureMode.ImageOrPdf),
+                            ),
+                        )
+                    },
+                )
+            }
+        }
         item {
             SourceCard(
                 title = "CSV 沙箱样例",

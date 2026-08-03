@@ -12,6 +12,12 @@ enum class ImportDocumentFormat {
     Json,
 }
 
+enum class LocalCaptureMode {
+    LongScreenshot,
+    ImageOrPdf,
+    SharedDocument,
+}
+
 sealed interface ImportSource {
     val format: ImportDocumentFormat
     val isSandbox: Boolean
@@ -27,6 +33,11 @@ sealed interface ImportSource {
     }
 
     data class UserFile(override val format: ImportDocumentFormat) : ImportSource {
+        override val isSandbox = false
+    }
+
+    data class LocalCapture(val mode: LocalCaptureMode) : ImportSource {
+        override val format = ImportDocumentFormat.Csv
         override val isSandbox = false
     }
 }

@@ -35,7 +35,9 @@ import com.hengji.app.application.PickedImportDocument
 import com.hengji.app.application.PreviewLedgerGateway
 import com.hengji.app.application.UserDocumentPurpose
 import com.hengji.app.application.UserImportDocumentPicker
+import com.hengji.app.application.UserLocalCapturePicker
 import com.hengji.app.importflow.ImportDocumentFormat
+import com.hengji.app.importflow.LocalCaptureMode
 import com.hengji.data.InMemoryLedgerRepository
 import com.hengji.data.InsightPreferenceRecord
 import com.hengji.data.LedgerJsonExporter
@@ -170,8 +172,8 @@ class HengjiAppUiTest {
         setHengjiContent(gatewayWith())
 
         navigateTo("设置")
-        onNode(hasScrollToNodeAction()).performScrollToNode(hasText("选择文件并导入"))
-        onNodeWithText("选择文件并导入").performClick()
+        onNode(hasScrollToNodeAction()).performScrollToNode(hasText("读取或导入账单"))
+        onNodeWithText("读取或导入账单").performClick()
         waitUntilExactlyOneExists(hasText("CSV 沙箱样例"))
 
         onNodeWithText("CSV 沙箱样例").performClick()
@@ -194,6 +196,35 @@ class HengjiAppUiTest {
         waitUntilExactlyOneExists(hasText("批次已撤销"))
         navigateTo("账单")
         onNodeWithText("没有找到这笔账").assertIsDisplayed()
+    }
+
+    @Test
+    fun addDialogOffersLongScreenshotAndRoutesItThroughReview() = runComposeUiTest {
+        var observedMode: LocalCaptureMode? = null
+        val capturePicker = object : UserLocalCapturePicker {
+            override val isAvailable = true
+
+            override suspend fun pick(mode: LocalCaptureMode): PickedImportDocument {
+                observedMode = mode
+                return PickedImportDocument(
+                    displayName = "长截图识别-2笔.csv",
+                    content = """
+                        date,amount,merchant,category,direction,currency,orderId,note
+                        2026-08-03,18.50,早餐店,餐饮,expense,CNY,ocr-1,本机识别候选
+                        2026-08-03,3.00,地铁,交通,expense,CNY,ocr-2,本机识别候选
+                    """.trimIndent(),
+                    format = ImportDocumentFormat.Csv,
+                )
+            }
+        }
+        setHengjiContent(gatewayWith(), capturePicker = capturePicker)
+
+        onNodeWithContentDescription("记一笔").performClick()
+        onNodeWithText("识别长截图（可提取多笔）").assertIsDisplayed().performClick()
+        waitUntilExactlyOneExists(hasText("确认字段对应关系"))
+
+        assertEquals(LocalCaptureMode.LongScreenshot, observedMode)
+        onNodeWithText("长截图识别-2笔.csv").assertIsDisplayed()
     }
 
     @Test
@@ -308,6 +339,10 @@ class HengjiAppUiTest {
         heightDp: Int = 700,
         fontScale: Float = 1f,
         modelProvider: PersonalInsightModelProvider? = null,
+        capturePicker: UserLocalCapturePicker = object : UserLocalCapturePicker {
+            override val isAvailable = false
+            override suspend fun pick(mode: LocalCaptureMode): PickedImportDocument? = null
+        },
     ) {
         setContent {
             CompositionLocalProvider(LocalDensity provides Density(1f, fontScale)) {
@@ -315,6 +350,7 @@ class HengjiAppUiTest {
                     HengjiApp(
                         gateway = gateway,
                         userImportDocumentPicker = picker,
+                        userLocalCapturePicker = capturePicker,
                         ledgerExportWriter = writer,
                         personalInsightModelProvider = modelProvider,
                     )

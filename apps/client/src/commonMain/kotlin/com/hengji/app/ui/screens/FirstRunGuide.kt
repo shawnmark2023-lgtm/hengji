@@ -57,8 +57,8 @@ private val guidePages = listOf(
     GuidePage(
         Icons.Outlined.FileOpen,
         "有旧账单就直接导入",
-        "到“设置”点“导入账单”，选择 CSV 或 JSON。恒迹会先给你检查，确认后才写入。",
-        listOf("先预览", "重复账单自动跳过", "导错了可以按批次撤销"),
+        "到“设置”点“导入账单”。安卓可直接选长截图、图片或 PDF，电脑可选 CSV 或 JSON；恒迹会先给你检查。",
+        listOf("图片只在本机识别", "重复账单自动跳过", "确认后才写入，导错可整批撤销"),
     ),
     GuidePage(
         Icons.Outlined.AutoAwesome,

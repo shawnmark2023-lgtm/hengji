@@ -65,6 +65,7 @@ fun SettingsScreen(
     storageStatus: String = "内存预览 · 关闭后不保留",
     quickEntryShortcutStatus: String? = null,
     priceNotificationControl: PriceNotificationControl? = null,
+    localCaptureAvailable: Boolean = false,
 ) {
     var showPrivacyNotice by rememberSaveable { mutableStateOf(false) }
 
@@ -253,15 +254,22 @@ fun SettingsScreen(
                     )
                     Text(
                         "所有外部记录先进入预览区，经你确认后才会写入主账本。" +
-                            "当前版本只提供系统文件选择器，不包含自动同步或平台账户授权。",
+                            if (localCaptureAvailable) {
+                                "安卓可在本机识别长截图、图片和 PDF；不包含自动同步或平台账户授权。"
+                            } else {
+                                "电脑端当前支持 CSV/JSON 文件，不包含自动同步或平台账户授权。"
+                            },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     FilledTonalButton(
                         onClick = onOpenImport,
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text("选择文件并导入") }
-                    ConnectorRow("CSV / JSON 文件", "系统选择器授权 · 本机解析")
+                    ) { Text("读取或导入账单") }
+                    ConnectorRow(
+                        if (localCaptureAvailable) "长截图 / 图片 / PDF / CSV / JSON" else "CSV / JSON 文件",
+                        "仅处理你主动选择的内容 · 本机解析",
+                    )
                 }
             }
         }

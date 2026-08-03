@@ -192,6 +192,7 @@ compose.desktop {
             appResourcesRootDir.set(rootProject.layout.projectDirectory.dir("third_party/ai/model"))
 
             windows {
+                iconFile.set(project.file("branding/hengji-app-icon.ico"))
                 // Keep binaries separate from %LOCALAPPDATA%\Hengji ledger data while
                 // avoiding JDK-8226534/ICE64 for nested per-user install directories.
                 installationPath = "HengjiApp"

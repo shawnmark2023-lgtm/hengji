@@ -2,7 +2,7 @@
 <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
     <shortcut
         android:enabled="true"
-        android:icon="@drawable/ic_hengji"
+        android:icon="@mipmap/ic_launcher"
         android:shortcutId="quick_entry"
         android:shortcutLongLabel="@string/shortcut_quick_entry_long"
         android:shortcutShortLabel="@string/shortcut_quick_entry_short">

@@ -26,11 +26,14 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import com.hengji.app.generated.resources.Res
+import com.hengji.app.generated.resources.ic_hengji_mark
 import com.hengji.app.theme.HengjiTheme
 import com.hengji.data.openDesktopProtectedLedger
 import com.hengji.app.application.QuickEntryRequest
 import java.io.File
 import kotlinx.coroutines.runBlocking
+import org.jetbrains.compose.resources.painterResource
 
 fun main() {
     val opening = try {
@@ -75,6 +78,7 @@ fun main() {
         Window(
             onCloseRequest = ::exitApplication,
             state = windowState,
+            icon = painterResource(Res.drawable.ic_hengji_mark),
             title = "恒迹 HENGJI",
             onPreviewKeyEvent = { event ->
                 if (

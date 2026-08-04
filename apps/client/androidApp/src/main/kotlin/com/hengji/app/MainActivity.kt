@@ -103,8 +103,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        updateSmoothUiRefreshPreference(active = true)
         refreshNotificationStatus()
         refreshSystemReduceMotion()
+    }
+
+    override fun onPause() {
+        updateSmoothUiRefreshPreference(active = false)
+        super.onPause()
     }
 
     override fun onDestroy() {
@@ -274,6 +280,20 @@ class MainActivity : ComponentActivity() {
             Settings.Global.ANIMATOR_DURATION_SCALE,
             1f,
         ) == 0f
+    }
+
+    private fun updateSmoothUiRefreshPreference(active: Boolean) {
+        @Suppress("DEPRECATION")
+        val preferredRate = if (active) {
+            windowManager.defaultDisplay.supportedModes.maxOfOrNull { it.refreshRate } ?: 0f
+        } else {
+            0f
+        }
+        val attributes = window.attributes
+        if (attributes.preferredRefreshRate != preferredRate) {
+            attributes.preferredRefreshRate = preferredRate
+            window.attributes = attributes
+        }
     }
 
     companion object {

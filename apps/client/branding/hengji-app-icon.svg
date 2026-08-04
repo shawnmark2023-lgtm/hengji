@@ -4,10 +4,10 @@
   <desc id="desc">A warm gold lasting trace joins two rails on a deep teal field.</desc>
   <rect x="8" y="8" width="92" height="92" rx="20" fill="#143F3A"/>
   <path
-    d="M32 79V29 M32 63C41 53 49 54 57 52C66 50 72 43 76 35 M76 29V79"
+    d="M36 75V33 M36 61C44 53 50 54 57 52C64 50 69 44 72 37 M72 33V75"
     fill="none"
     stroke="#F4C982"
-    stroke-width="9"
+    stroke-width="8"
     stroke-linecap="round"
     stroke-linejoin="round"/>
 </svg>

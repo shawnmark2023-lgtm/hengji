@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -500,7 +501,7 @@ fun HengjiApp(
 
     HengjiTheme(darkTheme = darkTheme) {
         Surface(color = MaterialTheme.colorScheme.background) {
-            Box(Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxSize().safeDrawingPadding()) {
                 AdaptiveAppShell(
                     destination = destination,
                     paneTitle = if (showImportWizard) "导入账单" else destination.label,

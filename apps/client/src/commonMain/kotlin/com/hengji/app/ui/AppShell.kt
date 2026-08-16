@@ -281,18 +281,18 @@ private fun ExpandedShell(
 ) {
     Row(Modifier.fillMaxSize()) {
         Surface(
-            modifier = Modifier.width(272.dp).fillMaxHeight(),
+            modifier = Modifier.width(232.dp).fillMaxHeight(),
             color = MaterialTheme.colorScheme.surface,
         ) {
             Column(
-                modifier = Modifier.padding(horizontal = HengjiSpacing.md, vertical = HengjiSpacing.lg),
+                modifier = Modifier.padding(horizontal = HengjiSpacing.sm, vertical = HengjiSpacing.lg),
             ) {
                 BrandBlock(modifier = Modifier.padding(horizontal = HengjiSpacing.xs))
-                Spacer(Modifier.height(HengjiSpacing.xl))
+                Spacer(Modifier.height(HengjiSpacing.lg))
                 Button(
                     onClick = onAddTransaction,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    shape = RoundedCornerShape(14.dp),
                     contentPadding = PaddingValues(horizontal = HengjiSpacing.md),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 ) {
@@ -314,9 +314,9 @@ private fun ExpandedShell(
                                 ),
                             shape = RoundedCornerShape(16.dp),
                             color = if (selected) {
-                                MaterialTheme.colorScheme.primaryContainer
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.36f)
                             } else {
-                                MaterialTheme.colorScheme.surface
+                                Color.Transparent
                             },
                             contentColor = if (selected) {
                                 MaterialTheme.colorScheme.onPrimaryContainer
@@ -325,16 +325,26 @@ private fun ExpandedShell(
                             },
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = HengjiSpacing.md, vertical = 13.dp),
+                                modifier = Modifier.padding(horizontal = HengjiSpacing.sm, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Icon(item.icon, contentDescription = null)
-                                Spacer(Modifier.width(HengjiSpacing.md))
+                                Box(
+                                    Modifier
+                                        .width(3.dp)
+                                        .height(30.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                        ),
+                                )
+                                Spacer(Modifier.width(HengjiSpacing.sm))
+                                Icon(item.icon, contentDescription = null, modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(HengjiSpacing.sm))
                                 Column {
                                     Text(item.label, style = MaterialTheme.typography.labelLarge)
                                     Text(
                                         item.supportingLabel,
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
@@ -345,24 +355,12 @@ private fun ExpandedShell(
                 Spacer(Modifier.weight(1f))
                 LocalOnlyBadge(modifier = Modifier.align(Alignment.CenterHorizontally))
                 Spacer(Modifier.height(HengjiSpacing.xs))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(
-                        Modifier
-                            .size(7.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary),
-                    )
-                    Spacer(Modifier.width(7.dp))
-                    Text(
-                        "网络访问：0",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                Text(
+                    "本机处理 · 默认不联网",
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
         HorizontalDivider(

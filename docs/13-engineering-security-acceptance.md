@@ -1,5 +1,23 @@
 # 恒迹 Windows/Android 工程与安全验收
 
+## 2026-08-12 桌面 UI、安装卸载与全量复验
+
+本轮在不改变领域模型、金额精度、账本格式、网络权限或 Apple 延期边界的前提下，完成 Windows 桌面 UI 第二轮精简和全部本机可运行门禁。使用隔离数据启动真实 Release 分发目录，逐页走查首页、账单、物品、智能分析和设置；桌面侧栏从 272 dp 收至 232 dp，选择态改为细强调线，空首页不再展示无意义的零值卡片，账单/物品使用语义正确的空状态，卡片边界进一步降噪。
+
+- 静态门禁：formatting 195、architecture 40、release guards 353、Apple readiness 42、reproducibility 18、供应链 inventory 352，全部通过。
+- 覆盖率：core-domain line/branch 94.7619%/61.9048%；core-insights 93.5053%/60.7914%；connectors 92.9078%/56.1769%，全部高于策略阈值。
+- Desktop：216/216；UI 文案变化引起的 2 个旧断言已更新后完成全量复跑。Release/ProGuard 与 MSI 均构建通过。
+- Android：host 63/63；lint 0 fatal/0 error/20 warning；Debug、R8 Release、AndroidTest APK 构建通过；Debug/Release 均无 `INTERNET`、`READ_SMS`、`RECEIVE_SMS`。隔离 API 36 Google APIs x86_64 模拟器 instrumentation 5/5，执行后关闭。
+- 输入/性能：畸形导入 8/8；100,000 行 4/4，115 ms、内存增量 43.67 MiB，仅为开发机内存基线。
+- 辅助服务：Connector 4/4、Price 3/3、TypeScript 与 Pyright strict 通过、npm audit 0；隔离 wheel 构建通过。
+- 财务验证：731 files，0 error，0 warning。供应链：276 个锁定包，0 已知漏洞、0 许可证违规；64 个 Actions 引用继续固定完整 SHA。
+- MSI：当前源码 0.0.9 → 0.1.0 每用户安装、已安装 EXE 启动、升级、升级后启动、卸载、注册/安装目录/快捷方式清理和隔离加密数据保留全部通过。最终系统状态为恒迹产品注册 0、`%LOCALAPPDATA%\HengjiApp` 不存在、快捷方式 0。
+- 用户真实账本未参与测试且未被修改：`%LOCALAPPDATA%\Hengji\hengji.ledger.hjenc` 24,147 bytes，操作前后 SHA-256 均为 `E09D0859572F945F86498AEE60306A8CC2273FFBE1DEAAF43C7CB5954FB4BD78`。
+
+本轮最终源码工件：Windows MSI 449,704,712 bytes，SHA-256 `BAC0E4AF3324B232DC397840120FDD95C26A9FC8EF4F4D978A5A3133D225ED28`；Android Debug APK 481,402,079 bytes，SHA-256 `2F9BCD13185196AF4C095F8843C08274D07074C2B92ECE589370038C46EB1E5D`；Android R8 Release unsigned APK 387,074,852 bytes，SHA-256 `A44CF9DA852A0ED367D393D250F765FA7B3F0E4D535436FBBD2C452D481C6AD6`；AndroidTest APK 4,452,035 bytes，SHA-256 `7CE8D5E646D65CEF3C61776257FB1DA21FC16FA97AB200626FB59FC16001B881`。MSI 与 Release APK 均未生产签名，不作为公开发布包。
+
+当前仓库内 Critical/High/Medium 未关闭安全问题仍为 0。生产签名、SmartScreen、商店发布、远端 runner、代表性实体设备与真实辅助技术仍按第 9 节保持外部边界；不宣称 Beta、生产或商店发布完成。
+
 日期：2026-07-28（Asia/Shanghai）
 
 范围：Windows、Android、共享 Kotlin 模块、Connector Gateway、Price Intelligence、构建与供应链。iOS/macOS 明确延期。本报告记录当前源码在本机的实际执行结果，不把历史结果、模拟器或未签名工件冒充真机、生产、Beta、商店或远端 CI 证据。

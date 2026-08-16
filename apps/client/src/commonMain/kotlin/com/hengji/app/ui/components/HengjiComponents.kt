@@ -182,9 +182,12 @@ fun MetricCard(
 ) {
     Surface(
         modifier = modifier.semantics(mergeDescendants = true) {},
-        color = MaterialTheme.colorScheme.surface,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
         shape = MaterialTheme.shapes.large,
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.58f),
+        ),
     ) {
         Column(Modifier.padding(HengjiSpacing.lg)) {
             Box(
@@ -244,9 +247,12 @@ fun SectionCard(
 ) {
     Surface(
         modifier = modifier,
-        color = MaterialTheme.colorScheme.surface,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
         shape = MaterialTheme.shapes.large,
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.58f),
+        ),
     ) {
         Box(Modifier.padding(HengjiSpacing.lg)) {
             content()

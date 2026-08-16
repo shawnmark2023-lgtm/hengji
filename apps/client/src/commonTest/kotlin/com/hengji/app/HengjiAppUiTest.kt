@@ -155,7 +155,7 @@ class HengjiAppUiTest {
         onNodeWithText("跳过教程").performClick()
         navigateTo("账单")
         onNodeWithText(originalMerchant).assertDoesNotExist()
-        onNodeWithText("没有找到这笔账").assertIsDisplayed()
+        onNodeWithText("还没有账单").assertIsDisplayed()
 
         navigateTo("设置")
         onNodeWithText("恢复备份").performScrollTo().performClick()
@@ -195,7 +195,7 @@ class HengjiAppUiTest {
         onNodeWithText("撤销整个导入批次").performClick()
         waitUntilExactlyOneExists(hasText("批次已撤销"))
         navigateTo("账单")
-        onNodeWithText("没有找到这笔账").assertIsDisplayed()
+        onNodeWithText("还没有账单").assertIsDisplayed()
     }
 
     @Test

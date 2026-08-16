@@ -135,14 +135,18 @@ fun LedgerScreen(
             SectionCard(Modifier.fillMaxWidth()) {
                 Column {
                     if (filtered.isEmpty()) {
+                        val isEmptyLedger = transactions.isEmpty() && query.isBlank() && selectedCategory == "全部"
                         Column(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
-                            Text("没有找到这笔账", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                if (isEmptyLedger) "还没有账单" else "没有找到这笔账",
+                                style = MaterialTheme.typography.titleMedium,
+                            )
                             Spacer(Modifier.height(HengjiSpacing.xs))
                             Text(
-                                "调整分类或搜索词后重试。",
+                                if (isEmptyLedger) "点右上角新增，或回首页导入旧账单。" else "调整分类或搜索词后重试。",
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }

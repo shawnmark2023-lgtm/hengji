@@ -53,6 +53,7 @@ import com.hengji.app.model.parseMoneyToMinor
 import com.hengji.app.theme.HengjiSpacing
 import com.hengji.app.ui.components.MetricCard
 import com.hengji.app.ui.components.ScreenHeader
+import com.hengji.app.ui.components.SectionCard
 import com.hengji.app.ui.components.StatusPill
 
 @Composable
@@ -89,42 +90,61 @@ fun AssetsScreen(
                 },
             )
         }
-        item {
-            MetricCard(
-                label = "累计投入",
-                value = formatMoney(totalCost),
-                supporting = "购买价 + 维护费用",
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-        item {
-            MetricCard(
-                label = "当前估值",
-                value = formatMoney(currentValue),
-                supporting = "手工与示例报价中位数",
-                modifier = Modifier.fillMaxWidth(),
-                accent = MaterialTheme.colorScheme.secondary,
-            )
-        }
-        item(span = { GridItemSpan(maxLineSpan) }) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = HengjiSpacing.xs),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom,
-            ) {
-                Column {
-                    Text("我的物品", style = MaterialTheme.typography.titleLarge)
-                    Text(
-                        "点开物品查看四种成本与二手区间",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+        if (assets.isEmpty()) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                SectionCard(Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = HengjiSpacing.lg),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(HengjiSpacing.sm),
+                    ) {
+                        Text("还没有物品", style = MaterialTheme.typography.titleLarge)
+                        Text(
+                            "添加经常使用的手机、电脑或家电，就能看到每天真实花了多少。",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Button(onClick = onAddAsset) { Text("添加第一件物品") }
+                    }
                 }
-                StatusPill("行情均为示例 / 手工")
             }
-        }
-        items(assets, key = { it.id }) { asset ->
-            AssetCard(asset = asset, onClick = { selectedAsset = asset })
+        } else {
+            item {
+                MetricCard(
+                    label = "累计投入",
+                    value = formatMoney(totalCost),
+                    supporting = "购买价 + 维护费用",
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            item {
+                MetricCard(
+                    label = "当前估值",
+                    value = formatMoney(currentValue),
+                    supporting = "手工与示例报价中位数",
+                    modifier = Modifier.fillMaxWidth(),
+                    accent = MaterialTheme.colorScheme.secondary,
+                )
+            }
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = HengjiSpacing.xs),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Bottom,
+                ) {
+                    Column {
+                        Text("我的物品", style = MaterialTheme.typography.titleLarge)
+                        Text(
+                            "点开物品查看四种成本与二手区间",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    StatusPill("行情均为示例 / 手工")
+                }
+            }
+            items(assets, key = { it.id }) { asset ->
+                AssetCard(asset = asset, onClick = { selectedAsset = asset })
+            }
         }
     }
 

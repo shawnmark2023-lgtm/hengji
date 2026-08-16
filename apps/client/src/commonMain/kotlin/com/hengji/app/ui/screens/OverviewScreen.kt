@@ -89,93 +89,95 @@ fun OverviewScreen(
             }
         }
 
-        item {
-            BoxWithConstraints {
-                val wide = maxWidth >= 760.dp
-                if (wide) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(HengjiSpacing.md),
-                    ) {
-                        MetricCard(
-                            label = "本月支出",
-                            value = formatMoney(spend),
-                            supporting = "按本月已记账单计算",
-                            modifier = Modifier.weight(1f),
-                        )
-                        MetricCard(
-                            label = "还可支配",
-                            value = formatMoney(available),
-                            supporting = "预算还剩 $remainingPercent%，按本月账单计算",
-                            modifier = Modifier.weight(1f),
-                            accent = HengjiApricot,
-                        )
-                        MetricCard(
-                            label = "物品当前残值",
-                            value = formatMoney(residualValue),
-                            supporting = "基于明确标注的手工与示例报价",
-                            modifier = Modifier.weight(1f),
-                            accent = HengjiGreenLight,
-                        )
-                    }
-                } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(HengjiSpacing.md)) {
-                        MetricCard("本月花了", formatMoney(spend), "按本月已记账单计算", Modifier.fillMaxWidth())
-                        MetricCard(
-                            "还可支配",
-                            formatMoney(available),
-                            "预算还剩 $remainingPercent%，按本月账单计算",
-                            Modifier.fillMaxWidth(),
-                            HengjiApricot,
-                        )
-                    }
-                }
-            }
-        }
-
-        item {
-            BoxWithConstraints {
-                val wide = maxWidth >= 820.dp
-                if (wide) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(HengjiSpacing.md),
-                        verticalAlignment = Alignment.Top,
-                    ) {
-                        SpendingComposition(currentTransactions, modifier = Modifier.weight(1.08f))
-                        InsightPreview(insights.firstOrNull(), onOpenInsights, modifier = Modifier.weight(0.92f))
-                    }
-                } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(HengjiSpacing.md)) {
-                        SpendingComposition(currentTransactions, Modifier.fillMaxWidth())
-                        InsightPreview(insights.firstOrNull(), onOpenInsights, Modifier.fillMaxWidth())
-                    }
-                }
-            }
-        }
-
-        item {
-            SectionCard(Modifier.fillMaxWidth()) {
-                Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column {
-                            Text("最近记的账", style = MaterialTheme.typography.titleLarge)
-                            Text(
-                                "最近发生的收支与来源",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+        if (transactions.isNotEmpty() || assets.isNotEmpty()) {
+            item {
+                BoxWithConstraints {
+                    val wide = maxWidth >= 760.dp
+                    if (wide) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(HengjiSpacing.md),
+                        ) {
+                            MetricCard(
+                                label = "本月支出",
+                                value = formatMoney(spend),
+                                supporting = "按本月已记账单计算",
+                                modifier = Modifier.weight(1f),
+                            )
+                            MetricCard(
+                                label = "还可支配",
+                                value = formatMoney(available),
+                                supporting = "预算还剩 $remainingPercent%，按本月账单计算",
+                                modifier = Modifier.weight(1f),
+                                accent = HengjiApricot,
+                            )
+                            MetricCard(
+                                label = "物品当前残值",
+                                value = formatMoney(residualValue),
+                                supporting = "基于明确标注的手工与示例报价",
+                                modifier = Modifier.weight(1f),
+                                accent = HengjiGreenLight,
                             )
                         }
-                        TextButton(onClick = onOpenLedger) { Text("查看全部") }
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(HengjiSpacing.md)) {
+                            MetricCard("本月花了", formatMoney(spend), "按本月已记账单计算", Modifier.fillMaxWidth())
+                            MetricCard(
+                                "还可支配",
+                                formatMoney(available),
+                                "预算还剩 $remainingPercent%，按本月账单计算",
+                                Modifier.fillMaxWidth(),
+                                HengjiApricot,
+                            )
+                        }
                     }
-                    Spacer(Modifier.height(HengjiSpacing.sm))
-                    currentTransactions.take(4).forEachIndexed { index, transaction ->
-                        if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                        OverviewTransactionRow(transaction)
+                }
+            }
+
+            item {
+                BoxWithConstraints {
+                    val wide = maxWidth >= 820.dp
+                    if (wide) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(HengjiSpacing.md),
+                            verticalAlignment = Alignment.Top,
+                        ) {
+                            SpendingComposition(currentTransactions, modifier = Modifier.weight(1.08f))
+                            InsightPreview(insights.firstOrNull(), onOpenInsights, modifier = Modifier.weight(0.92f))
+                        }
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(HengjiSpacing.md)) {
+                            SpendingComposition(currentTransactions, Modifier.fillMaxWidth())
+                            InsightPreview(insights.firstOrNull(), onOpenInsights, Modifier.fillMaxWidth())
+                        }
+                    }
+                }
+            }
+
+            item {
+                SectionCard(Modifier.fillMaxWidth()) {
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column {
+                                Text("最近记的账", style = MaterialTheme.typography.titleLarge)
+                                Text(
+                                    "最近发生的收支与来源",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            TextButton(onClick = onOpenLedger) { Text("查看全部") }
+                        }
+                        Spacer(Modifier.height(HengjiSpacing.sm))
+                        currentTransactions.take(4).forEachIndexed { index, transaction ->
+                            if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            OverviewTransactionRow(transaction)
+                        }
                     }
                 }
             }
@@ -191,29 +193,63 @@ private fun FirstRunGuide(
     SectionCard(Modifier.fillMaxWidth()) {
         Column(verticalArrangement = Arrangement.spacedBy(HengjiSpacing.md)) {
             Column(verticalArrangement = Arrangement.spacedBy(HengjiSpacing.xs)) {
-                Text("从一笔真实记录开始", style = MaterialTheme.typography.titleLarge)
+                Text("先记第一笔，就能开始", style = MaterialTheme.typography.titleLarge)
                 Text(
-                    "不需要注册，也不需要先配置一大堆选项。完成下面三步，恒迹就会开始建立你的本机基线。",
+                    "不用注册，也不用先设置。手动记一笔，或把旧账单导进来，恒迹就会开始整理。",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            GuideStep("1", "记一笔", "输入金额、商户和分类；之后都可以修改。")
-            GuideStep("2", "持续确认", "分类和使用记录越完整，成本视图越可靠。")
-            GuideStep("3", "告诉智能分析准不准", "点有帮助或不适合我，下次会更懂你。")
-            Button(onClick = onAddTransaction, modifier = Modifier.fillMaxWidth()) {
-                Text("记第一笔")
+            BoxWithConstraints {
+                if (maxWidth >= 720.dp) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(HengjiSpacing.xl),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1.25f),
+                            verticalArrangement = Arrangement.spacedBy(HengjiSpacing.md),
+                        ) {
+                            FirstRunSteps()
+                        }
+                        Column(
+                            modifier = Modifier.weight(0.75f),
+                            verticalArrangement = Arrangement.spacedBy(HengjiSpacing.sm),
+                        ) {
+                            FirstRunActions(onAddTransaction, onOpenImport)
+                        }
+                    }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(HengjiSpacing.md)) {
+                        FirstRunSteps()
+                        FirstRunActions(onAddTransaction, onOpenImport)
+                    }
+                }
             }
-            FilledTonalButton(onClick = onOpenImport, modifier = Modifier.fillMaxWidth()) {
-                Text("导入旧账单")
-            }
-            Text(
-                "导入不会上传原文件；预览确认后才写入账本。",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
+}
+
+@Composable
+private fun FirstRunSteps() {
+    GuideStep("1", "记下或导入", "填金额和用途，也可以读取图片、PDF 或长截图。")
+    GuideStep("2", "核对后保存", "所有识别结果都先预览，确认后才进入账本。")
+    GuideStep("3", "用得越久越懂你", "满三个月后给出首次个人分析，随时可以关闭。")
+}
+
+@Composable
+private fun FirstRunActions(
+    onAddTransaction: () -> Unit,
+    onOpenImport: () -> Unit,
+) {
+    Button(onClick = onAddTransaction, modifier = Modifier.fillMaxWidth()) { Text("记第一笔") }
+    FilledTonalButton(onClick = onOpenImport, modifier = Modifier.fillMaxWidth()) { Text("导入旧账单") }
+    Text(
+        "文件只在本机读取，确认后才入账。",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable

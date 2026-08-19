@@ -3,6 +3,7 @@ package com.hengji.app
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -76,6 +77,7 @@ import com.hengji.app.importflow.ImportSource
 import com.hengji.app.importflow.LocalCaptureMode
 import com.hengji.app.model.DomainDemoData
 import com.hengji.app.model.currencyDisplayPrefix
+import com.hengji.app.model.formatMoney
 import com.hengji.app.model.parseMoneyToMinor
 import com.hengji.app.model.withModelResult
 import com.hengji.app.model.toGeneratedModelResult
@@ -96,6 +98,7 @@ import com.hengji.data.LedgerJsonExporter
 import com.hengji.data.LedgerCsvExporter
 import com.hengji.data.LedgerRepository
 import com.hengji.data.LedgerSnapshot
+import com.hengji.data.MAX_MONTHLY_BUDGET_MINOR
 import com.hengji.data.PersistentLedgerRepository
 import com.hengji.domain.AssetId
 import com.hengji.domain.Asset
@@ -194,6 +197,7 @@ fun HengjiApp(
     var appearanceMode by rememberSaveable { mutableStateOf(AppAppearanceMode.SYSTEM) }
     var reduceMotionOverride by rememberSaveable { mutableStateOf(false) }
     var showAddTransaction by rememberSaveable { mutableStateOf(false) }
+    var showMonthlyBudgetDialog by rememberSaveable { mutableStateOf(false) }
     var showAddAsset by rememberSaveable { mutableStateOf(false) }
     var manualQuoteAssetId by rememberSaveable { mutableStateOf<String?>(null) }
     var showImportWizard by rememberSaveable { mutableStateOf(false) }
@@ -421,6 +425,23 @@ fun HengjiApp(
     val localInsightFeed = insightComputation.feed
     val insightModelRequest = insightComputation.modelRequest
     val personalAiEnabled = currentSnapshot.insightPreferences.personalAiEnabled
+    val recentEntryPresets = remember(currentSnapshot.transactions) {
+        currentSnapshot.transactions
+            .asSequence()
+            .filter { !it.isDeleted && it.kind != TransactionKind.REFUND && it.merchant != null }
+            .sortedByDescending { it.bookedOn }
+            .distinctBy { "${it.kind}:${it.merchant?.normalizedName}" }
+            .take(3)
+            .map { transaction ->
+                QuickEntryPreset(
+                    merchant = requireNotNull(transaction.merchant).displayName,
+                    category = categoryLabelForId(transaction.categoryId.value),
+                    amountMinor = transaction.amount.minorUnits,
+                    kind = transaction.kind,
+                )
+            }
+            .toList()
+    }
     val savedAnalysis = currentSnapshot.insightPreferences.personalAnalysisHistory.lastOrNull()
     val insightModelConsent = InsightExplanationConsent(
         enabled = personalAiEnabled,
@@ -529,12 +550,15 @@ fun HengjiApp(
                         onOpenImport = { showImportWizard = true },
                         onOpenLedger = { destination = AppDestination.Ledger },
                         onOpenInsights = { destination = AppDestination.Insights },
+                        monthlyBudgetMinor = currentSnapshot.insightPreferences.monthlyBudgetMinor,
+                        onEditMonthlyBudget = { showMonthlyBudgetDialog = true },
                     )
                     AppDestination.Ledger -> LedgerScreen(
                         transactions = transactions,
                         onAddTransaction = { showAddTransaction = true },
                         onEditTransaction = { editingTransactionId = it },
                         onDeleteTransaction = { transactionPendingDeletionId = it },
+                        onOpenImport = { showImportWizard = true },
                     )
                     AppDestination.Assets -> AssetsScreen(
                         assets = assets,
@@ -623,6 +647,7 @@ fun HengjiApp(
                                     personalAiEnabled = currentSnapshot.insightPreferences.personalAiEnabled,
                                     onboardingCompletedAtEpochMillis =
                                         currentSnapshot.insightPreferences.onboardingCompletedAtEpochMillis,
+                                    monthlyBudgetMinor = currentSnapshot.insightPreferences.monthlyBudgetMinor,
                                 ),
                                 busyKey = null,
                                 resetting = true,
@@ -730,12 +755,16 @@ fun HengjiApp(
         }
         if (showAddTransaction || editingTransaction != null) {
             AddTransactionDialog(
-                title = if (editingTransaction == null) "记一笔消费" else "编辑这笔账",
+                title = if (editingTransaction == null) "记一笔" else "编辑这笔账",
                 initialMerchant = editingTransaction?.merchant?.displayName ?: quickEntryMerchant,
                 initialAmount = editingTransaction?.amount?.minorUnits?.let(::minorUnitsToInput)
                     ?: quickEntryAmountMinor?.let(::minorUnitsToInput).orEmpty(),
                 initialCategory = editingTransaction?.categoryId?.value?.let(::categoryLabelForId)
                     ?: quickEntryCategory,
+                initialKind = editingTransaction?.kind ?: TransactionKind.EXPENSE,
+                initialBookedOn = editingTransaction?.bookedOn ?: today,
+                asOf = today,
+                recentPresets = if (editingTransaction == null) recentEntryPresets else emptyList(),
                 sourceDisclosure = if (editingTransaction == null) quickEntryDisclosure else null,
                 localCaptureAvailable = editingTransaction == null && userLocalCapturePicker.isAvailable,
                 onLongScreenshot = {
@@ -764,17 +793,23 @@ fun HengjiApp(
                     quickEntryCategory = "其他"
                     quickEntryDisclosure = null
                 },
-                onAdd = { merchant, category, amountMinor ->
+                onAdd = { merchant, category, amountMinor, kind, bookedOn ->
                     mutate {
                         val updated = editingTransaction?.copy(
                             merchant = Merchant(merchant),
                             categoryId = CategoryId(categoryIdForLabel(category)),
                             amount = Money(amountMinor, editingTransaction.amount.currency),
+                            kind = if (editingTransaction.kind == TransactionKind.REFUND) {
+                                TransactionKind.REFUND
+                            } else {
+                                kind
+                            },
+                            bookedOn = bookedOn,
                         ) ?: Transaction(
                             id = TransactionId("local-${currentSnapshot.revision + 1}"),
-                            kind = TransactionKind.EXPENSE,
+                            kind = kind,
                             amount = Money(amountMinor, CurrencyCode.CNY),
-                            bookedOn = currentLocalDate(),
+                            bookedOn = bookedOn,
                             categoryId = CategoryId(categoryIdForLabel(category)),
                             merchant = Merchant(merchant),
                             source = TransactionSource.MANUAL,
@@ -788,6 +823,26 @@ fun HengjiApp(
                         quickEntryDisclosure = null
                         destination = AppDestination.Ledger
                     }
+                },
+            )
+        }
+
+        if (showMonthlyBudgetDialog) {
+            MonthlyBudgetDialog(
+                initialBudgetMinor = currentSnapshot.insightPreferences.monthlyBudgetMinor,
+                onDismiss = { showMonthlyBudgetDialog = false },
+                onSave = { budgetMinor ->
+                    val updatedAt = Clock.System.now().toEpochMilliseconds()
+                    showMonthlyBudgetDialog = false
+                    persistInsightPreferences(
+                        preferences = currentSnapshot.insightPreferences.copy(
+                            monthlyBudgetMinor = budgetMinor,
+                            updatedAtEpochMillis = updatedAt,
+                        ),
+                        busyKey = null,
+                        resetting = false,
+                        successMessage = if (budgetMinor == null) "月预算已清除" else "月预算已保存到本机",
+                    )
                 },
             )
         }
@@ -1000,19 +1055,28 @@ private fun AddTransactionDialog(
     initialMerchant: String,
     initialAmount: String,
     initialCategory: String,
+    initialKind: TransactionKind,
+    initialBookedOn: LocalDate,
+    asOf: LocalDate,
+    recentPresets: List<QuickEntryPreset> = emptyList(),
     sourceDisclosure: String? = null,
     localCaptureAvailable: Boolean = false,
     onLongScreenshot: () -> Unit = {},
     onOneClickCapture: () -> Unit = {},
     onDismiss: () -> Unit,
-    onAdd: (merchant: String, category: String, amountMinor: Long) -> Unit,
+    onAdd: (merchant: String, category: String, amountMinor: Long, kind: TransactionKind, bookedOn: LocalDate) -> Unit,
 ) {
     var merchant by remember(initialMerchant) { mutableStateOf(initialMerchant) }
     var amount by remember(initialAmount) { mutableStateOf(initialAmount) }
     var category by remember(initialCategory) { mutableStateOf(initialCategory) }
+    var kind by remember(initialKind) { mutableStateOf(initialKind) }
+    var bookedOnInput by remember(initialBookedOn) { mutableStateOf(initialBookedOn.toString()) }
     val amountMinor = parseMoneyToMinor(amount)
     val amountError = amount.isNotEmpty() && (amountMinor == null || amountMinor <= 0)
-    val valid = merchant.isNotBlank() && amountMinor != null && amountMinor > 0
+    val bookedOn = runCatching { LocalDate.parse(bookedOnInput) }.getOrNull()
+    val dateError = bookedOnInput.isNotEmpty() && (bookedOn == null || bookedOn > asOf)
+    val valid = merchant.isNotBlank() && amountMinor != null && amountMinor > 0 && bookedOn != null && bookedOn <= asOf
+    val yesterday = LocalDate.fromEpochDays(asOf.toEpochDays() - 1)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1034,6 +1098,51 @@ private fun AddTransactionDialog(
                         it,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                if (initialKind == TransactionKind.REFUND) {
+                    Text(
+                        "退款记录 · 类型保持不变",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        listOf(TransactionKind.EXPENSE to "支出", TransactionKind.INCOME to "收入").forEach { item ->
+                            FilterChip(
+                                selected = kind == item.first,
+                                onClick = { kind = item.first },
+                                label = { Text(item.second) },
+                            )
+                        }
+                    }
+                }
+                if (recentPresets.isNotEmpty()) {
+                    Text("最近常用", style = MaterialTheme.typography.titleMedium)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        recentPresets.forEach { preset ->
+                            FilterChip(
+                                selected = false,
+                                onClick = {
+                                    merchant = preset.merchant
+                                    amount = minorUnitsToInput(preset.amountMinor)
+                                    category = preset.category
+                                    kind = preset.kind
+                                },
+                                label = { Text("${preset.merchant} · ${formatMoney(preset.amountMinor)}") },
+                            )
+                        }
+                    }
+                    Text(
+                        "快捷项只会预填，仍需确认后保存。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 if (localCaptureAvailable) {
@@ -1066,6 +1175,36 @@ private fun AddTransactionDialog(
                     label = { Text("商户或用途（必填）") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(
+                        selected = bookedOn == asOf,
+                        onClick = { bookedOnInput = asOf.toString() },
+                        label = { Text("今天") },
+                    )
+                    FilterChip(
+                        selected = bookedOn == yesterday,
+                        onClick = { bookedOnInput = yesterday.toString() },
+                        label = { Text("昨天") },
+                    )
+                }
+                OutlinedTextField(
+                    value = bookedOnInput,
+                    onValueChange = { value ->
+                        bookedOnInput = value.filter { it.isDigit() || it == '-' }.take(10)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("日期（YYYY-MM-DD）") },
+                    singleLine = true,
+                    isError = dateError,
+                    supportingText = {
+                        if (dateError) {
+                            Text(if (bookedOn == null) "请输入有效日期" else "不能记录未来账单")
+                        }
+                    },
                 )
                 OutlinedTextField(
                     value = amount,
@@ -1101,13 +1240,79 @@ private fun AddTransactionDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onAdd(merchant.trim(), category, amountMinor ?: 0L) },
+                onClick = { onAdd(merchant.trim(), category, amountMinor ?: 0L, kind, requireNotNull(bookedOn)) },
                 enabled = valid,
             ) {
                 Text("保存")
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+    )
+}
+
+private data class QuickEntryPreset(
+    val merchant: String,
+    val category: String,
+    val amountMinor: Long,
+    val kind: TransactionKind,
+)
+
+@Composable
+private fun MonthlyBudgetDialog(
+    initialBudgetMinor: Long?,
+    onDismiss: () -> Unit,
+    onSave: (Long?) -> Unit,
+) {
+    var amount by remember(initialBudgetMinor) {
+        mutableStateOf(initialBudgetMinor?.let(::minorUnitsToInput).orEmpty())
+    }
+    val amountMinor = parseMoneyToMinor(amount)
+    val amountError = amount.isNotEmpty() &&
+        (amountMinor == null || amountMinor !in 1..MAX_MONTHLY_BUDGET_MINOR)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (initialBudgetMinor == null) "设置月预算" else "修改月预算") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(HengjiSpacing.md)) {
+                Text(
+                    "预算只保存在本机，用于计算本月可用额度和消费节奏。退款会从支出中扣除。",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = amount,
+                    onValueChange = { amount = it.filter { char -> char.isDigit() || char == '.' } },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("每月预算") },
+                    prefix = { Text("¥") },
+                    singleLine = true,
+                    isError = amountError,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Decimal,
+                        imeAction = ImeAction.Done,
+                    ),
+                    supportingText = {
+                        if (amountError) Text("请输入大于 0 的有效金额")
+                    },
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(amountMinor) },
+                enabled = amountMinor != null && amountMinor in 1..MAX_MONTHLY_BUDGET_MINOR,
+            ) { Text("保存") }
+        },
+        dismissButton = {
+            Row {
+                if (initialBudgetMinor != null) {
+                    TextButton(onClick = { onSave(null) }) {
+                        Text("清除预算", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+                TextButton(onClick = onDismiss) { Text("取消") }
+            }
+        },
     )
 }
 

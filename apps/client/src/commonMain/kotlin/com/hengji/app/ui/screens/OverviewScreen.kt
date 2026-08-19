@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -37,12 +38,12 @@ import com.hengji.app.model.DemoAsset
 import com.hengji.app.model.DemoTransaction
 import com.hengji.app.model.EntryKind
 import com.hengji.app.model.formatMoney
-import com.hengji.app.theme.HengjiApricot
 import com.hengji.app.theme.HengjiGreenLight
+import com.hengji.app.theme.HengjiApricot
 import com.hengji.app.theme.HengjiSpacing
+import com.hengji.domain.ExactMath
 import com.hengji.app.ui.components.CategoryProgress
 import com.hengji.app.ui.components.LocalOnlyBadge
-import com.hengji.app.ui.components.MetricCard
 import com.hengji.app.ui.components.ScreenHeader
 import com.hengji.app.ui.components.SectionCard
 import com.hengji.app.ui.components.StatusPill
@@ -58,13 +59,19 @@ fun OverviewScreen(
     onOpenImport: () -> Unit,
     onOpenLedger: () -> Unit,
     onOpenInsights: () -> Unit,
+    monthlyBudgetMinor: Long? = null,
+    onEditMonthlyBudget: () -> Unit = {},
 ) {
     val currentTransactions = transactions.filter { it.inCurrentPeriod }
-    val spend = currentTransactions.filter { it.kind == EntryKind.Expense }.sumOf { it.amountMinor }
-    val budgetMinor = 650_000L
-    val available = (budgetMinor - spend).coerceAtLeast(0)
-    val remainingPercent = (available * 100 / budgetMinor).coerceIn(0, 100)
-    val residualValue = assets.sumOf { it.currentValueMinor }
+    val spend = currentTransactions
+        .filter { it.kind == EntryKind.Expense || it.kind == EntryKind.Refund }
+        .fold(0L) { total, item -> ExactMath.add(total, item.amountMinor) }
+        .coerceAtLeast(0)
+    val income = currentTransactions
+        .filter { it.kind == EntryKind.Income }
+        .fold(0L) { total, item -> ExactMath.add(total, item.amountMinor) }
+    val balance = ExactMath.subtract(income, spend)
+    val residualValue = assets.fold(0L) { total, item -> ExactMath.add(total, item.currentValueMinor) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -74,8 +81,8 @@ fun OverviewScreen(
         item {
             ScreenHeader(
                 eyebrow = "${asOf.year} 年 ${asOf.month.ordinal + 1} 月 · 第 ${(asOf.day - 1) / 7 + 1} 周",
-                title = "今天的消费很清楚",
-                supporting = "本月花了多少、最近记了什么，一眼就能看懂。",
+                title = "本月收支",
+                supporting = "支出、收入和预算进度，都按已确认账单计算。",
                 action = { LocalOnlyBadge() },
             )
         }
@@ -91,47 +98,14 @@ fun OverviewScreen(
 
         if (transactions.isNotEmpty() || assets.isNotEmpty()) {
             item {
-                BoxWithConstraints {
-                    val wide = maxWidth >= 760.dp
-                    if (wide) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(HengjiSpacing.md),
-                        ) {
-                            MetricCard(
-                                label = "本月支出",
-                                value = formatMoney(spend),
-                                supporting = "按本月已记账单计算",
-                                modifier = Modifier.weight(1f),
-                            )
-                            MetricCard(
-                                label = "还可支配",
-                                value = formatMoney(available),
-                                supporting = "预算还剩 $remainingPercent%，按本月账单计算",
-                                modifier = Modifier.weight(1f),
-                                accent = HengjiApricot,
-                            )
-                            MetricCard(
-                                label = "物品当前残值",
-                                value = formatMoney(residualValue),
-                                supporting = "基于明确标注的手工与示例报价",
-                                modifier = Modifier.weight(1f),
-                                accent = HengjiGreenLight,
-                            )
-                        }
-                    } else {
-                        Column(verticalArrangement = Arrangement.spacedBy(HengjiSpacing.md)) {
-                            MetricCard("本月花了", formatMoney(spend), "按本月已记账单计算", Modifier.fillMaxWidth())
-                            MetricCard(
-                                "还可支配",
-                                formatMoney(available),
-                                "预算还剩 $remainingPercent%，按本月账单计算",
-                                Modifier.fillMaxWidth(),
-                                HengjiApricot,
-                            )
-                        }
-                    }
-                }
+                MonthlyOverviewCard(
+                    spendMinor = spend,
+                    incomeMinor = income,
+                    balanceMinor = balance,
+                    monthlyBudgetMinor = monthlyBudgetMinor,
+                    residualValueMinor = residualValue.takeIf { assets.isNotEmpty() },
+                    onEditMonthlyBudget = onEditMonthlyBudget,
+                )
             }
 
             item {
@@ -182,6 +156,113 @@ fun OverviewScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun MonthlyOverviewCard(
+    spendMinor: Long,
+    incomeMinor: Long,
+    balanceMinor: Long,
+    monthlyBudgetMinor: Long?,
+    residualValueMinor: Long?,
+    onEditMonthlyBudget: () -> Unit,
+) {
+    SectionCard(Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(HengjiSpacing.md)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("本月概览", style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        "退款已从支出中扣除",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                TextButton(onClick = onEditMonthlyBudget) {
+                    Text(if (monthlyBudgetMinor == null) "设置预算" else "修改预算")
+                }
+            }
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                if (maxWidth < 620.dp) {
+                    Column(verticalArrangement = Arrangement.spacedBy(HengjiSpacing.sm)) {
+                        SummaryValue("支出", formatMoney(spendMinor), Modifier.fillMaxWidth())
+                        SummaryValue("收入", formatMoney(incomeMinor), Modifier.fillMaxWidth())
+                        SummaryValue("结余", formatMoney(balanceMinor, showSign = true), Modifier.fillMaxWidth())
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(HengjiSpacing.lg),
+                    ) {
+                        SummaryValue("支出", formatMoney(spendMinor), Modifier.weight(1f))
+                        SummaryValue("收入", formatMoney(incomeMinor), Modifier.weight(1f))
+                        SummaryValue("结余", formatMoney(balanceMinor, showSign = true), Modifier.weight(1f))
+                    }
+                }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            if (monthlyBudgetMinor == null) {
+                Text("设置月预算后，这里会显示真实可用额度和消费进度。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                FilledTonalButton(onClick = onEditMonthlyBudget) { Text("设置月预算") }
+            } else {
+                val remaining = ExactMath.subtract(monthlyBudgetMinor, spendMinor)
+                val usedPercent = ((spendMinor.toDouble() / monthlyBudgetMinor) * 100).toInt().coerceAtLeast(0)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text("月预算 ${formatMoney(monthlyBudgetMinor)}", style = MaterialTheme.typography.labelLarge)
+                    Text("已用 $usedPercent%", style = MaterialTheme.typography.labelLarge)
+                }
+                LinearProgressIndicator(
+                    progress = { (spendMinor.toFloat() / monthlyBudgetMinor).coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    if (remaining >= 0) {
+                        "还可安排 ${formatMoney(remaining)}"
+                    } else {
+                        "已超出 ${formatMoney(ExactMath.negate(remaining))}，可以先复核非必要支出。"
+                    },
+                    color = if (remaining >= 0) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
+                )
+            }
+            residualValueMinor?.let {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("物品当前残值", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "基于明确标注的手工与示例报价",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(formatMoney(it), style = MaterialTheme.typography.titleLarge)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummaryValue(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier.semantics(mergeDescendants = true) {}) {
+        Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.headlineMedium)
     }
 }
 
@@ -309,6 +390,9 @@ private fun SpendingComposition(transactions: List<DemoTransaction>, modifier: M
                     color = colors[index % colors.size],
                 )
             }
+            if (breakdown.isEmpty()) {
+                Text("本月还没有支出", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }
@@ -388,10 +472,14 @@ private fun OverviewTransactionRow(transaction: DemoTransaction) {
         }
         Spacer(Modifier.width(HengjiSpacing.md))
         Text(
-            formatMoney(transaction.amountMinor),
+            formatMoney(transaction.amountMinor, showSign = transaction.kind == EntryKind.Income),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
-            color = if (transaction.amountMinor < 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            color = if (transaction.kind == EntryKind.Expense) {
+                MaterialTheme.colorScheme.onSurface
+            } else {
+                MaterialTheme.colorScheme.primary
+            },
             textAlign = TextAlign.End,
         )
     }

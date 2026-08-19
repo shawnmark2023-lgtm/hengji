@@ -10,6 +10,7 @@ import com.hengji.domain.QuoteProvenance
 import com.hengji.domain.TransactionKind
 import com.hengji.domain.TransactionSource
 import com.hengji.insights.EvidenceValue
+import com.hengji.insights.Budget
 import com.hengji.insights.Insight
 import com.hengji.insights.InsightEngine
 import com.hengji.insights.InsightPreferences
@@ -49,6 +50,7 @@ internal object DomainDemoData {
                     merchant = transaction.merchant?.displayName ?: "未命名交易",
                     category = categoryLabel(transaction.categoryId.value),
                     amountMinor = signedAmount,
+                    bookedOn = transaction.bookedOn,
                     dateLabel = "${transaction.bookedOn.month.ordinal + 1} 月 ${transaction.bookedOn.day} 日",
                     sourceLabel = sourceLabel(transaction.source),
                     kind = when (transaction.kind) {
@@ -180,6 +182,15 @@ internal object DomainDemoData {
                 usageEvents = snapshot.usageEvents,
                 marketEstimates = estimates,
                 marketQuotes = snapshot.marketQuotes,
+                budgets = storedPreferences.monthlyBudgetMinor?.let { budgetMinor ->
+                    listOf(
+                        Budget(
+                            id = "monthly",
+                            period = DateRange(currentPeriodStart, nextPeriodStart),
+                            amount = com.hengji.domain.Money(budgetMinor, DemoLedger.cny),
+                        ),
+                    )
+                }.orEmpty(),
             ),
             preferences = preferences,
             nowEpochMillis = nowEpochMillis,

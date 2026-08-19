@@ -433,6 +433,42 @@ class RoomLedgerRepositoryTest {
     }
 
     @Test
+    fun migrationFiveToSixAddsUnsetMonthlyBudgetWithoutInventingAValue() {
+        withDatabaseFileBlocking { path ->
+            BundledSQLiteDriver().open(path).use { connection ->
+                connection.execSQL(
+                    """
+                    CREATE TABLE insight_preferences (
+                        singletonId INTEGER NOT NULL PRIMARY KEY,
+                        mutedTypesJson TEXT NOT NULL,
+                        ignoredDeduplicationKeysJson TEXT NOT NULL,
+                        updatedAtEpochMillis INTEGER NOT NULL,
+                        adoptedDeduplicationKeysJson TEXT NOT NULL,
+                        snoozedUntilEpochMillisByKeyJson TEXT NOT NULL,
+                        feedbackTypeByKeyJson TEXT NOT NULL,
+                        personalAiEnabled INTEGER NOT NULL,
+                        onboardingCompletedAtEpochMillis INTEGER,
+                        personalAnalysisHistoryJson TEXT NOT NULL
+                    )
+                    """.trimIndent(),
+                )
+                connection.execSQL(
+                    "INSERT INTO insight_preferences VALUES (1, '[]', '[]', 77, '[]', '{}', '{}', 1, NULL, '[]')",
+                )
+
+                MIGRATION_5_6.migrate(connection)
+
+                connection.prepare(
+                    "SELECT monthlyBudgetMinor FROM insight_preferences WHERE singletonId = 1",
+                ).use { statement ->
+                    assertTrue(statement.step())
+                    assertTrue(statement.isNull(0))
+                }
+            }
+        }
+    }
+
+    @Test
     fun importCommitIsIdempotentAndRollbackIsAtomic() = runTest {
         withDatabaseFile { path ->
             val repository = open(path)

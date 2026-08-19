@@ -2,7 +2,7 @@
 
 状态：`TODO` / `DOING` / `DONE` / `BLOCKED`。优先级：P0 首版必需，P1 Beta，P2 上线。
 
-2026-08-03 P0/P1 当前范围：Windows + Android。iOS/macOS 依产品指令延期，不阻塞本轮勾选；其平台门禁保留在仅手动触发的 `apple-deferred.yml` 和发布清单中。Android API 36 instrumentation 已在本机官方 x86_64 模拟器通过 5/5，新增真实内置模型和分片长图 OCR；完整工程/安全验收见 `docs/13-engineering-security-acceptance.md`，长截图增量见 `docs/18-long-screenshot-local-import.md`。依赖生产合同、商店审批、签名账号或代表性实体设备的事项，以 `READY_EXTERNAL` 标记为代码侧已就绪但不冒充外部验收完成。
+2026-08-19 P0/P1 当前范围：Windows + Android。iOS/macOS 依产品指令延期，不阻塞本轮勾选；其平台门禁保留在仅手动触发的 `apple-deferred.yml` 和发布清单中。Android API 36 instrumentation 的历史证据为 5/5，本轮市场/UI 优化实跑 Desktop、Android host/lint/build，不把历史模拟器证据冒充本轮复跑；完整工程/安全验收见 `docs/13-engineering-security-acceptance.md`，市场/UI 收口见 `docs/19-market-demand-ui-optimization.md`。依赖生产合同、商店审批、签名账号或代表性实体设备的事项，以 `READY_EXTERNAL` 标记为代码侧已就绪但不冒充外部验收完成。
 
 ## A. 工程基础
 
@@ -21,15 +21,15 @@
 - [x] `DOM-004` P0 精确实现总拥有成本、日均成本、净日均成本、单次使用成本。
 - [x] `DOM-005` P0 预算、月度汇总、分类占比、趋势和异常计算。
 - [x] `DAT-001` P0 suspend 仓储接口、内存测试实现与 Room KMP/bundled SQLite 持久化实现。
-- [x] `DAT-002` P0 schema v5、v0→v1→v2→v3→v4→v5 导出恢复、显式 Room 1→2→3→4→5 迁移、样例数据、幂等导入、去重和原子撤销批次。
+- [x] `DAT-002` P0 schema v6、v0→v1→v2→v3→v4→v5→v6 导出恢复、显式 Room 1→2→3→4→5→6 迁移、样例数据、幂等导入、去重和原子撤销批次。
 - [x] `DAT-003` P0 完整 JSON 导出/恢复与防公式注入 CSV 导出。
 - [x] `DAT-004` P1 Windows/Android 已实现 AES-256-GCM 账本封装、平台密钥保护、可恢复 Room 明文迁移、受保护初始化 journal，以及带认证 active-key alias 的 v2 信封和崩溃安全密钥轮换；轮换提交失败保持旧信封可读。系统级抗回滚、密钥丢失灾难演练和 Apple 验收保留为后续安全/平台门禁。
 
 ## C. 用户体验
 
 - [x] `UX-001` P0 自适应应用壳：移动底栏、桌面侧栏、窗口尺寸断点。
-- [x] `UX-002` P0 概览：首页总览、分类占比、预算进度、洞察列表。
-- [x] `UX-003` P0 流水列表、搜索筛选、新增/编辑，以及二次确认软删除与 8 秒精确 token 撤销；删除/恢复即时重投影总览与洞察。
+- [x] `UX-002` P0 概览：首页展示真实支出、收入、结余与用户月预算进度；未设置预算时不推导虚假可用额度，预算进入加密账本和洞察引擎。
+- [x] `UX-003` P0 流水列表支持收支类型、动态分类和来源搜索、日期倒序分组；手动新增/编辑支持收入、支出和历史日期，并保留二次确认软删除与 8 秒精确 token 撤销。
 - [x] `UX-004` P0 物品库、物品详情、使用打卡、成本指标和价格历史。
 - [x] `UX-005` P0 二手比价界面与资产详情手工报价入口；保存后即时重算区间、残值和成本指标，严格区分示例/手工/实时来源。
 - [x] `UX-006` P0 Windows/Android 的来源 → 映射 → 预览去重 → 确认 → 可撤销结果已完成；Apple 系统文件选择验收依本轮范围延期。
@@ -37,6 +37,7 @@
 - [ ] `UX-008` P0 主要表单/导航/状态语义、360dp/200% 重排、深色主题、Reduce Motion、Windows Tab/Enter 和 Android Compose Accessibility Test Framework 已自动化通过；Android TalkBack、Windows Narrator 与真实硬件键盘仍待辅助技术验收。
 - [x] `UX-009` P1 Android 小组件、启动器快捷记账、文本/图片/PDF 系统分享入口，以及 Windows 全局 `Ctrl+Shift+N` 与应用内回退快捷键已接入；全局冲突不覆盖其他应用，所有入口只打开可取消的确认流程。
 - [x] `UX-010` P1 首次使用提供四步可跳过教程，可直接进入“记一笔”或“导入账单”，完成状态持久化并可从设置重新打开；顶层功能统一为“首页、账单、我的物品、智能分析、设置”。
+- [x] `UX-011` P1 从最近账单生成至多三个本机快捷项，只预填商户、金额、分类和收支类型，仍需用户确认；首次引导在桌面小窗和 200% 字体下保持可滚动与可退出。
 
 ## D. 智能分析
 

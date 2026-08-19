@@ -48,3 +48,11 @@ object MIGRATION_4_5 : Migration(4, 5) {
         )
     }
 }
+
+object MIGRATION_5_6 : Migration(5, 6) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL(
+            "ALTER TABLE insight_preferences ADD COLUMN monthlyBudgetMinor INTEGER DEFAULT NULL",
+        )
+    }
+}

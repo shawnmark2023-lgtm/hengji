@@ -100,6 +100,8 @@ data class InsightPreferencesEntity(
     val onboardingCompletedAtEpochMillis: Long? = null,
     @ColumnInfo(defaultValue = "[]")
     val personalAnalysisHistoryJson: String = "[]",
+    @ColumnInfo(defaultValue = "NULL")
+    val monthlyBudgetMinor: Long? = null,
 )
 
 @Entity(tableName = "import_batches", primaryKeys = ["batchId"], indices = [Index(value = ["state"])])

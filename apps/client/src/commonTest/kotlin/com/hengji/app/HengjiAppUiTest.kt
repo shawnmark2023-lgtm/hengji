@@ -19,6 +19,7 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -26,6 +27,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.Density
@@ -64,6 +67,38 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalTestApi::class)
 class HengjiAppUiTest {
     @Test
+    fun monthlyBudgetIsExplicitlySetAndPersistedInsteadOfInvented() = runComposeUiTest {
+        val gateway = gatewayWith(transaction("budget-seed", "预算测试商户"))
+        setHengjiContent(gateway)
+
+        onNodeWithText("设置预算").performClick()
+        onNode(hasText("每月预算") and hasSetTextAction()).performTextInput("5000")
+        onNodeWithText("保存").performClick()
+
+        waitUntil { runBlocking { gateway.snapshot().insightPreferences.monthlyBudgetMinor == 500_000L } }
+        onNodeWithText("月预算 ¥5,000.00").assertIsDisplayed()
+    }
+
+    @Test
+    fun manualEntrySupportsIncomeAndHistoricalDate() = runComposeUiTest {
+        val gateway = gatewayWith()
+        setHengjiContent(gateway)
+
+        onNodeWithContentDescription("记一笔").performClick()
+        onNode(hasText("收入") and hasClickAction()).performClick()
+        onNode(hasText("商户或用途（必填）") and hasSetTextAction()).performTextInput("项目收入")
+        onNode(hasText("金额（必填）") and hasSetTextAction()).performTextInput("1234.56")
+        onNode(hasText("日期（YYYY-MM-DD）") and hasSetTextAction()).performTextReplacement("2026-01-02")
+        onNodeWithText("保存").performClick()
+
+        waitUntil { runBlocking { gateway.snapshot().transactions.size == 1 } }
+        val saved = runBlocking { gateway.snapshot().transactions.single() }
+        assertEquals(TransactionKind.INCOME, saved.kind)
+        assertEquals(123_456L, saved.amount.minorUnits)
+        assertEquals(LocalDate(2026, 1, 2), saved.bookedOn)
+    }
+
+    @Test
     fun firstRunGuideExplainsCoreFlowAndCanBeReopenedFromSettings() = runComposeUiTest {
         val firstRunSnapshot = snapshotOf().copy(insightPreferences = InsightPreferenceRecord())
         val gateway = PreviewLedgerGateway(InMemoryLedgerRepository(firstRunSnapshot))
@@ -84,6 +119,22 @@ class HengjiAppUiTest {
         navigateTo("设置")
         onNodeWithText("重新看使用教程").performScrollTo().performClick()
         onNodeWithText("欢迎使用恒迹").assertIsDisplayed()
+    }
+
+    @Test
+    fun compactFirstRunGuideKeepsExitAndProgressActionsAccessible() = runComposeUiTest {
+        val gateway = PreviewLedgerGateway(
+            InMemoryLedgerRepository(snapshotOf().copy(insightPreferences = InsightPreferenceRecord())),
+        )
+        setHengjiContent(
+            gateway = gateway,
+            widthDp = 360,
+            heightDp = 720,
+            fontScale = 2f,
+        )
+
+        onNodeWithText("跳过教程").assertIsDisplayed()
+        onNodeWithText("下一步").performScrollTo().assertIsDisplayed()
     }
 
     @Test

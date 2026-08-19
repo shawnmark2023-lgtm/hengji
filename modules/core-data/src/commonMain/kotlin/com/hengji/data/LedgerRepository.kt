@@ -9,6 +9,8 @@ import com.hengji.domain.TransactionId
 import com.hengji.domain.UsageEvent
 import kotlinx.serialization.Serializable
 
+const val MAX_MONTHLY_BUDGET_MINOR: Long = 99_999_999_999L
+
 data class LedgerSnapshot(
     val revision: Long,
     val transactions: List<Transaction>,
@@ -30,6 +32,7 @@ data class InsightPreferenceRecord(
     val personalAiEnabled: Boolean = true,
     val onboardingCompletedAtEpochMillis: Long? = null,
     val personalAnalysisHistory: List<PersonalAnalysisRecord> = emptyList(),
+    val monthlyBudgetMinor: Long? = null,
 ) {
     init {
         require(mutedTypes.none { it.isBlank() }) { "Muted insight types cannot be blank" }
@@ -44,6 +47,9 @@ data class InsightPreferenceRecord(
             "Onboarding completion time cannot be negative"
         }
         require(personalAnalysisHistory.size <= 12) { "At most twelve personal analyses are retained" }
+        require(monthlyBudgetMinor == null || monthlyBudgetMinor in 1..MAX_MONTHLY_BUDGET_MINOR) {
+            "Monthly budget must be a positive bounded minor-unit amount"
+        }
         require(personalAnalysisHistory.zipWithNext().all { (left, right) ->
             left.createdAtEpochMillis <= right.createdAtEpochMillis
         }) { "Personal analyses must be stored in chronological order" }

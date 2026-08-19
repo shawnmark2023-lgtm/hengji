@@ -5,9 +5,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.AutoAwesome
@@ -80,12 +83,16 @@ fun FirstRunGuide(
     // Users can still leave explicitly through the visible “跳过教程” action.
     Dialog(onDismissRequest = {}) {
         Surface(
+            modifier = Modifier.width(480.dp),
             shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 6.dp,
         ) {
             Column(
-                modifier = Modifier.padding(HengjiSpacing.xl),
+                modifier = Modifier
+                    .heightIn(max = 640.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(HengjiSpacing.xl),
                 verticalArrangement = Arrangement.spacedBy(HengjiSpacing.lg),
             ) {
                 Row(

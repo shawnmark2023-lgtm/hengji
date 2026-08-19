@@ -49,6 +49,7 @@ class LedgerJsonCodecTest {
                         evidenceCodes = listOf("change_basis_points"),
                     ),
                 ),
+                monthlyBudgetMinor = 650_000,
             ),
             importBatches = listOf(
                 ImportBatchRecord(
@@ -67,7 +68,7 @@ class LedgerJsonCodecTest {
 
         assertEquals(snapshot, restored)
         assertEquals(Money(18_800, CurrencyCode.CNY), restored.assets.first().saleTargetPrice)
-        assertTrue("\"schemaVersion\": 5" in LedgerJsonCodec.export(snapshot))
+        assertTrue("\"schemaVersion\": 6" in LedgerJsonCodec.export(snapshot))
     }
 
     @Test
@@ -133,6 +134,26 @@ class LedgerJsonCodecTest {
         assertTrue(restored.insightPreferences.personalAiEnabled)
         assertEquals(null, restored.insightPreferences.onboardingCompletedAtEpochMillis)
         assertTrue(restored.insightPreferences.personalAnalysisHistory.isEmpty())
+        assertEquals(null, restored.insightPreferences.monthlyBudgetMinor)
+    }
+
+    @Test
+    fun migratesSchemaFiveBudgetToUnsetWithoutInventingAValue() {
+        val legacy = """
+            {
+              "schemaVersion": 5,
+              "revision": 12,
+              "insightPreferences": {
+                "personalAiEnabled": true,
+                "personalAnalysisHistory": []
+              }
+            }
+        """.trimIndent()
+
+        val restored = LedgerJsonCodec.restore(legacy)
+
+        assertEquals(null, restored.insightPreferences.monthlyBudgetMinor)
+        assertTrue("\"monthlyBudgetMinor\": null" in LedgerJsonCodec.export(restored))
     }
 
     @Test

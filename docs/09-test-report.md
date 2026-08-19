@@ -1,5 +1,27 @@
 # 测试与构建报告
 
+## 2026-08-19 市场需求与 UI 优化增量验收
+
+本轮完成 Windows/Android 高频记账流程收口：删除虚构固定预算，新增可持久化月预算；手动记账支持收入/支出和历史日期；最近记录可作为只预填的快捷项；账单支持动态分类、收支类型、来源搜索和日期分组。首次引导在真实 Windows 成品截图中发现宽度与滚动风险后已修复，并补入小窗 200% 字体回归。产品判断与任务闭环见 `docs/19-market-demand-ui-optimization.md`。
+
+| 门禁 | 结果 | 实测证据 |
+| --- | --- | --- |
+| Desktop | 通过 | Microsoft OpenJDK 21.0.12；Kotlin 221/221，0 failure/error/skip，其中共享 Compose UI 12/12，真实内置模型离线推理通过 |
+| 数据迁移 | 通过 | Room 5→6 与 JSON 5→6；旧账本月预算默认 `null`，设置后以 `Long` 最小货币单位往返 |
+| Android host/build | 通过 | host 64/64；lint 0 fatal/error、20 warning；Debug、R8 Release、AndroidTest APK 构建通过 |
+| 权限 | 通过 | Debug/Release 均不含 `INTERNET`、`READ_SMS`、`RECEIVE_SMS` 或图库读取权限 |
+| 静态与财务 | 通过 | formatting 195、architecture 40、release guards 355、Apple readiness 42；财务校验 745 文件、0 error、0 warning |
+| Windows 成品 | 通过（本地边界） | 当前源码可分发目录与 MSI 构建通过；隔离数据目录实开并复核首次引导、空账本首页和新增账单弹窗；未做生产签名/SmartScreen 声誉验收 |
+
+当前重建工件：
+
+- Windows MSI：449,749,768 bytes，SHA-256 `FF947850B5766ECF60305844DFB168B998304801765EC12ACB03140685740FC7`。
+- Android Debug APK：481,402,079 bytes，SHA-256 `A3657424C3C517045F5EF9097EA2BEA72B18F880B590AD8E63EE6D7FB4C71A63`。
+- Android 未签名 R8 Release APK：387,091,236 bytes，SHA-256 `B7B1F891681CCCAE3C3B4622F7C0758E8E9BC1A49BFAA60275A67FDA7FC80039`。
+- Android instrumentation APK：4,452,035 bytes，SHA-256 `7CE8D5E646D65CEF3C61776257FB1DA21FC16FA97AB200626FB59FC16001B881`。
+
+本轮未复跑 API 36 模拟器或实体机，不复用历史 5/5 作为当前执行结果；MSI 与 Release APK 均未生产签名，iOS/macOS 仍延期。
+
 ## 2026-08-03 长截图与一键读取账单增量验收
 
 本轮在 Android 的“记一笔”和导入页新增长截图多笔识别、图片/PDF 一键读取，并把系统分享图片/PDF 从“只取第一笔”改为完整的多笔审查流程。所有候选继续复用字段映射、逐笔预览、重复检测、原子提交和整批撤销；Windows 保留 CSV/JSON 与手动记账，不宣称具备本机 OCR。

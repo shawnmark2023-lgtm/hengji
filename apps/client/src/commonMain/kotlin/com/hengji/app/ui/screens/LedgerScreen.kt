@@ -3,6 +3,7 @@ package com.hengji.app.ui.screens
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -25,6 +26,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +47,7 @@ import com.hengji.app.theme.HengjiSpacing
 import com.hengji.app.ui.components.ScreenHeader
 import com.hengji.app.ui.components.SectionCard
 import com.hengji.app.ui.components.StatusPill
+import com.hengji.domain.ExactMath
 
 @Composable
 fun LedgerScreen(
@@ -52,20 +55,27 @@ fun LedgerScreen(
     onAddTransaction: () -> Unit,
     onEditTransaction: (String) -> Unit = {},
     onDeleteTransaction: (String) -> Unit = {},
+    onOpenImport: () -> Unit = {},
 ) {
     var query by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("全部") }
+    var selectedKind by remember { mutableStateOf<EntryKind?>(null) }
+    val categories = listOf("全部") + transactions.map { it.category }.distinct().sorted()
     val filtered = transactions.filter { transaction ->
         (selectedCategory == "全部" || transaction.category == selectedCategory) &&
+            (selectedKind == null || transaction.kind == selectedKind) &&
             (query.isBlank() || transaction.merchant.contains(query, ignoreCase = true) ||
-                transaction.category.contains(query, ignoreCase = true))
+                transaction.category.contains(query, ignoreCase = true) ||
+                transaction.sourceLabel.contains(query, ignoreCase = true))
     }
-    val netSpend = filtered.sumOf {
-        when (it.kind) {
-            EntryKind.Expense, EntryKind.Refund -> it.amountMinor
-            EntryKind.Income -> 0L
-        }
-    }
+    val netSpend = filtered
+        .filter { it.kind == EntryKind.Expense || it.kind == EntryKind.Refund }
+        .fold(0L) { total, item -> ExactMath.add(total, item.amountMinor) }
+    val income = filtered
+        .filter { it.kind == EntryKind.Income }
+        .fold(0L) { total, item -> ExactMath.add(total, item.amountMinor) }
+    val balance = ExactMath.subtract(income, netSpend)
+    val grouped = filtered.sortedByDescending { it.bookedOn }.groupBy { it.bookedOn }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -102,7 +112,24 @@ fun LedgerScreen(
                         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(HengjiSpacing.xs),
                     ) {
-                        listOf("全部", "餐饮", "交通", "居家", "数码", "数码服务").forEach { category ->
+                        listOf(
+                            null to "全部收支",
+                            EntryKind.Expense to "支出",
+                            EntryKind.Income to "收入",
+                            EntryKind.Refund to "退款",
+                        ).forEach { item ->
+                            FilterChip(
+                                selected = selectedKind == item.first,
+                                onClick = { selectedKind = item.first },
+                                label = { Text(item.second) },
+                            )
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(HengjiSpacing.xs),
+                    ) {
+                        categories.forEach { category ->
                             FilterChip(
                                 selected = selectedCategory == category,
                                 onClick = { selectedCategory = category },
@@ -110,57 +137,92 @@ fun LedgerScreen(
                             )
                         }
                     }
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .semantics { liveRegion = LiveRegionMode.Polite },
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
+                        verticalArrangement = Arrangement.spacedBy(HengjiSpacing.xs),
                     ) {
                         Text(
                             "筛选结果 ${filtered.size} 笔",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        Text(
-                            "净额 ${formatMoney(netSpend)}",
-                            style = MaterialTheme.typography.titleMedium,
-                        )
+                        LedgerSummary(netSpend, income, balance)
                     }
                 }
             }
         }
 
-        item {
-            SectionCard(Modifier.fillMaxWidth()) {
-                Column {
-                    if (filtered.isEmpty()) {
-                        val isEmptyLedger = transactions.isEmpty() && query.isBlank() && selectedCategory == "全部"
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            Text(
-                                if (isEmptyLedger) "还没有账单" else "没有找到这笔账",
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            Spacer(Modifier.height(HengjiSpacing.xs))
-                            Text(
-                                if (isEmptyLedger) "点右上角新增，或回首页导入旧账单。" else "调整分类或搜索词后重试。",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    } else {
-                        filtered.forEachIndexed { index, transaction ->
-                            if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                            LedgerRow(
-                                transaction = transaction,
-                                onEdit = { onEditTransaction(transaction.id) },
-                                onDelete = { onDeleteTransaction(transaction.id) },
-                            )
+        if (filtered.isEmpty()) {
+            item {
+                SectionCard(Modifier.fillMaxWidth()) {
+                    val isEmptyLedger = transactions.isEmpty() && query.isBlank() &&
+                        selectedCategory == "全部" && selectedKind == null
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            if (isEmptyLedger) "还没有账单" else "没有找到这笔账",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Spacer(Modifier.height(HengjiSpacing.xs))
+                        Text(
+                            if (isEmptyLedger) "手动记一笔，或导入已经有的账单。" else "调整收支类型、分类或搜索词后重试。",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (isEmptyLedger) {
+                            Spacer(Modifier.height(HengjiSpacing.md))
+                            FilledTonalButton(onClick = onAddTransaction) { Text("记第一笔") }
+                            TextButton(onClick = onOpenImport) { Text("导入旧账单") }
                         }
                     }
                 }
+            }
+        } else {
+            grouped.forEach { (_, dateTransactions) ->
+                item {
+                    Text(
+                        dateTransactions.first().dateLabel,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                item {
+                    SectionCard(Modifier.fillMaxWidth()) {
+                        Column {
+                            dateTransactions.forEachIndexed { index, transaction ->
+                                if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                LedgerRow(
+                                    transaction = transaction,
+                                    onEdit = { onEditTransaction(transaction.id) },
+                                    onDelete = { onDeleteTransaction(transaction.id) },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LedgerSummary(netSpend: Long, income: Long, balance: Long) {
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        if (maxWidth < 520.dp) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("净支出 ${formatMoney(netSpend)}", style = MaterialTheme.typography.titleMedium)
+                Text("收入 ${formatMoney(income)} · 结余 ${formatMoney(balance, showSign = true)}")
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("净支出 ${formatMoney(netSpend)}", style = MaterialTheme.typography.titleMedium)
+                Text("收入 ${formatMoney(income)} · 结余 ${formatMoney(balance, showSign = true)}")
             }
         }
     }
@@ -190,10 +252,10 @@ private fun LedgerRow(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (transaction.kind == EntryKind.Refund) {
+                if (transaction.kind != EntryKind.Expense) {
                     Spacer(Modifier.width(HengjiSpacing.xs))
                     StatusPill(
-                        text = "退款",
+                        text = if (transaction.kind == EntryKind.Refund) "退款" else "收入",
                         containerColor = MaterialTheme.colorScheme.primaryContainer,
                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
@@ -201,7 +263,7 @@ private fun LedgerRow(
             }
             Spacer(Modifier.height(4.dp))
             Text(
-                "${transaction.category} · ${transaction.dateLabel}",
+                transaction.category,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -214,10 +276,14 @@ private fun LedgerRow(
         }
         Spacer(Modifier.width(HengjiSpacing.md))
         Text(
-            text = formatMoney(transaction.amountMinor),
+            text = formatMoney(transaction.amountMinor, showSign = transaction.kind == EntryKind.Income),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = if (transaction.amountMinor < 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            color = if (transaction.kind == EntryKind.Expense) {
+                MaterialTheme.colorScheme.onSurface
+            } else {
+                MaterialTheme.colorScheme.primary
+            },
         )
         Spacer(Modifier.width(HengjiSpacing.xs))
         IconButton(onClick = onDelete) {

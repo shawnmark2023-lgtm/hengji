@@ -179,6 +179,7 @@ internal fun InsightPreferenceRecord.toRoomEntity() = InsightPreferencesEntity(
     personalAiEnabled = personalAiEnabled,
     onboardingCompletedAtEpochMillis = onboardingCompletedAtEpochMillis,
     personalAnalysisHistoryJson = preferenceJson.encodeToString(personalAnalysisHistory),
+    monthlyBudgetMinor = monthlyBudgetMinor,
 )
 
 internal fun InsightPreferencesEntity.toDomain() = InsightPreferenceRecord(
@@ -193,6 +194,7 @@ internal fun InsightPreferencesEntity.toDomain() = InsightPreferenceRecord(
     personalAiEnabled = personalAiEnabled,
     onboardingCompletedAtEpochMillis = onboardingCompletedAtEpochMillis,
     personalAnalysisHistory = preferenceJson.decodeFromString<List<PersonalAnalysisRecord>>(personalAnalysisHistoryJson),
+    monthlyBudgetMinor = monthlyBudgetMinor,
 )
 
 internal fun ImportBatchRecord.toRoomEntity() = ImportBatchEntity(

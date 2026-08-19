@@ -32,7 +32,7 @@ import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
-const val LEDGER_EXPORT_SCHEMA_VERSION: Int = 5
+const val LEDGER_EXPORT_SCHEMA_VERSION: Int = 6
 
 object LedgerJsonCodec {
     private val json = Json {
@@ -66,6 +66,7 @@ object LedgerJsonCodec {
                 2 -> migrateVersionTwoToThree(migrated)
                 3 -> migrateVersionThreeToFour(migrated)
                 4 -> migrateVersionFourToFive(migrated)
+                5 -> migrateVersionFiveToSix(migrated)
                 else -> error("Unsupported ledger schema")
             }
             migratedVersion += 1
@@ -154,6 +155,21 @@ object LedgerJsonCodec {
         return JsonObject(
             root + mapOf(
                 "schemaVersion" to JsonPrimitive(5),
+                "insightPreferences" to migratedPreferences,
+            ),
+        )
+    }
+
+    private fun migrateVersionFiveToSix(root: JsonObject): JsonObject {
+        val legacyPreferences = root["insightPreferences"] as? JsonObject ?: JsonObject(emptyMap())
+        val migratedPreferences = JsonObject(
+            legacyPreferences + mapOf(
+                "monthlyBudgetMinor" to (legacyPreferences["monthlyBudgetMinor"] ?: JsonNull),
+            ),
+        )
+        return JsonObject(
+            root + mapOf(
+                "schemaVersion" to JsonPrimitive(6),
                 "insightPreferences" to migratedPreferences,
             ),
         )
@@ -377,6 +393,7 @@ private data class InsightPreferencesDto(
     val personalAiEnabled: Boolean = true,
     val onboardingCompletedAtEpochMillis: Long? = null,
     val personalAnalysisHistory: List<PersonalAnalysisRecord> = emptyList(),
+    val monthlyBudgetMinor: Long? = null,
 ) {
     fun toDomain() = InsightPreferenceRecord(
         mutedTypes = mutedTypes,
@@ -388,6 +405,7 @@ private data class InsightPreferencesDto(
         personalAiEnabled = personalAiEnabled,
         onboardingCompletedAtEpochMillis = onboardingCompletedAtEpochMillis,
         personalAnalysisHistory = personalAnalysisHistory,
+        monthlyBudgetMinor = monthlyBudgetMinor,
     )
     companion object {
         fun from(value: InsightPreferenceRecord) = InsightPreferencesDto(
@@ -400,6 +418,7 @@ private data class InsightPreferencesDto(
             personalAiEnabled = value.personalAiEnabled,
             onboardingCompletedAtEpochMillis = value.onboardingCompletedAtEpochMillis,
             personalAnalysisHistory = value.personalAnalysisHistory,
+            monthlyBudgetMinor = value.monthlyBudgetMinor,
         )
     }
 }

@@ -22,6 +22,7 @@ data class DemoTransaction(
     val merchant: String,
     val category: String,
     val amountMinor: Long,
+    val bookedOn: LocalDate,
     val dateLabel: String,
     val sourceLabel: String,
     val kind: EntryKind = EntryKind.Expense,
